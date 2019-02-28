@@ -47,10 +47,10 @@
 #include "_External_Components/e_amis30621.h"
 #include "_External_Components/e_tmc429.h"
 #include "_External_Components/e_at42qt2120.h"
+#include "_External_Components/e_pca9685.h"
 
 #include "_Experimental/_EXAMPLES_.h"
 #include "_Experimental/_LOG.h"
-#include "_Experimental/e_pca9685.h"
 
 uint8_t _ledStatus;
 
