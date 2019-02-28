@@ -121,15 +121,32 @@ typedef struct
 {
     bool                    is_init_done;
     I2C_PARAMS              i2c_params;
+    I2C_FUNCTIONS           i2c_functions;
     AT42QT2120_REGS         registers;
-    uint16_t                flags;
-    uint8_t                 active_function;
 } AT42QT2120_CONFIG;
 
 #define AT42QT2120_INSTANCE(_name, _i2c_module, _periodic_time)                             \
 {                                                                                           \
     .is_init_done = false,                                                                  \
     .i2c_params = I2C_PARAMS_INSTANCE(_i2c_module, 0x1c, false, (uint8_t*) &_name.registers.chip_id, _periodic_time, 0), \
+    .i2c_functions =                                                                        \
+    {                                                                                       \
+        .flags = 0,                                                                         \
+        .active_function = 0xff,                                                            \
+        .maximum_functions = AT42QT2120_FLAG_NUMBERS,                                       \
+        .functions_tab =                                                                    \
+        {                                                                                   \
+            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_RESET, AT42QT2120_SIZE_RESET},                                                          \
+            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_CALIBRATE, AT42QT2120_SIZE_CALIBRATE},                                                  \
+            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_PARAMS, AT42QT2120_SIZE_SET_PARAMS},                                                \
+            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_KEY_DETECT_THRESHOLD_0_TO_11, AT42QT2120_SIZE_SET_KEY_DETECT_THRESHOLD_0_TO_11},    \
+            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_KEY_CONTROL_0_TO_11, AT42QT2120_SIZE_SET_KEY_CONTROL_0_TO_11},                      \
+            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_KEY_PULSE_SCALE_0_TO_11, AT42QT2120_SIZE_SET_KEY_PULSE_SCALE_0_TO_11},              \
+            {I2C_DEVICE_ADDRESS, I2C_READ, AT42QT2120_ADDR_GET_KEY_SIGNAL, AT42QT2120_SIZE_GET_KEY_SIGNAL},                                         \
+            {I2C_DEVICE_ADDRESS, I2C_READ, AT42QT2120_ADDR_GET_REF_DATA, AT42QT2120_SIZE_GET_REF_DATA},                                             \
+            {I2C_DEVICE_ADDRESS, I2C_READ, AT42QT2120_ADDR_GET_STATUS_KEYS_AND_SLIDER, AT42QT2120_SIZE_GET_STATUS_KEYS_AND_SLIDER}                  \
+        }                                                                                   \
+    },                                                                                      \
     .registers =                                                                            \
     {                                                                                       \
         .chip_id = 0,                                                                       \
@@ -153,29 +170,27 @@ typedef struct
         .key_pulse_scale = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},                            \
         .key_signal = {0},                                                                  \
         .reference_data = {0}                                                               \
-    },                                                                                      \
-    .flags = 0,                                                                             \
-    .active_function = AT42QT2120_FLAG_NO_FUNCTION                                          \
+    }                                                                                       \
 }
 
 #define AT42QT2120_DEF(_name, _i2c_module, _periodic_time)                                  \
 static AT42QT2120_CONFIG _name = AT42QT2120_INSTANCE(_name, _i2c_module, _periodic_time)
 
-void e_at42qt2120_deamon(AT42QT2120_CONFIG *var);
+uint8_t e_at42qt2120_deamon(AT42QT2120_CONFIG *var);
 
-#define e_at42qt2120_reset(var)                         (var.registers.reset = 0x01, SET_BIT(var.flags, AT42QT2120_FLAG_RESET))
-#define e_at42qt2120_calibrate(var)                     (var.registers.calibrate = 0x01, SET_BIT(var.flags, AT42QT2120_FLAG_CALIBRATE))
-#define e_at42qt2120_get_status_keys_and_slider(var)    SET_BIT(var.flags, AT42QT2120_FLAG_GET_STATUS_KEYS_AND_SLIDER)
+#define e_at42qt2120_reset(var)                         (var.registers.reset = 0x01, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_RESET))
+#define e_at42qt2120_calibrate(var)                     (var.registers.calibrate = 0x01, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_CALIBRATE))
+#define e_at42qt2120_get_status_keys_and_slider(var)    SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_GET_STATUS_KEYS_AND_SLIDER)
 
-#define e_at42qt2120_disable_slider(var)                (var.registers.slider_options = 0x00, SET_BIT(var.flags, AT42QT2120_FLAG_SET_PARAMS))
-#define e_at42qt2120_enable_slider(var)                 (var.registers.slider_options = 0x80, SET_BIT(var.flags, AT42QT2120_FLAG_SET_PARAMS))
-#define e_at42qt2120_enable_wheel(var)                  (var.registers.slider_options = 0xc0, SET_BIT(var.flags, AT42QT2120_FLAG_SET_PARAMS))
+#define e_at42qt2120_disable_slider(var)                (var.registers.slider_options = 0x00, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_SET_PARAMS))
+#define e_at42qt2120_enable_slider(var)                 (var.registers.slider_options = 0x80, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_SET_PARAMS))
+#define e_at42qt2120_enable_wheel(var)                  (var.registers.slider_options = 0xc0, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_SET_PARAMS))
 
-#define e_at42qt2120_set_key_detect_threshold(var, indice, value)   (var.registers.key_detect_threshold[indice] = value, SET_BIT(var.flags, AT42QT2120_FLAG_SET_KEY_DETECT_THRESHOLD_0_TO_11))
-#define e_at42qt2120_set_key_control(var, indice, value)            (var.registers.key_control[indice] = value, SET_BIT(var.flags, AT42QT2120_FLAG_SET_KEY_CONTROL_0_TO_11))
-#define e_at42qt2120_set_key_pulse_scale(var, indice, value)        (var.registers.key_pulse_scale[indice] = value, SET_BIT(var.flags, AT42QT2120_FLAG_SET_KEY_PULSE_SCALE_0_TO_11))
+#define e_at42qt2120_set_key_detect_threshold(var, indice, value)   (var.registers.key_detect_threshold[indice] = value, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_SET_KEY_DETECT_THRESHOLD_0_TO_11))
+#define e_at42qt2120_set_key_control(var, indice, value)            (var.registers.key_control[indice] = value, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_SET_KEY_CONTROL_0_TO_11))
+#define e_at42qt2120_set_key_pulse_scale(var, indice, value)        (var.registers.key_pulse_scale[indice] = value, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_SET_KEY_PULSE_SCALE_0_TO_11))
 
-#define e_at42qt2120_get_key_signal(var)                SET_BIT(var.flags, AT42QT2120_FLAG_GET_KEY_SIGNAL)
-#define e_at42qt2120_get_ref_data(var)                  SET_BIT(var.flags, AT42QT2120_FLAG_GET_REF_DATA)
+#define e_at42qt2120_get_key_signal(var)                SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_GET_KEY_SIGNAL)
+#define e_at42qt2120_get_ref_data(var)                  SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_GET_REF_DATA)
 
 #endif

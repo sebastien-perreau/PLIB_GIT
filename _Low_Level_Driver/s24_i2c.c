@@ -146,7 +146,7 @@ bool i2c_is_busy(I2C_MODULE id)
     return (p_i2c->I2CCONbits.SEN || p_i2c->I2CCONbits.PEN || p_i2c->I2CCONbits.RSEN || p_i2c->I2CCONbits.RCEN || p_i2c->I2CCONbits.ACKEN || p_i2c->I2CSTATbits.TRSTAT);
 }
 
-void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_MODE mode)
+void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_CONFIG mode)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CADD = address;
@@ -162,8 +162,10 @@ void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data
     }
 }
 
-uint8_t i2c_master_state_machine(I2C_PARAMS *var)
+I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 {
+    I2C_STATE_MACHIN ret;
+    
     if (var->bus_management_params.is_running)
     {
         if (!i2c_is_busy(var->module))
@@ -182,13 +184,24 @@ uint8_t i2c_master_state_machine(I2C_PARAMS *var)
                     (var->data_access.read_write_type) ? SET_BIT(var->flags, I2C_READ_SEQUENCE) : 0;
                     
                     i2c_start(var->module);
-                    var->state_machine.index = _SLAVE_ADDRESS_WRITE;
+                    var->state_machine.index = (var->data_access.general_call_request) ? _GENERAL_CALL_ADDRESS : _SLAVE_ADDRESS_WRITE;
                     break;
 
                 case _RESTART:
 
                     i2c_restart(var->module);
                     var->state_machine.index = _SLAVE_ADDRESS_READ;
+                    break;
+                    
+                case _GENERAL_CALL_ADDRESS:
+                    
+                    if (!i2c_send_byte(var->module, (0x00 & 0xfe) & 0xff))
+                    {
+                        CLR_BIT(var->flags, I2C_SEND_ADDRESS_REGISTERS_LSB);
+                        CLR_BIT(var->flags, I2C_SEND_ADDRESS_REGISTERS_MSB);
+                        CLR_BIT(var->flags, I2C_READ_SEQUENCE);
+                        var->state_machine.index = _WAIT_AND_VERIFY;
+                    }
                     break;
 
                 case _SLAVE_ADDRESS_WRITE:
@@ -316,9 +329,47 @@ uint8_t i2c_master_state_machine(I2C_PARAMS *var)
                 default:
                     break;
             }
-            return var->state_machine.index;
+            ret = var->state_machine.index;
         }
-        return _BUS_I2C_BUSY;
+        else
+        {
+            ret = _BUS_I2C_BUSY;
+        }
+    } 
+    else
+    {
+        ret = _BUS_MANAGEMENT_BUSY;
     }
-    return _BUS_MANAGEMENT_BUSY;    
+    
+    if (fct->active_function == 0xff)
+    {
+        uint8_t j;
+        for (j = 0 ; j < fct->maximum_functions ; j++)
+        {
+            if (GET_BIT(fct->flags, j))                    
+            {
+                fct->active_function = j;
+                break;
+            }
+        }
+    }
+
+    if (fct->active_function < fct->maximum_functions)
+    {
+        if (ret == _STOP)
+        {
+            CLR_BIT(fct->flags, fct->active_function);
+            fct->active_function = 0xff;
+        }
+        else if (ret == _START)
+        {
+            var->data_access.general_call_request   = fct->functions_tab[fct->active_function].general_call_request;
+            var->data_access.read_write_type        = fct->functions_tab[fct->active_function].read_write_type;
+            var->data_access.address_register       = fct->functions_tab[fct->active_function].address_register;            
+            var->data_access.index                  = 0;
+            var->data_access.length                 = fct->functions_tab[fct->active_function].length;
+        }
+    }
+    
+    return ret;
 }

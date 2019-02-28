@@ -36,6 +36,12 @@ typedef enum
     I2C_USE_10BIT_ADDRESS               = 0x00000400,
     I2C_ENABLE_GENERAL_CALL_ADDRESS     = 0x00000080,
     I2C_USE_RESERVED_ADDRESSES          = 0x00000800
+} I2C_ADDRESS_CONFIG;
+
+typedef enum
+{
+    I2C_GENERAL_CALL_ADDRESS    = 1,
+    I2C_DEVICE_ADDRESS          = 0
 } I2C_ADDRESS_MODE;
 
 typedef enum
@@ -51,6 +57,7 @@ typedef enum
     _START,
     _RESTART,
             
+    _GENERAL_CALL_ADDRESS,
     _SLAVE_ADDRESS_WRITE,
     _SLAVE_ADDRESS_READ,
             
@@ -66,7 +73,8 @@ typedef enum
     _FAIL,
             
     _BUS_I2C_BUSY,
-    _BUS_MANAGEMENT_BUSY
+    _BUS_MANAGEMENT_BUSY,
+    _BUS_I2C_INIT                   = 0xff
 } I2C_STATE_MACHIN;
 
 typedef enum
@@ -76,9 +84,41 @@ typedef enum
     I2C_READ_SEQUENCE               = (1 << 2),
 } I2C_FLAGS;
 
+typedef struct
+{
+    bool                    general_call_request;
+    bool                    read_write_type;
+    uint16_t                address_register;
+    uint8_t                 length;
+} I2C_FUNCTION_TAB;
+
+/*******************************************************************************
+  Description:
+    The 'functions_tab' is a constant array which contains the details (read_write_type, 
+    register_address and length) of each functions that the I2C driver can execute. 
+    The order in this array is IMPORTANT and should be the same as the flags (define 
+    in the I2C driver).
+    For example if the flags look like that: 
+    - fct1 = 0
+    - fct2 = 1
+    - fct3 = 2
+    Then the 'functions_tab' should contains the parameters in the same order:
+    - fct1 details (write, address_fct1, size_fct1)
+    - fct2 details (write, address_fct2, size_fct2)
+    - fct3 details (write, address_fct3, size_fct3)
+
+  *****************************************************************************/
+typedef struct
+{
+    uint16_t                flags;
+    uint8_t                 active_function;
+    const uint8_t           maximum_functions;
+    const I2C_FUNCTION_TAB  functions_tab[20];
+} I2C_FUNCTIONS;
 
 typedef struct
 {
+    bool                    general_call_request;
     bool                    read_write_type;
     uint16_t                address_register;
     
@@ -100,20 +140,20 @@ typedef struct
 } I2C_PARAMS;
 
 #define I2C_PARAMS_INSTANCE(_module, _address, _type_addr_reg, _p_address, _periodic_time, _flags)             \
-{                                                   \
-    .module = _module,                              \
-    .slave_address = (_address << 1)&0xfe,          \
-    .is_16bits_address_reg = _type_addr_reg,        \
-    .data_access = {false, 0, _p_address, 0, 0},    \
-    .bus_management_params =                        \
-    {                                               \
-        .is_running = false,                        \
-        .waiting_period = _periodic_time,           \
-        .tick = -1                                  \
-    },                                              \
-    .flags = _flags,                                \
-    .state_machine = {0},                           \
-    .fail_count = 0                                 \
+{                                                       \
+    .module = _module,                                  \
+    .slave_address = (_address << 1)&0xfe,              \
+    .is_16bits_address_reg = _type_addr_reg,            \
+    .data_access = {false, false, 0, _p_address, 0, 0}, \
+    .bus_management_params =                            \
+    {                                                   \
+        .is_running = false,                            \
+        .waiting_period = _periodic_time,               \
+        .tick = -1                                      \
+    },                                                  \
+    .flags = _flags,                                    \
+    .state_machine = {0},                               \
+    .fail_count = 0                                     \
 }
 
 typedef union 
@@ -236,9 +276,9 @@ bool i2c_send_byte(I2C_MODULE id, uint8_t data);
 bool i2c_is_byte_transmitted(I2C_MODULE id);
 bool i2c_is_busy(I2C_MODULE id);
 
-void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_MODE mode);
+void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_CONFIG mode);
 void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data);
 
-uint8_t i2c_master_state_machine(I2C_PARAMS *var);
+I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct);
 
 #endif
