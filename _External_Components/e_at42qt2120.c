@@ -9,6 +9,8 @@
 
 #include "../PLIB.h"
 
+#warning "e_at42qt2120.c - I2C Frequency should be 400 KHz"
+
 /*******************************************************************************
   Function:
     static void e_at42qt2120_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)

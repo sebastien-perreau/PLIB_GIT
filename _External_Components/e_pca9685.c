@@ -9,6 +9,8 @@
 
 #include "../PLIB.h"
 
+#warning "e_pca9685.c - I2C Frequency can be 100 KHz / 400 KHz / 1 MHz"
+
 /*******************************************************************************
   Function:
     static void e_pca9685_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
