@@ -18,6 +18,7 @@ void _EXAMPLE_WS2812B_MULTI_SEGMENTS();
 void _EXAMPLE_UART();
 void _EXAMPLE_PCA9685();
 void _EXAMPLE_AT42QT2120();
+void _EXAMPLE_VEML7700();
 void _EXAMPLE_BLE(ble_params_t * p_ble);
 
 #endif

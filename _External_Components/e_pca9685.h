@@ -44,18 +44,6 @@ typedef enum
 
 typedef enum
 {
-    PCA9685_SIZE_RESET                                  = 1,
-    PCA9685_SIZE_SLEEP_MODE                             = 1,
-    PCA9685_SIZE_SET_PRESCALE                           = 1,
-    PCA9685_SIZE_NORMAL_MODE                            = 1,
-    PCA9685_SIZE_SET_MODES                              = 2,    
-    PCA9685_SIZE_CONFIG_SUB_ADDRESS                     = 3,
-    PCA9685_SIZE_SET_OUTPUTS                            = 64,
-    PCA9685_SIZE_GET_MODES                              = 2
-} PCA9685_REGISTERS_SIZE;
-
-typedef enum
-{
     PCA9685_RESTART                                     = 0x80,
             
     PCA9685_USE_INTERNAL_CLOCK                          = 0x00,
@@ -102,7 +90,6 @@ typedef struct
     uint8_t                 sub_address_3;
     uint8_t                 all_call_address;
     PCA9685_PWM             output[16];
-    uint8_t                 __reserved_do_not_used__[180];
     PCA9685_PWM             output_all;
     uint8_t                 prescale;
     uint8_t                 test_mode;
@@ -120,7 +107,7 @@ typedef struct
 #define PCA9685_INSTANCE(_name, _i2c_module, _i2c_address, _periodic_time)                  \
 {                                                                                           \
     .is_init_done = false,                                                                  \
-    .i2c_params = I2C_PARAMS_INSTANCE(_i2c_module, _i2c_address, false, (uint8_t*) &_name.registers.mode1, _periodic_time, 0), \
+    .i2c_params = I2C_PARAMS_INSTANCE(_i2c_module, _i2c_address, false, (uint8_t*) &_name.registers, _periodic_time, 0), \
     .i2c_functions =                                                                        \
     {                                                                                       \
         .flags = 0,                                                                         \
@@ -128,14 +115,14 @@ typedef struct
         .maximum_functions = PCA9685_FLAG_NUMBERS,                                          \
         .functions_tab =                                                                    \
         {                                                                                   \
-            {I2C_GENERAL_CALL_ADDRESS, I2C_WRITE, PCA9685_ADDR_RESET, PCA9685_SIZE_RESET},                      \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, PCA9685_ADDR_SLEEP_MODE, PCA9685_SIZE_SLEEP_MODE},                  \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, PCA9685_ADDR_SET_PRESCALE, PCA9685_SIZE_SET_PRESCALE},              \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, PCA9685_ADDR_NORMAL_MODE, PCA9685_SIZE_NORMAL_MODE},                \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, PCA9685_ADDR_SET_MODES, PCA9685_SIZE_SET_MODES},                    \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, PCA9685_ADDR_CONFIG_SUB_ADDRESS, PCA9685_SIZE_CONFIG_SUB_ADDRESS},  \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, PCA9685_ADDR_SET_OUTPUTS, PCA9685_SIZE_SET_OUTPUTS},                \
-            {I2C_DEVICE_ADDRESS, I2C_READ, PCA9685_ADDR_GET_MODES, PCA9685_SIZE_GET_MODES}                      \
+            I2C_GENERAL_CALL_ADDRESS_W(_name, _internal_register_reset, 1*sizeof(uint8_t)),                     \
+            I2C_DEVICE_ADDRESS_W(_name, PCA9685_ADDR_SLEEP_MODE, mode1, 1*sizeof(uint8_t)),                     \
+            I2C_DEVICE_ADDRESS_W(_name, PCA9685_ADDR_SET_PRESCALE, prescale, 1*sizeof(uint8_t)),                \
+            I2C_DEVICE_ADDRESS_W(_name, PCA9685_ADDR_NORMAL_MODE, mode1, 1*sizeof(uint8_t)),                    \
+            I2C_DEVICE_ADDRESS_W(_name, PCA9685_ADDR_SET_MODES, mode1, 2*sizeof(uint8_t)),                      \
+            I2C_DEVICE_ADDRESS_W(_name, PCA9685_ADDR_CONFIG_SUB_ADDRESS, sub_address_1, 3*sizeof(uint8_t)),     \
+            I2C_DEVICE_ADDRESS_W(_name, PCA9685_ADDR_SET_OUTPUTS, output, 64*sizeof(uint8_t)),                  \
+            I2C_DEVICE_ADDRESS_R(_name, PCA9685_ADDR_GET_MODES, mode1, 2*sizeof(uint8_t))                       \
         }                                                                                   \
     },                                                                                      \
     .registers =                                                                            \
@@ -147,7 +134,6 @@ typedef struct
         .sub_address_3 =  0xe8,                                                             \
         .all_call_address = 0xe0,                                                           \
         .output = {0},                                                                      \
-        .__reserved_do_not_used__ = {0},                                                    \
         .output_all = {0},                                                                  \
         .prescale = 0x1e,                                                                   \
         .test_mode = 0x00,                                                                  \
@@ -159,6 +145,8 @@ typedef struct
 static PCA9685_CONFIG _name = PCA9685_INSTANCE(_name, _i2c_module, _i2c_address, _periodic_time)
 
 uint8_t e_pca9685_deamon(PCA9685_CONFIG *var);
+
+#define e_pca9685_is_flag_empty(var)                                    ((var.i2c_functions.flags > 0) ? 0 : 1)
 
 // Reset command should use a General Call Address (0x00) + Write request follow by a data = 0x06 and then a stop condition (reset occurs after stop condition)
 // Be careful the reset command does not reinitialize the data 'registers' in the PIC32.

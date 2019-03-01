@@ -882,6 +882,41 @@ void _EXAMPLE_AT42QT2120()
     } 
 }
 
+void _EXAMPLE_VEML7700()
+{
+    VEML7700_DEF(veml7700, I2C2, TICK_10MS);
+    BUS_MANAGEMENT_DEF(bm_i2c2, &veml7700.i2c_params.bus_management_params);
+    static state_machine_t sm_example = {0};
+    static uint64_t tick = 0;
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:          
+
+            e_veml7700_set_config(veml7700, VEML7700_ALS_GAIN_1 | VEML7700_ALS_INTEGRATION_TIME_25MS | VEML7700_ALS_PERSISTANT_PROTECT_NUMBER_1 | VEML7700_ALS_INTERRUPT_DISABLE | VEML7700_ALS_POWER_ON);
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN: 
+            
+            if (e_veml7700_is_flag_empty(veml7700))
+            {
+                e_veml7700_read_als(veml7700);
+                e_veml7700_read_white(veml7700);
+            }
+            
+            if (mTickCompare(tick) >= TICK_200MS)
+            {
+                tick = mGetTick();
+                LOG_BLANCK("Ambient light sensor: %d \nWhite: %d\n", veml7700.registers.ambient_light_sensor, veml7700.registers.white);
+            }
+            
+            fu_bus_management_task(&bm_i2c2);
+            e_veml7700_deamon(&veml7700);
+            break;
+    } 
+}
+
 void _EXAMPLE_BLE(ble_params_t * p_ble)
 {
     static state_machine_t sm_example = {0};

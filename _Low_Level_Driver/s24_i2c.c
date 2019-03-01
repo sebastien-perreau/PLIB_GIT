@@ -223,7 +223,7 @@ I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 
                 case _ADDRESS_REGISTER_MSB:
 
-                    if (!i2c_send_byte(var->module, (var->data_access.address_register >> 8) & 0xff))
+                    if (!i2c_send_byte(var->module, (var->data_access.address_register_device >> 8) & 0xff))
                     {
                         CLR_BIT(var->flags, I2C_SEND_ADDRESS_REGISTERS_MSB);
                         var->state_machine.index = _WAIT_AND_VERIFY;
@@ -232,7 +232,7 @@ I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 
                 case _ADDRESS_REGISTER_LSB:
 
-                    if (!i2c_send_byte(var->module, (var->data_access.address_register >> 0) & 0xff))
+                    if (!i2c_send_byte(var->module, (var->data_access.address_register_device >> 0) & 0xff))
                     {
                         CLR_BIT(var->flags, I2C_SEND_ADDRESS_REGISTERS_LSB);
                         var->state_machine.index = _WAIT_AND_VERIFY;
@@ -241,7 +241,7 @@ I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 
                 case _WRITE_BYTE:
 
-                    if (!i2c_send_byte(var->module, var->data_access.p[var->data_access.address_register + var->data_access.index - 1]))
+                    if (!i2c_send_byte(var->module, var->data_access.p[var->data_access.address_register_pic32 + var->data_access.index - 1]))
                     {
                         var->state_machine.index = _WAIT_AND_VERIFY;
                     }
@@ -255,7 +255,7 @@ I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 
                 case _READ_BYTE_SEQ2:
 
-                    if (!i2c_get_byte(var->module, &var->data_access.p[var->data_access.address_register + var->data_access.index - 1]))
+                    if (!i2c_get_byte(var->module, &var->data_access.p[var->data_access.address_register_pic32 + var->data_access.index - 1]))
                     {
                         if (++var->data_access.index > var->data_access.length)
                         {
@@ -363,11 +363,12 @@ I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
         }
         else if (ret == _START)
         {
-            var->data_access.general_call_request   = fct->functions_tab[fct->active_function].general_call_request;
-            var->data_access.read_write_type        = fct->functions_tab[fct->active_function].read_write_type;
-            var->data_access.address_register       = fct->functions_tab[fct->active_function].address_register;            
-            var->data_access.index                  = 0;
-            var->data_access.length                 = fct->functions_tab[fct->active_function].length;
+            var->data_access.general_call_request       = fct->functions_tab[fct->active_function].general_call_request;
+            var->data_access.read_write_type            = fct->functions_tab[fct->active_function].read_write_type;
+            var->data_access.address_register_device    = fct->functions_tab[fct->active_function].address_register_device;    
+            var->data_access.address_register_pic32     = fct->functions_tab[fct->active_function].address_register_pic32;    
+            var->data_access.index                      = 0;
+            var->data_access.length                     = fct->functions_tab[fct->active_function].length;
         }
     }
     

@@ -88,7 +88,8 @@ typedef struct
 {
     bool                    general_call_request;
     bool                    read_write_type;
-    uint16_t                address_register;
+    uint16_t                address_register_device;
+    uint16_t                address_register_pic32;
     uint8_t                 length;
 } I2C_FUNCTION_TAB;
 
@@ -103,9 +104,9 @@ typedef struct
     - fct2 = 1
     - fct3 = 2
     Then the 'functions_tab' should contains the parameters in the same order:
-    - fct1 details (write, address_fct1, size_fct1)
-    - fct2 details (write, address_fct2, size_fct2)
-    - fct3 details (write, address_fct3, size_fct3)
+    - fct1 details (I2C_DEVICE_ADDRESS, I2C_WRITE, address_device_fct1, address_pic32_fct1, size_fct1)
+    - fct2 details (I2C_DEVICE_ADDRESS, I2C_WRITE, address_device_fct2, address_pic32_fct2, size_fct2)
+    - fct3 details (I2C_DEVICE_ADDRESS, I2C_WRITE, address_device_fct3, address_pic32_fct3, size_fct3)
 
   *****************************************************************************/
 typedef struct
@@ -120,7 +121,8 @@ typedef struct
 {
     bool                    general_call_request;
     bool                    read_write_type;
-    uint16_t                address_register;
+    uint16_t                address_register_device;
+    uint16_t                address_register_pic32;
     
     uint8_t                 *p;
     uint8_t                 length;
@@ -139,12 +141,16 @@ typedef struct
     uint16_t                fail_count;
 } I2C_PARAMS;
 
+#define I2C_GENERAL_CALL_ADDRESS_W(name, address_pic32, length)             {I2C_GENERAL_CALL_ADDRESS, 0, 0, (const) ((uint8_t*) &name.registers.address_pic32 - (uint8_t*) &name.registers), length}
+#define I2C_DEVICE_ADDRESS_W(name, address_device, address_pic32, length)   {I2C_DEVICE_ADDRESS, I2C_WRITE, address_device, (const) ((uint8_t*) &name.registers.address_pic32 - (uint8_t*) &name.registers), length}
+#define I2C_DEVICE_ADDRESS_R(name, address_device, address_pic32, length)   {I2C_DEVICE_ADDRESS, I2C_READ, address_device, (const) ((uint8_t*) &name.registers.address_pic32 - (uint8_t*) &name.registers), length}
+
 #define I2C_PARAMS_INSTANCE(_module, _address, _type_addr_reg, _p_address, _periodic_time, _flags)             \
 {                                                       \
     .module = _module,                                  \
     .slave_address = (_address << 1)&0xfe,              \
     .is_16bits_address_reg = _type_addr_reg,            \
-    .data_access = {false, false, 0, _p_address, 0, 0}, \
+    .data_access = {false, false, 0, 0, _p_address, 0, 0}, \
     .bus_management_params =                            \
     {                                                   \
         .is_running = false,                            \

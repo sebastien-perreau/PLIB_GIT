@@ -32,19 +32,6 @@ typedef enum
 
 typedef enum
 {
-    AT42QT2120_SIZE_RESET                               = 1,
-    AT42QT2120_SIZE_CALIBRATE                           = 1,
-    AT42QT2120_SIZE_SET_PARAMS                          = 7,
-    AT42QT2120_SIZE_SET_KEY_DETECT_THRESHOLD_0_TO_11    = 12,
-    AT42QT2120_SIZE_SET_KEY_CONTROL_0_TO_11             = 12,
-    AT42QT2120_SIZE_SET_KEY_PULSE_SCALE_0_TO_11         = 12,
-    AT42QT2120_SIZE_GET_KEY_SIGNAL                      = 24,
-    AT42QT2120_SIZE_GET_REF_DATA                        = 24,
-    AT42QT2120_SIZE_GET_STATUS_KEYS_AND_SLIDER          = 4            
-} AT42QT2120_REGISTERS_SIZE;
-
-typedef enum
-{
     AT42QT2120_KEY_0                                    = 0,
     AT42QT2120_KEY_1,
     AT42QT2120_KEY_2,
@@ -66,13 +53,6 @@ typedef enum
     AT42QT2120_AKS_GROUP_2                              = 0x08,
     AT42QT2120_AKS_GROUP_3                              = 0x0e,
 } AT42QT2120_AKS_GROUP;
-
-typedef struct
-{
-    bool                    read_write_type;
-    uint16_t                address_register;
-    uint8_t                 length;
-} AT42QT2120_FUNCTION;
 
 typedef struct
 {
@@ -128,7 +108,7 @@ typedef struct
 #define AT42QT2120_INSTANCE(_name, _i2c_module, _periodic_time)                             \
 {                                                                                           \
     .is_init_done = false,                                                                  \
-    .i2c_params = I2C_PARAMS_INSTANCE(_i2c_module, 0x1c, false, (uint8_t*) &_name.registers.chip_id, _periodic_time, 0), \
+    .i2c_params = I2C_PARAMS_INSTANCE(_i2c_module, 0x1c, false, (uint8_t*) &_name.registers, _periodic_time, 0), \
     .i2c_functions =                                                                        \
     {                                                                                       \
         .flags = 0,                                                                         \
@@ -136,15 +116,15 @@ typedef struct
         .maximum_functions = AT42QT2120_FLAG_NUMBERS,                                       \
         .functions_tab =                                                                    \
         {                                                                                   \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_RESET, AT42QT2120_SIZE_RESET},                                                          \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_CALIBRATE, AT42QT2120_SIZE_CALIBRATE},                                                  \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_PARAMS, AT42QT2120_SIZE_SET_PARAMS},                                                \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_KEY_DETECT_THRESHOLD_0_TO_11, AT42QT2120_SIZE_SET_KEY_DETECT_THRESHOLD_0_TO_11},    \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_KEY_CONTROL_0_TO_11, AT42QT2120_SIZE_SET_KEY_CONTROL_0_TO_11},                      \
-            {I2C_DEVICE_ADDRESS, I2C_WRITE, AT42QT2120_ADDR_SET_KEY_PULSE_SCALE_0_TO_11, AT42QT2120_SIZE_SET_KEY_PULSE_SCALE_0_TO_11},              \
-            {I2C_DEVICE_ADDRESS, I2C_READ, AT42QT2120_ADDR_GET_KEY_SIGNAL, AT42QT2120_SIZE_GET_KEY_SIGNAL},                                         \
-            {I2C_DEVICE_ADDRESS, I2C_READ, AT42QT2120_ADDR_GET_REF_DATA, AT42QT2120_SIZE_GET_REF_DATA},                                             \
-            {I2C_DEVICE_ADDRESS, I2C_READ, AT42QT2120_ADDR_GET_STATUS_KEYS_AND_SLIDER, AT42QT2120_SIZE_GET_STATUS_KEYS_AND_SLIDER}                  \
+            I2C_DEVICE_ADDRESS_W(_name, AT42QT2120_ADDR_RESET, reset, 1*sizeof(uint8_t)),                                               \
+            I2C_DEVICE_ADDRESS_W(_name, AT42QT2120_ADDR_CALIBRATE, calibrate, 1*sizeof(uint8_t)),                                       \
+            I2C_DEVICE_ADDRESS_W(_name, AT42QT2120_ADDR_SET_PARAMS, low_power_mode, 7*sizeof(uint8_t)),                                 \
+            I2C_DEVICE_ADDRESS_W(_name, AT42QT2120_ADDR_SET_KEY_DETECT_THRESHOLD_0_TO_11, key_detect_threshold, 12*sizeof(uint8_t)),    \
+            I2C_DEVICE_ADDRESS_W(_name, AT42QT2120_ADDR_SET_KEY_CONTROL_0_TO_11, key_control, 12*sizeof(uint8_t)),                      \
+            I2C_DEVICE_ADDRESS_W(_name, AT42QT2120_ADDR_SET_KEY_PULSE_SCALE_0_TO_11, key_pulse_scale, 12*sizeof(uint8_t)),              \
+            I2C_DEVICE_ADDRESS_R(_name, AT42QT2120_ADDR_GET_KEY_SIGNAL, key_signal, 24*sizeof(uint8_t)),                                \
+            I2C_DEVICE_ADDRESS_R(_name, AT42QT2120_ADDR_GET_REF_DATA, reference_data, 24*sizeof(uint8_t)),                              \
+            I2C_DEVICE_ADDRESS_R(_name, AT42QT2120_ADDR_GET_STATUS_KEYS_AND_SLIDER, detection_status, 4*sizeof(uint8_t))                \
         }                                                                                   \
     },                                                                                      \
     .registers =                                                                            \
@@ -177,6 +157,8 @@ typedef struct
 static AT42QT2120_CONFIG _name = AT42QT2120_INSTANCE(_name, _i2c_module, _periodic_time)
 
 uint8_t e_at42qt2120_deamon(AT42QT2120_CONFIG *var);
+
+#define e_at42qt2120_is_flag_empty(var)                 ((var.i2c_functions.flags > 0) ? 0 : 1)
 
 #define e_at42qt2120_reset(var)                         (var.registers.reset = 0x01, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_RESET))
 #define e_at42qt2120_calibrate(var)                     (var.registers.calibrate = 0x01, SET_BIT(var.i2c_functions.flags, AT42QT2120_FLAG_CALIBRATE))
