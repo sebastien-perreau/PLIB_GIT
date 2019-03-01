@@ -153,10 +153,10 @@ void _EXAMPLE_AVERAGE_AND_NTC()
     }   
 }
 
-void _EXAMPLE_EEPROM()
+void _EXAMPLE_25LC512()
 {
-    _25LC512_DEF(e_eeprom, SPI2, __PD3, TICK_20MS, 150, 150);
-    BUS_MANAGEMENT_DEF(bm_spi, &e_eeprom.spi_params.bus_management_params);
+    _25LC512_DEF(e_25lc512, SPI2, __PD3, TICK_20MS, 150, 150);
+    BUS_MANAGEMENT_DEF(bm_spi, &e_25lc512.spi_params.bus_management_params);
     static state_machine_t sm_example = {0};
     static uint64_t tickAntiFloodSw1 = 0;
     static uint64_t tickAntiFloodSw2 = 0;
@@ -165,7 +165,7 @@ void _EXAMPLE_EEPROM()
     switch (sm_example.index)
     {
         case _SETUP:
-            e_25lc512_check_for_erasing_memory(&e_eeprom, &bm_spi);
+            e_25lc512_check_for_erasing_memory(&e_25lc512, &bm_spi);
             sm_example.index = _MAIN;
             break;
             
@@ -173,34 +173,34 @@ void _EXAMPLE_EEPROM()
             if (!mGetIO(SWITCH1) && (mTickCompare(tickAntiFloodSw1) > TICK_200MS))
             {
                 tickAntiFloodSw1 = mGetTick();
-                if (!e_25lc512_is_write_in_progress(e_eeprom))
+                if (!e_25lc512_is_write_in_progress(e_25lc512))
                 {
                     // !! BE SURE TO HAVE ENOUGH SPACE INTO THE BUFFER !!
                     uint8_t i = 0;
-                    e_eeprom.registers.dW.size = 5;
-                    for(i = 0 ; i < (e_eeprom.registers.dW.size) ; i++)
+                    e_25lc512.registers.dW.size = 5;
+                    for(i = 0 ; i < (e_25lc512.registers.dW.size) ; i++)
                     {
-                        e_eeprom.registers.dW.p[i] = 0x44+i;
+                        e_25lc512.registers.dW.p[i] = 0x44+i;
                     }
-                    e_25lc512_write_bytes(e_eeprom, 127);
+                    e_25lc512_write_bytes(e_25lc512, 127);
                 }
             }
 
             if (!mGetIO(SWITCH2) && (mTickCompare(tickAntiFloodSw2) > TICK_200MS))
             {
                 tickAntiFloodSw2 = mGetTick();
-                e_25lc512_chip_erase(e_eeprom);
+                e_25lc512_chip_erase(e_25lc512);
             }
 
             if (mTickCompare(tickRead) >= TICK_100MS)
             {
                 tickRead = mGetTick();
-                e_25lc512_read_bytes(e_eeprom, 127, 5);
+                e_25lc512_read_bytes(e_25lc512, 127, 5);
             }
 
-            if (!e_25lc512_is_read_in_progress(e_eeprom))
+            if (!e_25lc512_is_read_in_progress(e_25lc512))
             {
-                if (e_eeprom.registers.dR.p[0] == 0x44)
+                if (e_25lc512.registers.dR.p[0] == 0x44)
                 {
                     mUpdateLedStatusD2(ON);
                 }
@@ -211,7 +211,7 @@ void _EXAMPLE_EEPROM()
             }
             
             fu_bus_management_task(&bm_spi);
-            e_25lc512_deamon(&e_eeprom);
+            e_25lc512_deamon(&e_25lc512);
             break;
             
     }

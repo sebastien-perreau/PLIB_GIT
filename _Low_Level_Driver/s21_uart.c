@@ -33,7 +33,7 @@ static serial_event_handler_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NU
  *                  UART_ADDRESS_DETECTION address_detection)
  * 
  * Description:
- *      This routine is used to initialize a uart module.
+ *      This routine is used to initialize an uart module.
  * 
  * Parameters:
  *      id: The UART module you want to use.
@@ -46,9 +46,6 @@ static serial_event_handler_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NU
  *      address_detection: Params follow the EXP_UART_ADDRESS_DETECTION enumeration.
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 
@@ -91,9 +88,6 @@ void uart_init(     UART_MODULE id,
  * 
  * Return:
  *      none
- * 
- * Example:
- *      none
  ******************************************************************************/
 void uart_enable(UART_MODULE id, UART_ENABLE_MODE enable_mode)
 {
@@ -132,9 +126,6 @@ void uart_enable(UART_MODULE id, UART_ENABLE_MODE enable_mode)
  * 
  * Return:
  *      none
- * 
- * Example:
- *      none
  ******************************************************************************/
 void uart_set_params(UART_MODULE id, UART_CONFIG_MODE config_mode)
 {
@@ -167,9 +158,6 @@ void uart_set_params(UART_MODULE id, UART_CONFIG_MODE config_mode)
  * 
  * Return:
  *      none
- * 
- * Example:
- *      none
  ******************************************************************************/
 void uart_set_line_control(UART_MODULE id, UART_LINE_CONTROL_MODE control_mode)
 {
@@ -190,9 +178,6 @@ void uart_set_line_control(UART_MODULE id, UART_LINE_CONTROL_MODE control_mode)
  *      fifo_mode: Params follow the EXP_UART_FIFO_MODE enumeration.
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void uart_set_fifo(UART_MODULE id, UART_FIFO_MODE fifo_mode)
@@ -215,9 +200,6 @@ void uart_set_fifo(UART_MODULE id, UART_FIFO_MODE fifo_mode)
  *      address_detection: Enable or disable the address detection.
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void uart_set_adress_detection(UART_MODULE id, uint8_t address, UART_ADDRESS_DETECTION address_detection)
@@ -242,9 +224,6 @@ void uart_set_adress_detection(UART_MODULE id, uint8_t address, UART_ADDRESS_DET
  *      baudrate: The desire baudrate in bit per second.
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void uart_set_baudrate(UART_MODULE id, uint32_t baudrate)
@@ -280,9 +259,6 @@ void uart_set_baudrate(UART_MODULE id, uint32_t baudrate)
  * 
  * Return:
  *      The real baudrate in bit per second.
- * 
- * Example:
- *      none
  ******************************************************************************/
 uint32_t uart_get_baudrate(UART_MODULE id)
 {
@@ -302,9 +278,6 @@ uint32_t uart_get_baudrate(UART_MODULE id)
  * 
  * Return:
  *      The status of the transmission (true = completed / false = on going).
- * 
- * Example:
- *      none
  ******************************************************************************/
 bool uart_transmission_has_completed(UART_MODULE id)
 {
@@ -325,9 +298,6 @@ bool uart_transmission_has_completed(UART_MODULE id)
  * 
  * Return:
  *      The status of the tx buffer (true = ready / false = not ready).
- * 
- * Example:
- *      none
  ******************************************************************************/
 bool uart_is_tx_ready(UART_MODULE id)
 {
@@ -348,9 +318,6 @@ bool uart_is_tx_ready(UART_MODULE id)
  * 
  * Return:
  *      The status of the rx buffer (true = data available / false = data not available.
- * 
- * Example:
- *      none
  ******************************************************************************/
 bool uart_is_rx_data_available(UART_MODULE id)
 {
@@ -377,9 +344,6 @@ bool uart_is_rx_data_available(UART_MODULE id)
  * 
  * Return:
  *      The status of the break transmission (0: done / 1: not sent)
- * 
- * Example:
- *      none
  ******************************************************************************/
 bool uart_send_break(UART_MODULE id)
 {
@@ -406,9 +370,6 @@ bool uart_send_break(UART_MODULE id)
  * 
  * Return:
  *      The status of the data transmission (0: done / 1: not sent)
- * 
- * Example:
- *      none
  ******************************************************************************/
 bool uart_send_data(UART_MODULE id, uint16_t data)
 {
@@ -434,9 +395,6 @@ bool uart_send_data(UART_MODULE id, uint16_t data)
  * 
  * Return:
  *      The status of the data reception (0: done / 1: not receive)
- * 
- * Example:
- *      none
  ******************************************************************************/
 bool uart_get_data(UART_MODULE id, uint16_t *p_data)
 {
@@ -463,9 +421,6 @@ bool uart_get_data(UART_MODULE id, uint16_t *p_data)
  *      data: The data (in case of a reception) read in the interruption.
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void uart_interrupt_handler(UART_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)

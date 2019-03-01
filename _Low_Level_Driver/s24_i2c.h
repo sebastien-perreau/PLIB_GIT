@@ -3,7 +3,7 @@
 
 typedef enum
 {
-    I2C1 = 0,
+    I2C1                                = 0,
     I2C2,
     I2C3,
     I2C4,
@@ -13,21 +13,21 @@ typedef enum
 
 typedef enum
 {
-    I2C_FREQUENCY_100KHZ        = 100,
-    I2C_FREQUENCY_400KHZ        = 400,
-    I2C_FREQUENCY_1MHZ          = 1000
+    I2C_FREQUENCY_100KHZ                = 100,
+    I2C_FREQUENCY_400KHZ                = 400,
+    I2C_FREQUENCY_1MHZ                  = 1000
 } I2C_FREQUENCY;
 
 typedef enum
 {
-    I2C_STOP_ON_IDLE            = 0x00002000,
-    I2C_CONTINUE_ON_IDLE        = 0x00000000,
+    I2C_STOP_ON_IDLE                    = 0x00002000,
+    I2C_CONTINUE_ON_IDLE                = 0x00000000,
             
-    I2C_SLEW_RATE_NORMAL_SPEED  = 0x00000200,   // 100 KHz & 1 MHz  (Standard mode & Fast mode Plus))
-    I2C_SLEW_RATE_HIGH_SPEED    = 0x00000000,   // 400 KHz          (Fast mode)
+    I2C_SLEW_RATE_NORMAL_SPEED          = 0x00000200,   // 100 KHz & 1 MHz  (Standard mode & Fast mode Plus))
+    I2C_SLEW_RATE_HIGH_SPEED            = 0x00000000,   // 400 KHz          (Fast mode)
             
-    I2C_ENABLE_SMBUS            = 0x00000100,
-    I2C_DISABLE_SMBUS           = 0x00000000
+    I2C_ENABLE_SMBUS                    = 0x00000100,
+    I2C_DISABLE_SMBUS                   = 0x00000000
 } I2C_CONFIGURATION;
 
 typedef enum
@@ -40,14 +40,14 @@ typedef enum
 
 typedef enum
 {
-    I2C_GENERAL_CALL_ADDRESS    = 1,
-    I2C_DEVICE_ADDRESS          = 0
+    I2C_GENERAL_CALL_ADDRESS            = 1,
+    I2C_DEVICE_ADDRESS                  = 0
 } I2C_ADDRESS_MODE;
 
 typedef enum
 {
-    I2C_WRITE                   = 0x00,
-    I2C_READ                    = 0x01
+    I2C_WRITE                           = 0x00,
+    I2C_READ                            = 0x01
 } I2C_READ_WRITE_MODE;
 
 typedef enum
@@ -74,29 +74,20 @@ typedef enum
             
     _BUS_I2C_BUSY,
     _BUS_MANAGEMENT_BUSY,
-    _BUS_I2C_INIT                   = 0xff
+    _BUS_I2C_INIT                       = 0xff
 } I2C_STATE_MACHIN;
 
 typedef enum
 {
-    I2C_SEND_ADDRESS_REGISTERS_MSB  = (1 << 0),
-    I2C_SEND_ADDRESS_REGISTERS_LSB  = (1 << 1),
-    I2C_READ_SEQUENCE               = (1 << 2),
+    I2C_SEND_ADDRESS_REGISTERS_MSB      = (1 << 0),
+    I2C_SEND_ADDRESS_REGISTERS_LSB      = (1 << 1),
+    I2C_READ_SEQUENCE                   = (1 << 2),
 } I2C_FLAGS;
-
-typedef struct
-{
-    bool                    general_call_request;
-    bool                    read_write_type;
-    uint16_t                address_register_device;
-    uint16_t                address_register_pic32;
-    uint8_t                 length;
-} I2C_FUNCTION_TAB;
 
 /*******************************************************************************
   Description:
-    The 'functions_tab' is a constant array which contains the details (read_write_type, 
-    register_address and length) of each functions that the I2C driver can execute. 
+    The 'functions_tab' is a constant array which contains the details (general_call_request, read_write_type, 
+    address_register_device, address_register_pic32 and length) of each functions that the I2C driver can execute. 
     The order in this array is IMPORTANT and should be the same as the flags (define 
     in the I2C driver).
     For example if the flags look like that: 
@@ -109,6 +100,16 @@ typedef struct
     - fct3 details (I2C_DEVICE_ADDRESS, I2C_WRITE, address_device_fct3, address_pic32_fct3, size_fct3)
 
   *****************************************************************************/
+
+typedef struct
+{
+    bool                    general_call_request;
+    bool                    read_write_type;
+    uint16_t                address_register_device;
+    uint16_t                address_register_pic32;
+    uint8_t                 length;
+} I2C_FUNCTION_TAB;
+
 typedef struct
 {
     uint16_t                flags;
@@ -146,20 +147,20 @@ typedef struct
 #define I2C_DEVICE_ADDRESS_R(name, address_device, address_pic32, length)   {I2C_DEVICE_ADDRESS, I2C_READ, address_device, (const) ((uint8_t*) &name.registers.address_pic32 - (uint8_t*) &name.registers), length}
 
 #define I2C_PARAMS_INSTANCE(_module, _address, _type_addr_reg, _p_address, _periodic_time, _flags)             \
-{                                                       \
-    .module = _module,                                  \
-    .slave_address = (_address << 1)&0xfe,              \
-    .is_16bits_address_reg = _type_addr_reg,            \
-    .data_access = {false, false, 0, 0, _p_address, 0, 0}, \
-    .bus_management_params =                            \
-    {                                                   \
-        .is_running = false,                            \
-        .waiting_period = _periodic_time,               \
-        .tick = -1                                      \
-    },                                                  \
-    .flags = _flags,                                    \
-    .state_machine = {0},                               \
-    .fail_count = 0                                     \
+{                                                           \
+    .module = _module,                                      \
+    .slave_address = (_address << 1)&0xfe,                  \
+    .is_16bits_address_reg = _type_addr_reg,                \
+    .data_access = {false, false, 0, 0, _p_address, 0, 0},  \
+    .bus_management_params =                                \
+    {                                                       \
+        .is_running = false,                                \
+        .waiting_period = _periodic_time,                   \
+        .tick = -1                                          \
+    },                                                      \
+    .flags = _flags,                                        \
+    .state_machine = {0},                                   \
+    .fail_count = 0                                         \
 }
 
 typedef union 

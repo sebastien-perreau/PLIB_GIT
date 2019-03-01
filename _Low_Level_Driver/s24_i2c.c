@@ -4,6 +4,10 @@
 *
 *	Revision history	:
 *		04/12/2018		- Initial release
+*       feb. 2019       - Add comments
+*                       - Add i2c_master_state_machine function
+*                       - Modifications of I2C_PARAMS in order to add
+*                       the new features of 'i2c_master_state_machine'. 
 *********************************************************************/
 
 #include "../PLIB.h"
@@ -20,6 +24,25 @@ const I2C_REGISTERS * I2cModules[] =
 static uint32_t real_frequency_tab[I2C_NUMBER_OF_MODULES] = {0};
 static serial_event_handler_t serial_event_handler[I2C_NUMBER_OF_MODULES] = {NULL};
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_init_as_master(    I2C_MODULE id, 
+ *                                  serial_event_handler_t evt_handler,
+ *                                  I2C_FREQUENCY frequency,
+ *                                  I2C_CONFIGURATION configuration)
+ * 
+ * Description:
+ *      This routine is used to initialize an i2c module.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      evt_handler: The handler (function) to call when an interruption occurs.
+ *      frequency: The desire frequency (see. I2C_FREQUENCY).
+ *      configuration: Params follow the I2C_CONFIGURATION enumeration.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_init_as_master(    I2C_MODULE id, 
                             serial_event_handler_t evt_handler,
                             I2C_FREQUENCY frequency,
@@ -40,18 +63,60 @@ void i2c_init_as_master(    I2C_MODULE id,
     i2c_enable(id, ON);
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_enable(I2C_MODULE id, bool enable)
+ * 
+ * Description:
+ *      This routine is used to enable the i2c module.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      enable: 1: enable / 0: disable
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_enable(I2C_MODULE id, bool enable)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CCONbits.BUS_ON = enable;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_configuration(I2C_MODULE id, I2C_CONFIGURATION configuration)
+ * 
+ * Description:
+ *      This routine is used to configure the i2c module.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      configuration: Params follow the I2C_CONFIGURATION enumeration.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_configuration(I2C_MODULE id, I2C_CONFIGURATION configuration)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CCONSET = configuration;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_set_frequency(I2C_MODULE id, I2C_FREQUENCY frequency)
+ * 
+ * Description:
+ *      This routine is used to configure the i2c module frequency.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      frequency: The desire frequency (see. I2C_FREQUENCY).
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_set_frequency(I2C_MODULE id, I2C_FREQUENCY frequency)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
@@ -61,38 +126,111 @@ void i2c_set_frequency(I2C_MODULE id, I2C_FREQUENCY frequency)
     real_frequency_tab[id] = (uint32_t) v_real_freq;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_start(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to send a "start" condition. It is used by the 
+ *      master to establish a frame transmission. 
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_start(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CCONbits.SEN = 1;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_restart(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to send a "restart" condition. It is used by the 
+ *      master to establish a new frame transmission without to do a "STOP" and
+ *      a "START". It is often used for reading operation:
+ *      First step the master send a write request in order to fix an address
+ *      register.
+ *      Second, the master send a "RESTART" in order to send a read request.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_restart(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CCONbits.RSEN = 1;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_stop(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to send a "stop" condition. It is used by the 
+ *      master to close a frame transmission.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_stop(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CCONbits.PEN = 1;
 }
 
-/*
+/*******************************************************************************
+ * Function: 
+ *      void i2c_receiver_active_sequence(I2C_MODULE id)
+ * 
  * Description:
- * This routine enables the module to receive data from the I2C bus.
- * Thus, the master generates clock in order to allow the slave 
- * to return its data byte.
- * This bis is automatically clear by module at end of 8 bits receive
- * data byte.
- */
+ *      This routine enables the i2c module to receive data from the I2C device 
+ *      on the bus. Thus, the master generates clock in order to allow the slave 
+ *      to return its data byte.
+ *      This bis is automatically clear by module at end of 8 bits receive
+ *      data byte.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_receiver_active_sequence(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     p_i2c->I2CCONbits.RCEN = 1;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      bool i2c_get_byte(I2C_MODULE id, uint8_t *data)
+ * 
+ * Description:
+ *      This routine is used to get a data store in the i2c receive buffer
+ *      register. A "receive overflow - I2COV" can occurs if a byte is received 
+ *      while the I2CxRCV register is still holding the previous byte.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      *data: A uint8_t pointer to store the receive data. A receive data
+ *      cannot be different as a uint8_t type.
+ * 
+ * Return:
+ *      0: Data successfully receive.
+ *      1: No data receive.
+ ******************************************************************************/
 bool i2c_get_byte(I2C_MODULE id, uint8_t *data)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
@@ -104,6 +242,20 @@ bool i2c_get_byte(I2C_MODULE id, uint8_t *data)
     return 1;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_send_ack(I2C_MODULE id, bool v_ack)
+ * 
+ * Description:
+ *      This routine is used to send an acknowledgment. 
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      v_ack: 0: /NACK , 1: ACK
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_send_ack(I2C_MODULE id, bool v_ack)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
@@ -111,18 +263,62 @@ void i2c_send_ack(I2C_MODULE id, bool v_ack)
     p_i2c->I2CCONbits.ACKEN = 1;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      bool i2c_is_ack_send(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to verify that the ACK has been send.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      0: ACK has not been send.
+ *      1: ACK has been send.
+ ******************************************************************************/
 bool i2c_is_ack_send(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     return (!p_i2c->I2CCONbits.ACKEN);
 }
 
+/*******************************************************************************
+ * Function: 
+ *      bool i2c_is_ack_received(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to verify if an ACK bit has been received.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      0: /NACK receive.
+ *      1: ACK receive.
+ ******************************************************************************/
 bool i2c_is_ack_received(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     return (!p_i2c->I2CSTATbits.ACKSTAT);
 }
 
+/*******************************************************************************
+ * Function: 
+ *      bool i2c_send_byte(I2C_MODULE id, uint8_t data)
+ * 
+ * Description:
+ *      This routine is used to send a data over the I2C bus. A write collision
+ *      can occurs - IWCOL - if the bus is not ready for transmission. 
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      data: A uint8_t variable containing the data to send.
+ * 
+ * Return:
+ *      0: Data successfully transmitted.
+ *      1: No data transmitted.
+ ******************************************************************************/
 bool i2c_send_byte(I2C_MODULE id, uint8_t data)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
@@ -134,18 +330,66 @@ bool i2c_send_byte(I2C_MODULE id, uint8_t data)
     return 1;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      bool i2c_is_byte_transmitted(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to verify that a byte has been successfully 
+ *      transmitted.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      0: Data not successfully transmitted.
+ *      1: Data successfully transmitted.
+ ******************************************************************************/
 bool i2c_is_byte_transmitted(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     return (!p_i2c->I2CSTATbits.TRSTAT);
 }
 
+/*******************************************************************************
+ * Function: 
+ *      bool i2c_is_busy(I2C_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to verify that the I2C bus is ready for next 
+ *      operations.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ * 
+ * Return:
+ *      0: The I2C bus is ready to use.
+ *      1: The I2C bus is busy.
+ ******************************************************************************/
 bool i2c_is_busy(I2C_MODULE id)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
     return (p_i2c->I2CCONbits.SEN || p_i2c->I2CCONbits.PEN || p_i2c->I2CCONbits.RSEN || p_i2c->I2CCONbits.RCEN || p_i2c->I2CCONbits.ACKEN || p_i2c->I2CSTATbits.TRSTAT);
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_CONFIG mode)
+ * 
+ * Description:
+ *      This routine is used to verify that the I2C bus is ready for next 
+ *      operations.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      address: The slave address.
+ *      mask: The mask assign to the slave address for answering to master device
+ *      addresses. 
+ *      mode: Params follow the I2C_ADDRESS_CONFIG enumeration.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_CONFIG mode)
 {
     I2C_REGISTERS * p_i2c = (I2C_REGISTERS *) I2cModules[id];
@@ -154,6 +398,22 @@ void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_A
     p_i2c->I2CCONSET = mode;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)
+ * 
+ * Description:
+ *      This routine is called when an interruption occured. This interrupt 
+ *      handler calls the user _event_handler (if existing) otherwise do nothing.
+ * 
+ * Parameters:
+ *      id: The I2C module you want to use.
+ *      evt_type: The type of event (MASTER, SLAVE, BUS_COLLISION...). See IRQ_EVENT_TYPE.
+ *      data: The data (in case of a reception) read in the interruption.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
     if (serial_event_handler[id] != NULL)
@@ -162,6 +422,23 @@ void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data
     }
 }
 
+/*******************************************************************************
+ * Function: 
+ *      I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
+ * 
+ * Description:
+ *      This routine is the main state machine for managing the I2C protocol (for
+ *      master mode only). It is used by external component drivers thanks to 
+ *      the I2C_PARAMS and I2C_FUNCTIONS pointers. 
+ * 
+ * Parameters:
+ *      *var: A I2C_PARAMS pointer used by the driver to manage the state machine.
+ *      *fct: A I2C_FUNCTIONS pointer used by the driver to load parameters 
+ *      in I2C_PARAMS at the right time.
+ * 
+ * Return:
+ *      I2C_STATE_MACHIN (see the enumeration for more details).
+ ******************************************************************************/
 I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 {
     I2C_STATE_MACHIN ret;
