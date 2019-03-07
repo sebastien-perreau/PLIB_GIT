@@ -18,7 +18,7 @@ typedef enum
     LIN_BUS_TIMING_MAX_8_BYTES      = 9044 * TICK_1US,  // 1,4 x (14 + 10 + 10 + 80 + 10) / 19200
     LIN_BUS_TIMING_MAX_4_BYTES      = 6127 * TICK_1US,  // 1,4 x (14 + 10 + 10 + 40 + 10) / 19200
     LIN_BUS_TIMING_MAX_2_BYTES      = 4668 * TICK_1US,  // 1,4 x (14 + 10 + 10 + 20 + 10) / 19200
-    LIN_BUS_TIMING_SLEEP            = 130 * TICK_100MS
+    LIN_BUS_TIMING_SLEEP            = 130 * TICK_100MS  // 1,3 seconds
 } LIN_TIMINGS;
 
 typedef enum
@@ -112,6 +112,6 @@ typedef struct
 #define LIN_DEF(_name, _uart_module, _chip_enable_pin, _version)            \
 static LIN_PARAMS _name = LIN_PARAMS_INSTANCE(_uart_module, _version, _XBR(_chip_enable_pin), _IND(_chip_enable_pin))
 
-uint8_t lin_master_deamon(LIN_PARAMS *var);
+LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var);
 
 #endif

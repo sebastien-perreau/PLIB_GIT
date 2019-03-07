@@ -8,8 +8,32 @@
 
 #include "../PLIB.h"
 
+/*******************************************************************************
+ * This LIN_EVENT array contains 2 informations:
+ * is_data_receive:     This variable is a boolean which indicates that a new data 
+ *                      has been received by the UART module in the event handler. 
+ * data:                This variable contains the data received by the UART module
+ *                      in the event handler. It is always 8-bits length. 
+ *****************************************************************************/
 static LIN_EVENT lin_event_tab[UART_NUMBER_OF_MODULES] = {0};
 
+/*******************************************************************************
+ * Function:
+ *   static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
+ *
+ * Description:
+ *   This routine is the event handler called by the interrupt routine (only if enable).
+ *   To use this event handler, it must be passed as parameter in the uart_init
+ *   function (initialization sequence). Do not forget to enable the IRQ(s). 
+ *   If you do not want to use it then passed NULL as parameter and disable IRQ(s). 
+ *
+ * Parameters:
+ *   id:        Identifier of the UART module which generates the event (ex: UART2)
+ *   evt_type:  Type of event (see. IRQ_EVENT_TYPE for UART bus)
+ *   data:      The data read by the UART module (data will be always 8-bits size for
+ *              the LIN driver but for compatibility with other serial bus, the variable 
+ *              is a 32-bits type)
+ ******************************************************************************/
 static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
     switch (evt_type)
@@ -31,14 +55,48 @@ static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data
     }
 }
 
+/*******************************************************************************
+ * Function:
+ *      static uint8_t lin_get_id_with_parity(uint8_t id)
+ *
+ * Description:
+ *      This local routine is used to complement the ID field with the 2 parity 
+ *      bits of the identifier frame. 
+ *      The LIN ID frame is always 6-bits length (useful data) with 2 MSB parity 
+ *      bits (to get the 8-bits data length). 
+ *      See the ID field in details (MSB to LSB):
+ *      P1 - P0 - id.5 - id.4 - id.3 - id.2 - id.1 - id.0
+ *
+ * Parameters:
+ *      id:     This parameter is the identifier (with or without parity) of
+ *              the LIN frame (ex. 0x3d)
+ *
+ * Return:
+ *      The value returned is the full identifier (useful data + parity bits).
+ ******************************************************************************/
 static uint8_t lin_get_id_with_parity(uint8_t id)
 {
     return ((id & 0x3f) | ((((id >> 0) & 1) ^ ((id >> 1) & 1) ^ ((id >> 2) & 1) ^ ((id >> 4) & 1)) << 6) | (!(((id >> 1) & 1) ^ ((id >> 3) & 1) ^ ((id >> 4) & 1) ^ ((id >> 5) & 1)) << 7));
 }
 
-uint8_t lin_master_deamon(LIN_PARAMS *var)
+/*******************************************************************************
+ * Function: 
+ *      LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var)
+ * 
+ * Description:
+ *      This routine is the main state machine for managing a LIN bus (master 
+ *      mode only). It can be used by external component drivers as well as
+ *      by the user directly. 
+ * 
+ * Parameters:
+ *      *var: A LIN_PARAMS pointer used by the user/driver to manage the state machine.
+ * 
+ * Return:
+ *      LIN_STATE_MACHINE (see the enumeration for more details).
+ ******************************************************************************/
+LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var)
 {
-    uint8_t ret;
+    LIN_STATE_MACHINE ret;
     
     if (!var->is_init_done)
     {
