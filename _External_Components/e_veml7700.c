@@ -71,9 +71,9 @@ uint8_t e_veml7700_deamon(VEML7700_CONFIG *var)
     if (!var->is_init_done)
     {
         i2c_init_as_master(var->i2c_params.module, NULL, I2C_FREQUENCY_400KHZ, I2C_CONTINUE_ON_IDLE | I2C_DISABLE_SMBUS);
-        IRQInit(IRQ_I2C1B + var->i2c_params.module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-        IRQInit(IRQ_I2C1S + var->i2c_params.module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-        IRQInit(IRQ_I2C1M + var->i2c_params.module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
+        IRQInit_4args(IRQ_I2C1B + var->i2c_params.module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
+        IRQInit_4args(IRQ_I2C1S + var->i2c_params.module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
+        IRQInit_4args(IRQ_I2C1M + var->i2c_params.module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
         var->is_init_done = true;
         ret = _BUS_I2C_INIT;
     }

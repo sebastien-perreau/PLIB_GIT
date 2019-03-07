@@ -205,13 +205,25 @@ typedef enum
 typedef void (*basic_event_handler_t)(uint8_t id);
 typedef void (*serial_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
 
-#define IRQInit(source, enable, priority, sub_priority)     \
-            (                                               \
-            irq_enable(source, IRQ_DISABLED),               \
-            irq_set_priority(source, priority),             \
-            irq_set_sub_priority(source, sub_priority),     \
-            irq_clr_flag(source),                           \
-            irq_enable(source, enable)                      \
+typedef struct
+{
+    uint8_t     priority;
+    uint8_t     sub_priority;
+} _IRQ;
+
+#define _IRQ_PRIO2(a, b)            a
+#define _IRQ_SUB_PRIO2(a, b)        b
+#define _IRQ_PRIO(a)                _IRQ_PRIO2(a)
+#define _IRQ_SUB_PRIO(a)            _IRQ_SUB_PRIO2(a)
+
+#define IRQInit(a, b, c)            IRQInit_4args(a, b, c)
+#define IRQInit_4args(source, enable, priority, sub_priority)   \
+            (                                                   \
+            irq_enable(source, IRQ_DISABLED),                   \
+            irq_set_priority(source, priority),                 \
+            irq_set_sub_priority(source, sub_priority),         \
+            irq_clr_flag(source),                               \
+            irq_enable(source, enable)                          \
             )
             
 void irq_clr_flag(IRQ_SOURCE source);

@@ -439,9 +439,9 @@ void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data
  * Return:
  *      I2C_STATE_MACHIN (see the enumeration for more details).
  ******************************************************************************/
-I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
+I2C_STATE_MACHINE i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct)
 {
-    I2C_STATE_MACHIN ret;
+    I2C_STATE_MACHINE ret;
     
     if (var->bus_management_params.is_running)
     {

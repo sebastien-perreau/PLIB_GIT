@@ -25,11 +25,11 @@
       <logicalFolder name="_High_Level_Driver"
                      displayName="_High_Level_Driver"
                      projectFiles="true">
-        <itemPath>../_High_Level_Driver/lin.h</itemPath>
         <itemPath>../_High_Level_Driver/ble.h</itemPath>
         <itemPath>../_High_Level_Driver/one_wire_communication.h</itemPath>
         <itemPath>../_High_Level_Driver/utilities.h</itemPath>
         <itemPath>../_High_Level_Driver/string_advance.h</itemPath>
+        <itemPath>../_High_Level_Driver/lin.h</itemPath>
       </logicalFolder>
       <logicalFolder name="_Low_Level_Driver"
                      displayName="_Low_Level_Driver"
@@ -81,11 +81,11 @@
       <logicalFolder name="_High_Level_Driver"
                      displayName="_High_Level_Driver"
                      projectFiles="true">
-        <itemPath>../_High_Level_Driver/lin.c</itemPath>
         <itemPath>../_High_Level_Driver/ble.c</itemPath>
         <itemPath>../_High_Level_Driver/one_wire_communication.c</itemPath>
         <itemPath>../_High_Level_Driver/utilities.c</itemPath>
         <itemPath>../_High_Level_Driver/string_advance.c</itemPath>
+        <itemPath>../_High_Level_Driver/lin.c</itemPath>
       </logicalFolder>
       <logicalFolder name="_Low_Level_Driver"
                      displayName="_Low_Level_Driver"

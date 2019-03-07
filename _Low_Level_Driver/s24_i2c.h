@@ -75,7 +75,7 @@ typedef enum
     _BUS_I2C_BUSY,
     _BUS_MANAGEMENT_BUSY,
     _BUS_I2C_INIT                       = 0xff
-} I2C_STATE_MACHIN;
+} I2C_STATE_MACHINE;
 
 typedef enum
 {
@@ -286,6 +286,6 @@ bool i2c_is_busy(I2C_MODULE id);
 void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_ADDRESS_CONFIG mode);
 void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data);
 
-I2C_STATE_MACHIN i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct);
+I2C_STATE_MACHINE i2c_master_state_machine(I2C_PARAMS *var, I2C_FUNCTIONS *fct);
 
 #endif

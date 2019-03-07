@@ -32,7 +32,7 @@ void _EXAMPLE_TIMER()
         case _SETUP:
             
             timer_init_2345_us(TIMER4, _example_timer_event_handler, TMR_ON | TMR_SOURCE_INT | TMR_IDLE_CON | TMR_GATE_OFF, 100000);
-            IRQInit(IRQ_T4, IRQ_ENABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_3);
+            IRQInit_4args(IRQ_T4, IRQ_ENABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_3);
             sm_example.index = _MAIN;
             break;
             
@@ -950,6 +950,73 @@ void _EXAMPLE_BLE(ble_params_t * p_ble)
                 p_ble->service.scenario.out_index++;
                 p_ble->flags.send_scenario = true;
             }
+            break;
+    } 
+}
+
+void _EXAMPLE_LIN()
+{
+    LIN_DEF(lin1, UART2, LIN1_ENABLE, LIN_VERSION_2_X);
+    static LIN_FRAME_PARAMS lin_frame1 = {0};
+    static LIN_FRAME_PARAMS lin_frame2 = {0};
+    static state_machine_t sm_example = {0};
+    static state_machine_t sm = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:          
+            
+            lin_frame1.read_write_type = LIN_WRITE_REQUEST;
+            lin_frame1.id = 0x30;
+            
+            lin_frame2.read_write_type = LIN_READ_REQUEST;
+            lin_frame2.id = 0x22;
+            
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            if (lin1.frame == NULL) 
+            {
+                if (mTickCompare(sm.tick) >= TICK_10MS)
+                {
+                    switch (sm.index)
+                    {
+                        case 0:
+
+                            lin_frame1.data[0] = lin_frame2.errors.timing >> 8;
+                            lin_frame1.data[1] = lin_frame2.errors.timing >> 0;
+                            lin_frame1.data[2] = lin_frame2.errors.readback >> 8;
+                            lin_frame1.data[3] = lin_frame2.errors.readback >> 0;
+                            lin_frame1.data[4] = sm.tick >> 24;
+                            lin_frame1.data[5] = sm.tick >> 16;
+                            lin_frame1.data[6] = sm.tick >> 8;
+                            lin_frame1.data[7] = sm.tick >> 0;
+
+                            lin1.frame = &lin_frame1;
+                            sm.index++;
+                            sm.tick = mGetTick();
+                            break;
+                        case 1:
+                            lin1.frame = &lin_frame2;
+                            sm.index = 0;
+                            sm.tick = mGetTick();
+                            break;
+                        default:
+                            sm.index = 0;
+                            sm.tick = mGetTick();
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                sm.tick = mGetTick();
+            }            
+            
+            lin_master_deamon(&lin1);
+            
             break;
     } 
 }

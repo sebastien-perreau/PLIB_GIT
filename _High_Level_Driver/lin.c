@@ -1,15 +1,14 @@
 /*********************************************************************
-*	TIMER modules (1, 2, 3, 4 et 5)
+*	LIN Bus driver
 *	Author : Sébastien PERREAU
 *
 *	Revision history	:
-*               15/11/2013              - Initial release
+*               06/03/2019              - Initial release
 *********************************************************************/
 
 #include "../PLIB.h"
 
-static LIN_REGISTERS linRegs[LIN_NUMBER_OF_MODULES];
-static QWORD tickLin[LIN_NUMBER_OF_MODULES];
+static LIN_EVENT lin_event_tab[UART_NUMBER_OF_MODULES] = {0};
 
 static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
@@ -21,19 +20,8 @@ static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data
             
         case IRQ_UART_RX:
             
-            linRegs[id].busTime = LIN_BUS_ACTIVITY;
-            if(linRegs[id].statusBits.busy)
-            {
-                if(linRegs[id].stateBits.requestReadBack)
-                {
-                    if(data != linRegs[id].readBack)
-                    {
-                        linRegs[id].errorBits.readBackBit = 1;
-                    }
-                    linRegs[id].stateBits.requestReadBack = 0;
-                }
-                LINDeamonMaster(id, data);
-            }
+            lin_event_tab[id].data = data;
+            lin_event_tab[id].is_data_receive = true;
             break;
             
         case IRQ_UART_TX:
@@ -43,259 +31,236 @@ static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data
     }
 }
 
-static void lin_timing_event_handler(uint8_t id)
+static uint8_t lin_get_id_with_parity(uint8_t id)
 {
-    if (id == TIMER4)
-    {
-        LINTimeUpdate(LIN2);
-        LINTimeUpdate(LIN5);
-    }
+    return ((id & 0x3f) | ((((id >> 0) & 1) ^ ((id >> 1) & 1) ^ ((id >> 2) & 1) ^ ((id >> 4) & 1)) << 6) | (!(((id >> 1) & 1) ^ ((id >> 3) & 1) ^ ((id >> 4) & 1) ^ ((id >> 5) & 1)) << 7));
 }
 
-void LINInit(UART_MODULE id, BYTE version)
+uint8_t lin_master_deamon(LIN_PARAMS *var)
 {
-    uart_init(id, lin_event_handler, UART_BAUDRATE_19200, UART_STD_PARAMS);
-    timer_init_2345_us(TIMER4, lin_timing_event_handler, TMR_ON | TMR_SOURCE_INT | TMR_IDLE_CON | TMR_GATE_OFF, 1000);
+    uint8_t ret;
     
-    IRQInit(IRQ_U1E + id, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-    IRQInit(IRQ_U1RX + id, IRQ_ENABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-    IRQInit(IRQ_U1TX + id, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-    
-    // The LIN driver use the TIMER 4 for timings. Enable the T4 interruption.
-    IRQInit(IRQ_T4, IRQ_ENABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-    
-    // Status
-    linRegs[id].statusBits.busy = 0;
-    linRegs[id].statusBits.sleep = 0;
-    linRegs[id].statusBits.readyForNextTransmission = 1;
-    // State
-    linRegs[id].stateBits.requestType = LIN_TRANSMISSION_REQUEST;
-    linRegs[id].stateBits.requestReadBack = 0;
-    // Error
-    linRegs[id].errorBits.readBackBit = 0;
-    linRegs[id].errorBits.cheksumBit = 0;
-    // Frame & State machine
-    linRegs[id].version = version;
-    linRegs[id].stateMachine = LIN_MESSAGE_HEADER_BREAK;
-    linRegs[id].readBack = 0x00;
-    linRegs[id].frame.id = 0x00;
-    linRegs[id].frame.dlc = 0x00;
-    linRegs[id].frame.data[0] = 0x00;
-    linRegs[id].frame.data[1] = 0x00;
-    linRegs[id].frame.data[2] = 0x00;
-    linRegs[id].frame.data[3] = 0x00;
-    linRegs[id].frame.data[4] = 0x00;
-    linRegs[id].frame.data[5] = 0x00;
-    linRegs[id].frame.data[6] = 0x00;
-    linRegs[id].frame.data[7] = 0x00;
-    // Cheksum & LIN Time
-    linRegs[id].cheksum = 0x0000;
-    linRegs[id].frameTime = 0x0000;
-    linRegs[id].busTime = 0x0000;
-}
-
-BYTE LINSetIdWithParity(BYTE id)
-{
-    return ((id&0x3F) | (((((id>>0)&0x01)^((id>>1)&0x01)^((id>>2)&0x01)^((id>>4)&0x01))&0x01)<<6) | ((!(((id>>1)&0x01)^((id>>3)&0x01)^((id>>4)&0x01)^((id>>5)&0x01))&0x01)<<7));
-}
-
-LIN_STATUS_BITS *LINGetStatusBitsAdress(UART_MODULE mUartModule)
-{
-    return &linRegs[mUartModule].statusBits;
-}
-
-LIN_STATE_BITS *LINGetStateBitsAdress(UART_MODULE mUartModule)
-{
-    return &linRegs[mUartModule].stateBits;
-}
-
-LIN_ERROR_BITS *LINGetErrorBitsAdress(UART_MODULE mUartModule)
-{
-    return &linRegs[mUartModule].errorBits;
-}
-
-LIN_FRAME *LINGetFrameAdress(UART_MODULE mUartModule)
-{
-    return &linRegs[mUartModule].frame;
-}
-
-BYTE LINGetVersion(UART_MODULE mUartModule)
-{
-    return linRegs[mUartModule].version;
-}
-
-WORD LINGetCheksum(UART_MODULE mUartModule)
-{
-    return linRegs[mUartModule].cheksum;
-}
-
-void LINCleanup(UART_MODULE mUartModule)
-{
-    // Clear bits state.
-    linRegs[mUartModule].stateBits.requestReadBack = 0;
-    linRegs[mUartModule].stateBits.requestType = 0;
-    // Clear bits error.
-    linRegs[mUartModule].errorBits.readBackBit = 0;
-    linRegs[mUartModule].errorBits.cheksumBit = 0;
-    // Clear busy status bit.
-    linRegs[mUartModule].statusBits.busy = 0;
-    // Reset state machine.
-    linRegs[mUartModule].stateMachine = LIN_MESSAGE_HEADER_BREAK;
-}
-
-void LINFlush(UART_MODULE mUartModule, BOOL requestType)
-{
-    linRegs[mUartModule].stateBits.requestType = requestType;
-    linRegs[mUartModule].frameTime = (WORD) (((1.4*(10*(linRegs[mUartModule].frame.dlc + 1)) + 34) / 20) + 1);
-    if(linRegs[mUartModule].statusBits.sleep)
+    if (!var->is_init_done)
     {
-        linRegs[mUartModule].stateMachine = LIN_MESSAGE_WAKE_UP;
-    }
-    linRegs[mUartModule].statusBits.busy = 1;
-    linRegs[mUartModule].statusBits.readyForNextTransmission = 0;
-    LINDeamonMaster(mUartModule, 0x00);
-}
-
-void LINTimeUpdate(UART_MODULE mUartModule)
-{
-    if(!linRegs[mUartModule].statusBits.busy)
-    {
-        if(linRegs[mUartModule].busTime-- == 0)
+        uart_init(var->uart_module, lin_event_handler, UART_BAUDRATE_19200, UART_STD_PARAMS);
+        IRQInit_4args(IRQ_U1E + var->uart_module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
+        IRQInit_4args(IRQ_U1RX + var->uart_module, IRQ_ENABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
+        IRQInit_4args(IRQ_U1TX + var->uart_module, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
+        
+        if (var->chip_enable._port > 0)
         {
-            linRegs[mUartModule].busTime = 0;
-            linRegs[mUartModule].statusBits.sleep = 1;
+            ports_reset_pin_output(var->chip_enable);
+            ports_set_bit(var->chip_enable);
         }
+                
+        var->state_machine.tick = mGetTick();
+        var->is_init_done = true;
+        ret = _LIN_BUS_INIT;
     }
     else
     {
-        if(!linRegs[mUartModule].statusBits.sleep)
+        if (var->frame != NULL)
         {
-            if(linRegs[mUartModule].frameTime-- == 0)
+            
+            if ((var->state_machine.current_index >= _LIN_HEADER_BREAK) && (var->state_machine.current_index <= _LIN_WAIT_AND_READBACK))
             {
-                linRegs[mUartModule].frameTime = 0;
-                LINCleanup(mUartModule);
+                if (mTickCompare(var->state_machine.tick) >= ((var->frame->length == 2) ? (LIN_BUS_TIMING_MAX_2_BYTES) : ((var->frame->length == 4) ? (LIN_BUS_TIMING_MAX_4_BYTES) : LIN_BUS_TIMING_MAX_8_BYTES)))
+                {
+                    var->state_machine.current_index = _LIN_TIMING_FAIL;
+                }
             }
+            
+            switch (var->state_machine.current_index)
+            {
+                case _LIN_HOME:
+
+                    if (mTickCompare(var->state_machine.tick) >= LIN_BUS_TIMING_SLEEP)
+                    {
+                        var->state_machine.current_index = _LIN_WAKE_UP;
+                    }
+                    else
+                    {
+                        var->state_machine.current_index = _LIN_HEADER_BREAK;
+                    }
+                    lin_event_tab[var->uart_module].is_data_receive = false;
+                    var->state_machine.tick = mGetTick();
+                    break;
+
+                case _LIN_WAKE_UP:
+
+                    if (!uart_send_break(var->uart_module))
+                    {
+                        var->state_machine.current_index = _LIN_WAKE_UP_WAIT_100MS;
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_WAKE_UP_WAIT_100MS:
+
+                    if (mTickCompare(var->state_machine.tick) >= TICK_100MS)
+                    {
+                        lin_event_tab[var->uart_module].is_data_receive = false;
+                        var->state_machine.current_index = _LIN_HEADER_BREAK;
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_HEADER_BREAK:
+
+                    if (!uart_send_break(var->uart_module))
+                    {
+                        var->state_machine.data_readback = 0x00;
+                        var->state_machine.next_index = _LIN_HEADER_SYNC;
+                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_HEADER_SYNC:
+
+                    if (!uart_send_data(var->uart_module, 0x55))
+                    {
+                        var->frame->id = lin_get_id_with_parity(var->frame->id);
+                        var->state_machine.data_readback = 0x55;
+                        var->state_machine.next_index = _LIN_HEADER_ID;
+                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_HEADER_ID:
+
+                    if (!uart_send_data(var->uart_module, var->frame->id))
+                    {
+                        var->state_machine.data_readback = var->frame->id;
+                        var->state_machine.next_index = (var->frame->read_write_type) ? _LIN_TX_DATA : _LIN_RX_DATA;
+                        var->frame->length = (((var->frame->id & 0x3f) <= 0x1f) ? (2) : (((var->frame->id & 0x3f) <= 0x2f) ? (4) : 8));
+                        var->frame->data_index = 0;
+                        var->frame->checksum = (var->lin_version) ? var->frame->id : 0;
+                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                        var->state_machine.tick = mGetTick();                    
+                    }
+                    break;
+
+                case _LIN_TX_DATA:
+
+                    if (!uart_send_data(var->uart_module, var->frame->data[var->frame->data_index]))
+                    {
+                        var->state_machine.data_readback = var->frame->data[var->frame->data_index];
+                        var->frame->checksum += var->frame->data[var->frame->data_index];
+                        var->frame->checksum -= (var->frame->checksum > 255) ? 255 : 0;
+                        if (++var->frame->data_index >= var->frame->length)
+                        {
+                            var->frame->checksum ^= 255;
+                            var->state_machine.next_index = _LIN_TX_CHKSM;
+                        }
+                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_RX_DATA:
+                    
+                    if (lin_event_tab[var->uart_module].is_data_receive)
+                    {
+                        lin_event_tab[var->uart_module].is_data_receive = false;
+                        var->frame->data[var->frame->data_index] = lin_event_tab[var->uart_module].data;
+                        var->frame->checksum += var->frame->data[var->frame->data_index];
+                        var->frame->checksum -= (var->frame->checksum > 255) ? 255 : 0;
+                        if (++var->frame->data_index >= var->frame->length)
+                        {
+                            var->frame->checksum ^= 255;
+                            var->state_machine.current_index = _LIN_RX_CHKSM;
+                        }
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_TX_CHKSM:
+
+                    if (!uart_send_data(var->uart_module, var->frame->checksum))
+                    {
+                        var->state_machine.data_readback = var->frame->checksum;
+                        var->state_machine.next_index = _LIN_END;
+                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_RX_CHKSM:
+                    
+                    if (lin_event_tab[var->uart_module].is_data_receive)
+                    {
+                        lin_event_tab[var->uart_module].is_data_receive = false;
+                        if (var->frame->checksum == lin_event_tab[var->uart_module].data)
+                        {
+                            var->state_machine.current_index = _LIN_END;
+                        }
+                        else
+                        {
+                            var->state_machine.current_index = _LIN_RX_CHKSM_FAIL;
+                        }
+                        var->state_machine.tick = mGetTick();
+                    }
+                    break;
+
+                case _LIN_WAIT_AND_READBACK:
+
+                    if (lin_event_tab[var->uart_module].is_data_receive)
+                    {
+                        lin_event_tab[var->uart_module].is_data_receive = false;
+                        if (lin_event_tab[var->uart_module].data == var->state_machine.data_readback)
+                        {
+                            var->state_machine.current_index = var->state_machine.next_index;
+                            var->state_machine.tick = mGetTick();
+                        }
+                        else
+                        {
+                            var->state_machine.current_index = _LIN_READBACK_FAIL;
+                        }
+                    }
+                    break;
+                    
+                case _LIN_RX_CHKSM_FAIL:
+                    
+                    var->errors.rx_chksm++;
+                    var->frame->errors.rx_chksm++;
+                    var->state_machine.current_index = _LIN_HOME;
+                    var->state_machine.tick = mGetTick();
+                    var->frame = NULL;
+                    break;
+
+                case _LIN_READBACK_FAIL:
+                    
+                    var->errors.readback++;
+                    var->frame->errors.readback++;
+                    var->state_machine.current_index = _LIN_HOME;
+                    var->state_machine.tick = mGetTick();
+                    var->frame = NULL;
+                    break;
+
+                case _LIN_TIMING_FAIL:
+
+                    var->errors.timing++;
+                    var->frame->errors.timing++;
+                    var->state_machine.current_index = _LIN_HOME;
+                    var->state_machine.tick = mGetTick();
+                    var->frame = NULL;
+                    break;
+
+                case _LIN_END:
+
+                    var->state_machine.current_index = _LIN_HOME;
+                    var->state_machine.tick = mGetTick();
+                    var->frame = NULL;
+                    break;
+            }
+            ret = var->state_machine.current_index;
+        }
+        else
+        {
+            ret = _LIN_BUS_FRAME_NULL;
         }
     }
-    
-    if((mTickCompare(tickLin[mUartModule]) >= TIME_BEFORE_NEXT_TRANSMISSION) && !linRegs[mUartModule].statusBits.busy)
-    {
-        linRegs[mUartModule].statusBits.readyForNextTransmission = 1;
-    }
-}
-
-void LINDeamonMaster(UART_MODULE mUartModule, BYTE UartDataReceive)
-{
-    static BYTE indData = 0;
-
-    switch(linRegs[mUartModule].stateMachine)
-    {
-        case LIN_MESSAGE_WAKE_UP:
-            uart_set_baudrate(mUartModule, UART_BAUDRATE_600);
-            while (!uart_send_data(mUartModule, 0xfc))
-            {
-                linRegs[mUartModule].readBack = 0xfc;
-                linRegs[mUartModule].stateBits.requestReadBack = true;
-                linRegs[mUartModule].stateMachine = LIN_MESSAGE_HEADER_BREAK;
-            }
-            break;
-        case LIN_MESSAGE_HEADER_BREAK:
-            linRegs[mUartModule].statusBits.sleep = 0;
-            uart_set_baudrate(mUartModule, ((UART_BAUDRATE_19200 << 1)/3));
-            while (!uart_send_data(mUartModule, 0x00))
-            {
-                linRegs[mUartModule].readBack = 0x00;
-                linRegs[mUartModule].stateBits.requestReadBack = true;
-                linRegs[mUartModule].stateMachine = LIN_MESSAGE_HEADER_SYNC;
-            }
-            break;
-        case LIN_MESSAGE_HEADER_SYNC:
-            uart_set_baudrate(mUartModule, UART_BAUDRATE_19200);
-            while (!uart_send_data(mUartModule, 0x55))
-            {
-                linRegs[mUartModule].readBack = 0x55;
-                linRegs[mUartModule].stateBits.requestReadBack = true;
-                linRegs[mUartModule].stateMachine = LIN_MESSAGE_HEADER_ID;
-            }
-            break;
-        case LIN_MESSAGE_HEADER_ID:
-            while (!uart_send_data(mUartModule, linRegs[mUartModule].frame.id))
-            {
-                linRegs[mUartModule].readBack = linRegs[mUartModule].frame.id;
-                if(linRegs[mUartModule].version == LIN_VERSION_1_3)
-                {
-                    linRegs[mUartModule].cheksum = 0x00;
-                }
-                else if((linRegs[mUartModule].version == LIN_VERSION_2_0) || (linRegs[mUartModule].version == LIN_VERSION_2_1))
-                {
-                    linRegs[mUartModule].cheksum = linRegs[mUartModule].frame.id;
-                }
-                linRegs[mUartModule].stateBits.requestReadBack = true;
-                indData = 0;
-                if(linRegs[mUartModule].stateBits.requestType == LIN_TRANSMISSION_REQUEST)
-                {
-                    linRegs[mUartModule].stateMachine = LIN_MESSAGE_TX_DATA;
-                }
-                else
-                {
-                    linRegs[mUartModule].stateMachine = LIN_MESSAGE_RX_DATA;
-                }
-            }
-            break;
-        case LIN_MESSAGE_TX_DATA:
-            while (!uart_send_data(mUartModule, linRegs[mUartModule].frame.data[indData]))
-            {
-                linRegs[mUartModule].readBack = linRegs[mUartModule].frame.data[indData];
-                linRegs[mUartModule].cheksum += linRegs[mUartModule].frame.data[indData];
-                if(linRegs[mUartModule].cheksum > 255)
-                {
-                    linRegs[mUartModule].cheksum -= 255;
-                }
-                if(++indData == linRegs[mUartModule].frame.dlc)
-                {
-                    linRegs[mUartModule].stateMachine = LIN_MESSAGE_TX_CHEKSUM;
-                    linRegs[mUartModule].cheksum ^= 0xFF;
-                }
-                linRegs[mUartModule].stateBits.requestReadBack = true;
-            }
-            break;
-        case LIN_MESSAGE_RX_DATA:
-            if(++indData == 1)
-            {
-                // ID receive from UART - Do nothing
-            }
-            else if((indData >= 2) && (indData <= 9))
-            {
-                linRegs[mUartModule].frame.data[indData-2] = UartDataReceive;
-                linRegs[mUartModule].cheksum += linRegs[mUartModule].frame.data[indData-2];
-                if(linRegs[mUartModule].cheksum > 255)
-                {
-                    linRegs[mUartModule].cheksum -= 255;
-                }
-
-                if(indData >= (linRegs[mUartModule].frame.dlc + 1))
-                {
-                    linRegs[mUartModule].stateMachine = LIN_MESSAGE_RX_CHEKSUM;
-                    linRegs[mUartModule].cheksum ^= 0xFF;
-                }
-            }
-            break;
-        case LIN_MESSAGE_TX_CHEKSUM:
-            while (!uart_send_data(mUartModule, (BYTE)linRegs[mUartModule].cheksum))
-            {
-                linRegs[mUartModule].readBack = (BYTE)linRegs[mUartModule].cheksum;
-                linRegs[mUartModule].stateBits.requestReadBack = true;
-                linRegs[mUartModule].stateMachine = LIN_MESSAGE_DEFAULT;
-            }
-            break;
-        case LIN_MESSAGE_RX_CHEKSUM:
-            if((BYTE)linRegs[mUartModule].cheksum != UartDataReceive)
-            {
-                linRegs[mUartModule].errorBits.cheksumBit = 1;
-            }
-        default:
-            tickLin[mUartModule] = mGetTick();
-            LINCleanup(mUartModule);
-            break;
-    }
+    return ret;
 }
