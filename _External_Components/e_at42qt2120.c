@@ -70,10 +70,7 @@ uint8_t e_at42qt2120_deamon(AT42QT2120_CONFIG *var)
     
     if (!var->is_init_done)
     {
-        i2c_init_as_master(var->i2c_params.module, NULL, I2C_FREQUENCY_400KHZ, I2C_CONTINUE_ON_IDLE | I2C_DISABLE_SMBUS);
-        irq_init(IRQ_I2C1B + var->i2c_params.module, IRQ_DISABLED, irq_i2c_priority(var->i2c_params.module));
-        irq_init(IRQ_I2C1S + var->i2c_params.module, IRQ_DISABLED, irq_i2c_priority(var->i2c_params.module));
-        irq_init(IRQ_I2C1M + var->i2c_params.module, IRQ_DISABLED, irq_i2c_priority(var->i2c_params.module));
+        i2c_init_as_master(var->i2c_params.module, NULL, IRQ_NONE, I2C_FREQUENCY_400KHZ, I2C_CONTINUE_ON_IDLE | I2C_DISABLE_SMBUS);
         var->is_init_done = true;
         ret = _BUS_I2C_INIT;
     }

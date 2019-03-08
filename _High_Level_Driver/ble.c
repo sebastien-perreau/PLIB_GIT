@@ -51,7 +51,7 @@ void ble_init(ble_params_t * p_ble_params)
     DmaChnSetEvEnableFlags(DMA_CHANNEL2, DMA_EV_BLOCK_DONE);	// enable the transfer done interrupt, when all buffer transferred
     DmaChnSetEventControl(DMA_CHANNEL2, DMA_EV_START_IRQ(_UART4_TX_IRQ));
     
-    uart_init(UART4, ble_event_handler, UART_BAUDRATE_1M, UART_STD_PARAMS);
+    uart_init(UART4, ble_event_handler, IRQ_UART_RX, UART_BAUDRATE_1M, UART_STD_PARAMS);
     
     p_ble = p_ble_params;
     

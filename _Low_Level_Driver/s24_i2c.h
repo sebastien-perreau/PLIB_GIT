@@ -264,7 +264,8 @@ typedef struct
 } I2C_REGISTERS;
 
 void i2c_init_as_master(    I2C_MODULE id, 
-                            serial_event_handler_t evt_handler,
+                            event_handler_id_type_value_t evt_handler,
+                            IRQ_EVENT_TYPE event_type_enable,
                             I2C_FREQUENCY frequency,
                             I2C_CONFIGURATION configuration);
 void i2c_enable(I2C_MODULE id, bool enable);

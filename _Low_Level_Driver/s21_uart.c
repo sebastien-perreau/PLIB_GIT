@@ -19,12 +19,12 @@ const UART_REGISTERS * UartModules[] =
 	(UART_REGISTERS*)_UART6_BASE_ADDRESS
 };
 static uint32_t real_baudrate_tab[UART_NUMBER_OF_MODULES] = {0};
-static serial_event_handler_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NULL};
+static event_handler_id_type_value_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NULL};
 
 /*******************************************************************************
  * Function: 
  *      void uart_init(     UART_MODULE id, 
- *                  serial_event_handler_t evt_handler,
+ *                  event_handler_id_type_value_t evt_handler,
  *                  UART_BAUDRATE baudrate, 
  *                  UART_ENABLE_MODE enable_mode,
  *                  UART_CONFIG_MODE config_mode,
@@ -38,6 +38,8 @@ static serial_event_handler_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NU
  * Parameters:
  *      id: The UART module you want to use.
  *      evt_handler: The handler (function) to call when an interruption occurs.
+ *      event_type_enable: The event(s) you want to enable by interruption (See. 
+ *      IRQ_EVENT_TYPE). 
  *      baudrate: The desire baudrate in bit per second.
  *      enable_mode: Params follow the EXP_UART_ENABLE_MODE enumeration.
  *      config_mode: Params follow the EXP_UART_CONFIG_MODE enumeration.
@@ -50,7 +52,8 @@ static serial_event_handler_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NU
  ******************************************************************************/
 
 void uart_init(     UART_MODULE id, 
-                    serial_event_handler_t evt_handler,
+                    event_handler_id_type_value_t evt_handler,
+                    IRQ_EVENT_TYPE event_type_enable,
                     UART_BAUDRATE baudrate, 
                     UART_ENABLE_MODE enable_mode,
                     UART_CONFIG_MODE config_mode,
@@ -58,21 +61,19 @@ void uart_init(     UART_MODULE id,
                     UART_FIFO_MODE fifo_mode,
                     UART_ADDRESS_DETECTION address_detection)
 {
-    if (enable_mode & UART_ENABLE)
-    {
-        serial_event_handler[id] = evt_handler;
-        uart_enable(id, UART_DISABLE);
-        uart_set_params(id, config_mode);
-        uart_set_line_control(id, control_mode);
-        uart_set_baudrate(id, baudrate);
-        uart_set_fifo(id, fifo_mode);
-        uart_set_adress_detection(id, (uint8_t) address_detection, address_detection & UART_ADDRESS_DETECTION_MASK);
-        uart_enable(id, enable_mode);
-    }
-    else
-    {
-        uart_enable(id, UART_DISABLE);
-    }
+
+    serial_event_handler[id] = evt_handler;
+    irq_init(IRQ_U1E + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_UART_ERROR) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_uart_priority(id));
+    irq_init(IRQ_U1RX + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_UART_RX) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_uart_priority(id));
+    irq_init(IRQ_U1TX + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_UART_TX) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_uart_priority(id));
+ 
+    uart_enable(id, UART_DISABLE);
+    uart_set_params(id, config_mode);
+    uart_set_line_control(id, control_mode);
+    uart_set_baudrate(id, baudrate);
+    uart_set_fifo(id, fifo_mode);
+    uart_set_adress_detection(id, (uint8_t) address_detection, address_detection & UART_ADDRESS_DETECTION_MASK);
+    uart_enable(id, enable_mode);
 }
 
 /*******************************************************************************

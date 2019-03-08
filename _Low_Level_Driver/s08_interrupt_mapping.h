@@ -177,6 +177,7 @@ typedef struct
 
 typedef enum
 {
+    IRQ_NONE                = 0x00,
     IRQ_SPI_FAULT           = 0x01,
     IRQ_SPI_TX              = 0x02,
     IRQ_SPI_RX              = 0x04,
@@ -188,11 +189,13 @@ typedef enum
     IRQ_UART_TX             = 0x04
 } IRQ_EVENT_TYPE;
 
-typedef void (*basic_event_handler_t)(uint8_t id);
-typedef void (*serial_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
+typedef void (*event_handler_t)();
+typedef void (*event_handler_id_t)(uint8_t id);
+typedef void (*event_handler_id_type_value_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
             
 void irq_link_data_priority(const IRQ_DATA_PRIORITY *p_data_priority);
 IRQ_DATA_PRIORITY irq_change_notice_priority();
+IRQ_DATA_PRIORITY irq_adc10_priority();
 IRQ_DATA_PRIORITY irq_timer_priority(uint8_t id);
 IRQ_DATA_PRIORITY irq_dma_priority(uint8_t id);
 IRQ_DATA_PRIORITY irq_uart_priority(uint8_t id);

@@ -42,7 +42,7 @@ void log_init(UART_MODULE id, uint32_t data_rate)
     DmaChnSetEvEnableFlags(DMA_CHANNEL6, DMA_EV_BLOCK_DONE);
     DmaChnSetEventControl(DMA_CHANNEL6, DMA_EV_START_IRQ(uart_tx_irq[module_id]));
 
-    uart_init(id, NULL, data_rate, UART_STD_PARAMS);
+    uart_init(id, NULL, IRQ_NONE, data_rate, UART_STD_PARAMS);
 }
 
 static uint16_t _transform_integer_to_string(char *p_buffer, uint16_t index_p_buffer, uint32_t value, LOG_BASE_t _base, uint8_t number_of_char)

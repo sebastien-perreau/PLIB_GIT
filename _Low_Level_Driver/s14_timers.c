@@ -20,7 +20,7 @@ const TIMER_REGISTERS * TimerModules[] =
     (TIMER_REGISTERS *)_TMR4_BASE_ADDRESS,
     (TIMER_REGISTERS *)_TMR5_BASE_ADDRESS
 };
-static basic_event_handler_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NULL};
+static event_handler_id_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NULL};
 
 /*******************************************************************************
  * Function: 
@@ -42,12 +42,13 @@ static basic_event_handler_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NUL
  * Example:
  *      See. cfg_pwm() in "config.c"
  ******************************************************************************/
-void timer_init_2345_us(TIMER_MODULE id, basic_event_handler_t evt_handler, uint32_t config, uint32_t period_us)
+void timer_init_2345_us(TIMER_MODULE id, event_handler_id_t evt_handler, uint32_t config, uint32_t period_us)
 {
     TIMER_REGISTERS * p_timer = (TIMER_REGISTERS *) TimerModules[id];
     uint32_t v_pr = 100000;
     uint16_t v_prescale = 1;
     
+    timer_event_handler[id] = evt_handler;
     irq_init(IRQ_T1 + id, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_timer_priority(id));
 
     while(v_pr > 65535)
@@ -98,8 +99,6 @@ void timer_init_2345_us(TIMER_MODULE id, basic_event_handler_t evt_handler, uint
             break;
         }
     }
-    
-    timer_event_handler[id] = evt_handler;
     
     p_timer->TCONCLR    = TMR_ON;
     p_timer->TMR        = 0x0000;
@@ -154,12 +153,6 @@ double timer_get_period_us(TIMER_MODULE id)
  * 
  * Parameters:
  *      id: The TIMER module you want to use.
- * 
- * Return:
- *      none
- * 
- * Example:
- *      none
  ******************************************************************************/
 void timer_interrupt_handler(TIMER_MODULE id)
 {

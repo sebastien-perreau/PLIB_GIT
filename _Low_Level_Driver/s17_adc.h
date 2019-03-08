@@ -38,7 +38,10 @@ typedef enum
 #define ADC_CONV_CLK_INTERNAL_RC    (1 << _AD1CON3_ADRC_POSITION)
 #define ADC_SAMPLE_TIME_15          (0x0F << _AD1CON3_SAMC_POSITION)
 
-void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref);
+void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref, event_handler_t evt_handler);
 uint16_t adc10_read(ADC10_ANALOG_PIN channel);
+
+
+void adc10_interrupt_handler();
 
 #endif

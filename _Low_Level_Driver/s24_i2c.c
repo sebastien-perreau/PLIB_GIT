@@ -22,12 +22,12 @@ const I2C_REGISTERS * I2cModules[] =
 	(I2C_REGISTERS*)_I2C5_BASE_ADDRESS
 };
 static uint32_t real_frequency_tab[I2C_NUMBER_OF_MODULES] = {0};
-static serial_event_handler_t serial_event_handler[I2C_NUMBER_OF_MODULES] = {NULL};
+static event_handler_id_type_value_t serial_event_handler[I2C_NUMBER_OF_MODULES] = {NULL};
 
 /*******************************************************************************
  * Function: 
  *      void i2c_init_as_master(    I2C_MODULE id, 
- *                                  serial_event_handler_t evt_handler,
+ *                                  event_handler_id_type_value_t evt_handler,
  *                                  I2C_FREQUENCY frequency,
  *                                  I2C_CONFIGURATION configuration)
  * 
@@ -37,6 +37,8 @@ static serial_event_handler_t serial_event_handler[I2C_NUMBER_OF_MODULES] = {NUL
  * Parameters:
  *      id: The I2C module you want to use.
  *      evt_handler: The handler (function) to call when an interruption occurs.
+ *      event_type_enable: The event(s) you want to enable by interruption (See. 
+ *      IRQ_EVENT_TYPE). 
  *      frequency: The desire frequency (see. I2C_FREQUENCY).
  *      configuration: Params follow the I2C_CONFIGURATION enumeration.
  * 
@@ -44,10 +46,16 @@ static serial_event_handler_t serial_event_handler[I2C_NUMBER_OF_MODULES] = {NUL
  *      none
  ******************************************************************************/
 void i2c_init_as_master(    I2C_MODULE id, 
-                            serial_event_handler_t evt_handler,
+                            event_handler_id_type_value_t evt_handler,
+                            IRQ_EVENT_TYPE event_type_enable,
                             I2C_FREQUENCY frequency,
                             I2C_CONFIGURATION configuration)
 {
+    serial_event_handler[id] = evt_handler;
+    irq_init(IRQ_I2C1B + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_I2C_BUS_COLISION) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_i2c_priority(id));
+    irq_init(IRQ_I2C1S + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_I2C_SLAVE) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_i2c_priority(id));
+    irq_init(IRQ_I2C1M + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_I2C_MASTER) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_i2c_priority(id));
+    
     i2c_enable(id, OFF);
     if (frequency == I2C_FREQUENCY_400KHZ)
     {
@@ -58,8 +66,7 @@ void i2c_init_as_master(    I2C_MODULE id,
         configuration |= I2C_SLEW_RATE_NORMAL_SPEED;
     }
     i2c_configuration(id, configuration);
-    i2c_set_frequency(id, frequency);
-    serial_event_handler[id] = evt_handler;
+    i2c_set_frequency(id, frequency);    
     i2c_enable(id, ON);
 }
 

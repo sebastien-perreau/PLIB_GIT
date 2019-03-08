@@ -155,34 +155,39 @@ IRQ_DATA_PRIORITY irq_change_notice_priority()
     return p_IrqDataPriority[0];
 }
 
+IRQ_DATA_PRIORITY irq_adc10_priority()
+{
+    return p_IrqDataPriority[1];
+}
+
 IRQ_DATA_PRIORITY irq_timer_priority(uint8_t id)
 {
-    return p_IrqDataPriority[1 + id];
+    return p_IrqDataPriority[2 + id];
 }
 
 IRQ_DATA_PRIORITY irq_dma_priority(uint8_t id)
 {
-    return p_IrqDataPriority[6 + id];
+    return p_IrqDataPriority[7 + id];
 }
 
 IRQ_DATA_PRIORITY irq_uart_priority(uint8_t id)
 {
-    return p_IrqDataPriority[14 + id];
+    return p_IrqDataPriority[15 + id];
 }
 
 IRQ_DATA_PRIORITY irq_spi_priority(uint8_t id)
 {
-    return p_IrqDataPriority[20 + id];
+    return p_IrqDataPriority[21 + id];
 }
 
 IRQ_DATA_PRIORITY irq_i2c_priority(uint8_t id)
 {
-    return p_IrqDataPriority[24 + id];
+    return p_IrqDataPriority[25 + id];
 }
 
 IRQ_DATA_PRIORITY irq_can_priority(uint8_t id)
 {
-    return p_IrqDataPriority[29 + id];
+    return p_IrqDataPriority[30 + id];
 }
 
 /*******************************************************************************

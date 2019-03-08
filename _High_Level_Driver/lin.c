@@ -100,10 +100,7 @@ LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var)
     
     if (!var->is_init_done)
     {
-        uart_init(var->uart_module, lin_event_handler, UART_BAUDRATE_19200, UART_STD_PARAMS);
-        irq_init(IRQ_U1E + var->uart_module, IRQ_DISABLED, irq_uart_priority(var->uart_module));
-        irq_init(IRQ_U1RX + var->uart_module, IRQ_ENABLED, irq_uart_priority(var->uart_module));
-        irq_init(IRQ_U1TX + var->uart_module, IRQ_DISABLED, irq_uart_priority(var->uart_module));
+        uart_init(var->uart_module, lin_event_handler, IRQ_UART_RX, UART_BAUDRATE_19200, UART_STD_PARAMS);
         
         if (var->chip_enable._port > 0)
         {

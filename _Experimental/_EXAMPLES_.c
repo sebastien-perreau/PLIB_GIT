@@ -135,7 +135,7 @@ void _EXAMPLE_AVERAGE_AND_NTC()
     switch (sm_example.index)
     {
         case _SETUP:
-            adc10_init(AN1|AN2|AN3|AN15, ADC10_VREFP_VREFN);
+            adc10_init(AN1|AN2|AN3|AN15, ADC10_VREFP_VREFN, NULL);
             sm_example.index = _MAIN;
             break;
             
@@ -687,7 +687,7 @@ void _EXAMPLE_UART()
     {
         case _SETUP:          
       
-            uart_init(UART1, NULL, 115200, UART_STD_PARAMS);
+            uart_init(UART1, NULL, IRQ_NONE, 115200, UART_STD_PARAMS);
             sm_example.index = _MAIN;
             break;
             

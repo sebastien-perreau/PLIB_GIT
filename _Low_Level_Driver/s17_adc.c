@@ -18,6 +18,8 @@
 
 #include "../PLIB.h"
 
+static event_handler_t adc10_event_handler = NULL;
+
 /*******************************************************************************
  * Function: 
  *      void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref)
@@ -36,10 +38,13 @@
  * Example:
  *      See. _EXAMPLE_AVERAGE_AND_NTC()
  ******************************************************************************/
-void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref)
+void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref, event_handler_t evt_handler)
 {
     uint8_t i = 0;
     uint8_t numberOfSamplesBetweenInterrupts = 0;
+    
+    adc10_event_handler = evt_handler;
+    irq_init(IRQ_AD1, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_adc10_priority());
     
     for(i = 0 ; i < 16 ; i++)
     {
@@ -90,4 +95,23 @@ uint16_t adc10_read(ADC10_ANALOG_PIN channel)
         }
     }
     return 0;
+}
+
+/*******************************************************************************
+ * Function: 
+ *      void adc10_interrupt_handler()
+ * 
+ * Description:
+ *      This routine is called when an interruption occured. This interrupt 
+ *      handler calls the user _event_handler (if existing) otherwise do nothing.
+ * 
+ * Parameters:
+ *      none
+ ******************************************************************************/
+void adc10_interrupt_handler()
+{
+    if (adc10_event_handler != NULL)
+    {
+        (*adc10_event_handler)();
+    }
 }

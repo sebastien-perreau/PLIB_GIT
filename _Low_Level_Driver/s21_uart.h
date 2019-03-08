@@ -119,7 +119,8 @@ typedef struct
 } UART_REGISTERS;
 
 void uart_init(     UART_MODULE id, 
-                    serial_event_handler_t evt_handler,
+                    event_handler_id_type_value_t evt_handler,
+                    IRQ_EVENT_TYPE event_type_enable,
                     UART_BAUDRATE baudrate,
                     UART_ENABLE_MODE enable,
                     UART_CONFIG_MODE config_mode, 
