@@ -11,6 +11,7 @@
 
 #include "../PLIB.h"
 
+const IRQ_DATA_PRIORITY *p_IrqDataPriority = NULL;
 const IRQ_REGISTERS IrqTab[] =
 {
     {   &IFS0,  &IEC0,  &IPC0,  _IFS0_CTIF_MASK,        _IPC0_CTIS_POSITION,    _IPC0_CTIP_POSITION     },  // Core Timer Interrupt
@@ -144,6 +145,78 @@ const IRQ_REGISTERS IrqTab[] =
     {   &IFS1,  &IEC1,  &IPC12,  _IFS1_ETHIF_MASK,      _IPC12_ETHIS_POSITION,  _IPC12_ETHIP_POSITION   }   // ETHERNET
 };
 
+void irq_link_data_priority(const IRQ_DATA_PRIORITY *p_data_priority)
+{
+    p_IrqDataPriority = p_data_priority;
+}
+
+IRQ_DATA_PRIORITY irq_change_notice_priority()
+{
+    return p_IrqDataPriority[0];
+}
+
+IRQ_DATA_PRIORITY irq_timer_priority(uint8_t id)
+{
+    return p_IrqDataPriority[1 + id];
+}
+
+IRQ_DATA_PRIORITY irq_dma_priority(uint8_t id)
+{
+    return p_IrqDataPriority[6 + id];
+}
+
+IRQ_DATA_PRIORITY irq_uart_priority(uint8_t id)
+{
+    return p_IrqDataPriority[14 + id];
+}
+
+IRQ_DATA_PRIORITY irq_spi_priority(uint8_t id)
+{
+    return p_IrqDataPriority[20 + id];
+}
+
+IRQ_DATA_PRIORITY irq_i2c_priority(uint8_t id)
+{
+    return p_IrqDataPriority[24 + id];
+}
+
+IRQ_DATA_PRIORITY irq_can_priority(uint8_t id)
+{
+    return p_IrqDataPriority[29 + id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      void irq_init(IRQ_SOURCE source, bool enable, IRQ_DATA_PRIORITY priority)
+ * 
+ * Description:
+ *      This routine is used to initialize the interruption of a module (IRQ_SOURCE).
+ * 
+ * Parameters:
+ *      source: The IRQ_SOURCE of the module. 
+ *      enable: true to enable or false to disable interruption for the module.
+ *      priority: The IRQ_DATA_PRIORITY of the module. It is a concatenation of
+ *                priority and sub-priority. 
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
+void irq_init(IRQ_SOURCE source, bool enable, IRQ_DATA_PRIORITY priority)
+{
+    IRQ_REGISTERS * p_irq = (IRQ_REGISTERS *)&IrqTab[source];
+    // Disable IRQ
+    p_irq->IEC[REG_CLR] = p_irq->MASK;
+    // Set priority
+    p_irq->IPC[REG_CLR] = (7 << p_irq->PRI_POS);
+    p_irq->IPC[REG_CLR] = (3 << p_irq->SUB_PRI_POS);
+    p_irq->IPC[REG_SET] = (priority.priority << p_irq->PRI_POS);
+    p_irq->IPC[REG_SET] = (priority.sub_priority << p_irq->SUB_PRI_POS);
+    // Clear flag
+    p_irq->IFS[REG_CLR] = p_irq->MASK;
+    // Enable or Disable IRQ
+    p_irq->IEC[enable ? REG_SET : REG_CLR] = p_irq->MASK;
+}
+
 /*******************************************************************************
  * Function: 
  *      void irq_clr_flag(IRQ_SOURCE source)
@@ -155,9 +228,6 @@ const IRQ_REGISTERS IrqTab[] =
  *      source: The IRQ_SOURCE of the module. 
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void irq_clr_flag(IRQ_SOURCE source)
@@ -177,9 +247,6 @@ void irq_clr_flag(IRQ_SOURCE source)
  *      source: The IRQ_SOURCE of the module. 
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void irq_set_flag(IRQ_SOURCE source)
@@ -202,9 +269,6 @@ void irq_set_flag(IRQ_SOURCE source)
  * 
  * Return:
  *      An uint32_t value containing the flag status.
- * 
- * Example:
- *      none
  ******************************************************************************/
 uint32_t irq_get_flag(IRQ_SOURCE source)
 {
@@ -225,119 +289,9 @@ uint32_t irq_get_flag(IRQ_SOURCE source)
  * 
  * Return:
  *      none
- * 
- * Example:
- *      none
  ******************************************************************************/
 void irq_enable(IRQ_SOURCE source, bool enable)
 {
     IRQ_REGISTERS * p_irq = (IRQ_REGISTERS *)&IrqTab[source];
-    if(enable)
-    {
-        p_irq->IEC[REG_SET] = p_irq->MASK;
-    }
-    else
-    {
-        p_irq->IEC[REG_CLR] = p_irq->MASK;
-    }
-}
-
-/*******************************************************************************
- * Function: 
- *      void irq_set_priority(IRQ_SOURCE source, uint32_t priority)
- * 
- * Description:
- *      This routine is used to set the priority value of your interruption
- *      module. 
- *      Important: the priority and sub-priority should have the same values 
- *      as the Interrupt Handler IPLxAUTO 
- * 
- * Parameters:
- *      source: The IRQ_SOURCE of the module. 
- *      priority: The IRQ_PRIORITY you want (0..7).
- * 
- * Return:
- *      none
- * 
- * Example:
- *      none
- ******************************************************************************/
-void irq_set_priority(IRQ_SOURCE source, IRQ_PRIORITY priority)
-{
-    IRQ_REGISTERS * p_irq = (IRQ_REGISTERS *)&IrqTab[source];
-    p_irq->IPC[REG_CLR] = (7 << p_irq->PRI_POS);
-    p_irq->IPC[REG_SET] = (priority << p_irq->PRI_POS);
-}
-
-/*******************************************************************************
- * Function: 
- *      IRQ_PRIORITY irq_get_priority(IRQ_SOURCE source)
- * 
- * Description:
- *      This routine is used to get the priority value of your interruption
- *      module.
- * 
- * Parameters:
- *      source: The IRQ_SOURCE of the module.
- * 
- * Return:
- *      It returns the IRQ_PRIORITY value of your module.
- * 
- * Example:
- *      none
- ******************************************************************************/
-IRQ_PRIORITY irq_get_priority(IRQ_SOURCE source)
-{
-    IRQ_REGISTERS * p_irq = (IRQ_REGISTERS *)&IrqTab[source];
-    return ((p_irq->IPC[REG] >> p_irq->PRI_POS) & 7);
-}
-
-/*******************************************************************************
- * Function: 
- *      void irq_set_sub_priority(IRQ_SOURCE source, IRQ_SUB_PRIORITY sub_priority)
- * 
- * Description:
- *      This routine is used to set the sub-priority value of your interruption
- *      module. 
- *      Important: the priority and sub-priority should have the same values 
- *      as the Interrupt Handler IPLxAUTO 
- * 
- * Parameters:
- *      source: The IRQ_SOURCE of the module. 
- *      sub-priority: The IRQ_SUB_PRIORITY you want (0..3).
- * 
- * Return:
- *      none
- * 
- * Example:
- *      none
- ******************************************************************************/
-void irq_set_sub_priority(IRQ_SOURCE source, IRQ_SUB_PRIORITY sub_priority)
-{
-    IRQ_REGISTERS * p_irq = (IRQ_REGISTERS *)&IrqTab[source];
-    p_irq->IPC[REG_CLR] = (3 << p_irq->SUB_PRI_POS);
-    p_irq->IPC[REG_SET] = (sub_priority << p_irq->SUB_PRI_POS);
-}
-
-/*******************************************************************************
- * Function: 
- *      IRQ_SUB_PRIORITY irq_get_sub_priority(IRQ_SOURCE source)
- * 
- * Description:
- *      This routine is used to get the sub-priority value of your interruption
- *      module.
- * 
- * Parameters:
- *      source: The IRQ_SOURCE of the module.
- * 
- * Return:
- *      It returns the IRQ_SUB_PRIORITY value of your module.
- * 
- * Example:
- *      none
- ******************************************************************************/
-IRQ_SUB_PRIORITY irq_get_sub_priority(IRQ_SOURCE source)
-{
-    IRQ_REGISTERS * p_irq = (IRQ_REGISTERS *)&IrqTab[source];
-    return ((p_irq->IPC[REG] >> p_irq->SUB_PRI_POS) & 3);
+    p_irq->IEC[enable ? REG_SET : REG_CLR] = p_irq->MASK;
 }

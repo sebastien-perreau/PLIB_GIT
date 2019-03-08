@@ -32,7 +32,6 @@ void _EXAMPLE_TIMER()
         case _SETUP:
             
             timer_init_2345_us(TIMER4, _example_timer_event_handler, TMR_ON | TMR_SOURCE_INT | TMR_IDLE_CON | TMR_GATE_OFF, 100000);
-            IRQInit_4args(IRQ_T4, IRQ_ENABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_3);
             sm_example.index = _MAIN;
             break;
             

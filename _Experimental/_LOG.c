@@ -40,13 +40,9 @@ void log_init(UART_MODULE id, uint32_t data_rate)
     
     DmaChnOpen(DMA_CHANNEL6, DMA_CHN_PRI0, DMA_OPEN_MATCH);
     DmaChnSetEvEnableFlags(DMA_CHANNEL6, DMA_EV_BLOCK_DONE);
-    IRQInit_4args(IRQ_DMA6, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
     DmaChnSetEventControl(DMA_CHANNEL6, DMA_EV_START_IRQ(uart_tx_irq[module_id]));
 
     uart_init(id, NULL, data_rate, UART_STD_PARAMS);
-    IRQInit_4args(IRQ_U1E + id, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-    IRQInit_4args(IRQ_U1TX + id, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
-    IRQInit_4args(IRQ_U1RX + id, IRQ_DISABLED, IRQ_PRIORITY_LEVEL_3, IRQ_SUB_PRIORITY_LEVEL_1);
 }
 
 static uint16_t _transform_integer_to_string(char *p_buffer, uint16_t index_p_buffer, uint32_t value, LOG_BASE_t _base, uint8_t number_of_char)

@@ -147,33 +147,13 @@ typedef enum
 
 typedef enum
 {
-    IRQ_DISABLED = 0,
-    IRQ_ENABLED = 1
+    IRQ_DISABLED            = 0,
+    IRQ_ENABLED             = 1
 } IRQ_EN_DIS;
 
 typedef enum
 {
-    IRQ_PRIORITY_DISABLED = 0,
-    IRQ_PRIORITY_LEVEL_1 = 1,
-    IRQ_PRIORITY_LEVEL_2 = 2,
-    IRQ_PRIORITY_LEVEL_3 = 3,
-    IRQ_PRIORITY_LEVEL_4 = 4,
-    IRQ_PRIORITY_LEVEL_5 = 5,
-    IRQ_PRIORITY_LEVEL_6 = 6,
-    IRQ_PRIORITY_LEVEL_7 = 7
-} IRQ_PRIORITY;
-
-typedef enum
-{
-    IRQ_SUB_PRIORITY_LEVEL_0 =   0,
-    IRQ_SUB_PRIORITY_LEVEL_1 =   1,
-    IRQ_SUB_PRIORITY_LEVEL_2 =   2,
-    IRQ_SUB_PRIORITY_LEVEL_3 =   3
-} IRQ_SUB_PRIORITY;
-
-typedef enum
-{
-    REG = 0,
+    REG                     = 0,
     REG_CLR,
     REG_SET,
     REG_INV
@@ -181,58 +161,49 @@ typedef enum
 
 typedef struct
 {
-    volatile uint32_t	*IFS;
-    volatile uint32_t	*IEC;
-    volatile uint32_t	*IPC;
-    volatile uint32_t	MASK;
-    volatile uint32_t	SUB_PRI_POS;
-    volatile uint32_t   PRI_POS;
+    uint8_t                 priority;
+    uint8_t                 sub_priority;
+} IRQ_DATA_PRIORITY;
+
+typedef struct
+{
+    volatile uint32_t       *IFS;
+    volatile uint32_t       *IEC;
+    volatile uint32_t       *IPC;
+    volatile uint32_t       MASK;
+    volatile uint32_t       SUB_PRI_POS;
+    volatile uint32_t       PRI_POS;
 } IRQ_REGISTERS;
 
 typedef enum
 {
-    IRQ_SPI_FAULT = 0,
-    IRQ_SPI_TX,
-    IRQ_SPI_RX,
-    IRQ_I2C_MASTER,
-    IRQ_I2C_BUS_COLISION,
-    IRQ_I2C_SLAVE,
-    IRQ_UART_ERROR,
-    IRQ_UART_RX,
-    IRQ_UART_TX
+    IRQ_SPI_FAULT           = 0x01,
+    IRQ_SPI_TX              = 0x02,
+    IRQ_SPI_RX              = 0x04,
+    IRQ_I2C_MASTER          = 0x01,
+    IRQ_I2C_BUS_COLISION    = 0x02,
+    IRQ_I2C_SLAVE           = 0x04,
+    IRQ_UART_ERROR          = 0x01,
+    IRQ_UART_RX             = 0x02,
+    IRQ_UART_TX             = 0x04
 } IRQ_EVENT_TYPE;
 
 typedef void (*basic_event_handler_t)(uint8_t id);
 typedef void (*serial_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
-
-typedef struct
-{
-    uint8_t     priority;
-    uint8_t     sub_priority;
-} _IRQ;
-
-#define _IRQ_PRIO2(a, b)            a
-#define _IRQ_SUB_PRIO2(a, b)        b
-#define _IRQ_PRIO(a)                _IRQ_PRIO2(a)
-#define _IRQ_SUB_PRIO(a)            _IRQ_SUB_PRIO2(a)
-
-#define IRQInit(a, b, c)            IRQInit_4args(a, b, c)
-#define IRQInit_4args(source, enable, priority, sub_priority)   \
-            (                                                   \
-            irq_enable(source, IRQ_DISABLED),                   \
-            irq_set_priority(source, priority),                 \
-            irq_set_sub_priority(source, sub_priority),         \
-            irq_clr_flag(source),                               \
-            irq_enable(source, enable)                          \
-            )
             
+void irq_link_data_priority(const IRQ_DATA_PRIORITY *p_data_priority);
+IRQ_DATA_PRIORITY irq_change_notice_priority();
+IRQ_DATA_PRIORITY irq_timer_priority(uint8_t id);
+IRQ_DATA_PRIORITY irq_dma_priority(uint8_t id);
+IRQ_DATA_PRIORITY irq_uart_priority(uint8_t id);
+IRQ_DATA_PRIORITY irq_spi_priority(uint8_t id);
+IRQ_DATA_PRIORITY irq_i2c_priority(uint8_t id);
+IRQ_DATA_PRIORITY irq_can_priority(uint8_t id);
+
+void irq_init(IRQ_SOURCE source, bool enable, IRQ_DATA_PRIORITY priority);
 void irq_clr_flag(IRQ_SOURCE source);
 void irq_set_flag(IRQ_SOURCE source);
 uint32_t irq_get_flag(IRQ_SOURCE source);
 void irq_enable(IRQ_SOURCE source, bool enable);
-void irq_set_priority(IRQ_SOURCE source, IRQ_PRIORITY priority);
-IRQ_PRIORITY irq_get_priority(IRQ_SOURCE source);
-void irq_set_sub_priority(IRQ_SOURCE source, IRQ_SUB_PRIORITY sub_priority);
-IRQ_SUB_PRIORITY irq_get_sub_priority(IRQ_SOURCE source);
 
 #endif

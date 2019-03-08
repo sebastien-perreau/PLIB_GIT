@@ -47,6 +47,8 @@ void timer_init_2345_us(TIMER_MODULE id, basic_event_handler_t evt_handler, uint
     TIMER_REGISTERS * p_timer = (TIMER_REGISTERS *) TimerModules[id];
     uint32_t v_pr = 100000;
     uint16_t v_prescale = 1;
+    
+    irq_init(IRQ_T1 + id, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_timer_priority(id));
 
     while(v_pr > 65535)
     {
