@@ -145,46 +145,183 @@ const IRQ_REGISTERS IrqTab[] =
     {   &IFS1,  &IEC1,  &IPC12,  _IFS1_ETHIF_MASK,      _IPC12_ETHIS_POSITION,  _IPC12_ETHIP_POSITION   }   // ETHERNET
 };
 
+/*******************************************************************************
+ * Function: 
+ *      void irq_link_data_priority(const IRQ_DATA_PRIORITY *p_data_priority)
+ * 
+ * Description:
+ *      This routine is used to set a link with the constant IRQ_DATA_PRIORITY 
+ *      array created in the "config.c" file. This array contains the priority 
+ *      and sub-priority for the modules which are using interruptions. 
+ *      Thanks to this link, the priorities define by the user can be accessible
+ *      in PLIB. 
+ * 
+ * Parameters:
+ *      *p_data_priority: The constant IRQ_DATA_PRIORITY pointer defines in config.c
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void irq_link_data_priority(const IRQ_DATA_PRIORITY *p_data_priority)
 {
     p_IrqDataPriority = p_data_priority;
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_change_notice_priority()
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the CHANGE NOTICE module in PLIB.
+ * 
+ * Parameters:
+ *      none
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_change_notice_priority()
 {
     return p_IrqDataPriority[0];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_adc10_priority()
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the ADC10 module in PLIB.
+ * 
+ * Parameters:
+ *      none
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_adc10_priority()
 {
     return p_IrqDataPriority[1];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_timer_priority(uint8_t id)
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the TIMER module(s) in PLIB.
+ * 
+ * Parameters:
+ *      id: The desire module (TIMER1..TIMER5)
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_timer_priority(uint8_t id)
 {
     return p_IrqDataPriority[2 + id];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_dma_priority(uint8_t id)
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the DMA module(s) in PLIB.
+ * 
+ * Parameters:
+ *      id: The desire module (DMA0..DMA7)
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_dma_priority(uint8_t id)
 {
     return p_IrqDataPriority[7 + id];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_uart_priority(uint8_t id)
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the UART module(s) in PLIB.
+ * 
+ * Parameters:
+ *      id: The desire module (UART1..UART6)
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_uart_priority(uint8_t id)
 {
     return p_IrqDataPriority[15 + id];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_spi_priority(uint8_t id)
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the SPI module(s) in PLIB.
+ * 
+ * Parameters:
+ *      id: The desire module (SPI1..SPI4)
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_spi_priority(uint8_t id)
 {
     return p_IrqDataPriority[21 + id];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_i2c_priority(uint8_t id)
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the I2C module(s) in PLIB.
+ * 
+ * Parameters:
+ *      id: The desire module (I2C1..I2C5)
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_i2c_priority(uint8_t id)
 {
     return p_IrqDataPriority[25 + id];
 }
 
+/*******************************************************************************
+ * Function: 
+ *      IRQ_DATA_PRIORITY irq_can_priority(uint8_t id)
+ * 
+ * Description:
+ *      This routine is used to get the priority and sub-priority define by the 
+ *      user (in the project - upper layer) for the CAN module(s) in PLIB.
+ * 
+ * Parameters:
+ *      id: The desire module (CAN1 or CAN2)
+ * 
+ * Return:
+ *      The IRQ_DATA_PRIORITY of the module (see the structure definition for
+ *      more details).
+ ******************************************************************************/
 IRQ_DATA_PRIORITY irq_can_priority(uint8_t id)
 {
     return p_IrqDataPriority[30 + id];
