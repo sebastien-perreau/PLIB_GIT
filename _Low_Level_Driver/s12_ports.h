@@ -214,11 +214,14 @@ typedef struct
 	volatile uint32_t	LATINV;
 } PORTS_REGISTERS;
 
+void ports_change_notice_init(uint32_t cn_pull_up, uint32_t cn_pins_enable, event_handler_t evt_handler);
+void ports_reset_all_pins_input();
 void ports_reset_pin_input(_IO io);
 void ports_reset_pin_output(_IO io);
 bool ports_get_bit(_IO io);
 void ports_set_bit(_IO io);
 void ports_clr_bit(_IO io);
 void ports_toggle_bit(_IO io);
+void ports_interrupt_handler();
 
 #endif

@@ -58,7 +58,6 @@ void _EXAMPLE_SWITCH()
             {
                 case 0:
                     mUpdateLedStatusD2(OFF);
-                    mUpdateLedStatusD3(OFF);
                     break;
                 case 1:
                     mUpdateLedStatusD2(fu_turn_indicator(ON, TICK_100MS, TICK_100MS));
