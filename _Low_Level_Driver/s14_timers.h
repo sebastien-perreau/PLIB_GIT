@@ -137,7 +137,9 @@ typedef struct
     volatile UINT32 PRINV;
 } TIMER_REGISTERS;
 
-void timer_init_2345_us(TIMER_MODULE id, event_handler_id_t evt_handler, uint32_t config, uint32_t period_us);
+typedef void (*timer_event_handler_t)(uint8_t id);
+
+void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, uint32_t period_us);
 #define timer_init_2345_hz(id, evt_handler, config, freq_hz)        (timer_init_2345_us(id, evt_handler, config, (uint32_t)(1000000.0/freq_hz)))
 double timer_get_period_us(TIMER_MODULE id);
 #define timer_get_frequency_hz(id)                                  (uint32_t)(1000000.0/timer_get_period_us(id));

@@ -188,10 +188,6 @@ typedef enum
     IRQ_UART_RX             = 0x02,
     IRQ_UART_TX             = 0x04
 } IRQ_EVENT_TYPE;
-
-typedef void (*event_handler_t)();
-typedef void (*event_handler_id_t)(uint8_t id);
-typedef void (*event_handler_id_type_value_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
             
 void irq_link_data_priority(const IRQ_DATA_PRIORITY *p_data_priority);
 IRQ_DATA_PRIORITY irq_change_notice_priority();

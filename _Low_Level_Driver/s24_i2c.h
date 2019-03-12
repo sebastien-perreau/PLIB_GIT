@@ -263,8 +263,10 @@ typedef struct
 	volatile uint32_t	I2CRXINV;
 } I2C_REGISTERS;
 
+typedef void (*i2c_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
+
 void i2c_init_as_master(    I2C_MODULE id, 
-                            event_handler_id_type_value_t evt_handler,
+                            i2c_event_handler_t evt_handler,
                             IRQ_EVENT_TYPE event_type_enable,
                             I2C_FREQUENCY frequency,
                             I2C_CONFIGURATION configuration);

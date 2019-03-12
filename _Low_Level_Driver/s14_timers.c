@@ -20,11 +20,11 @@ const TIMER_REGISTERS * TimerModules[] =
     (TIMER_REGISTERS *)_TMR4_BASE_ADDRESS,
     (TIMER_REGISTERS *)_TMR5_BASE_ADDRESS
 };
-static event_handler_id_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NULL};
+static timer_event_handler_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NULL};
 
 /*******************************************************************************
  * Function: 
- *      void timer_init_2345_us(TIMER_MODULE id, uint32_t config, double period_us)
+ *      void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, uint32_t period_us)
  * 
  * Description:
  *      This routine is used to initialize a timer module.
@@ -42,7 +42,7 @@ static event_handler_id_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NULL};
  * Example:
  *      See. cfg_pwm() in "config.c"
  ******************************************************************************/
-void timer_init_2345_us(TIMER_MODULE id, event_handler_id_t evt_handler, uint32_t config, uint32_t period_us)
+void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, uint32_t period_us)
 {
     TIMER_REGISTERS * p_timer = (TIMER_REGISTERS *) TimerModules[id];
     uint32_t v_pr = 100000;

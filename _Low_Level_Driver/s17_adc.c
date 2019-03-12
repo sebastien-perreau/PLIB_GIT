@@ -18,11 +18,11 @@
 
 #include "../PLIB.h"
 
-static event_handler_t adc10_event_handler = NULL;
+static adc10_event_handler_t adc10_event_handler = NULL;
 
 /*******************************************************************************
  * Function: 
- *      void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref)
+ *      void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref, adc10_event_handler_t evt_handler)
  * 
  * Description:
  *      This routine is used to initialize the ADC10 module. The pins
@@ -31,6 +31,7 @@ static event_handler_t adc10_event_handler = NULL;
  * Parameters:
  *      channels: Indicate all channels used .
  *      vref: Indicate the reference voltage used.
+ *      evt_handler: The handler (function) to call when an interruption occurs.
  * 
  * Return:
  *      none
@@ -38,7 +39,7 @@ static event_handler_t adc10_event_handler = NULL;
  * Example:
  *      See. _EXAMPLE_AVERAGE_AND_NTC()
  ******************************************************************************/
-void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref, event_handler_t evt_handler)
+void adc10_init(ADC10_ANALOG_PIN channels, ADC10_VOLTAGE_REF vref, adc10_event_handler_t evt_handler)
 {
     uint8_t i = 0;
     uint8_t numberOfSamplesBetweenInterrupts = 0;

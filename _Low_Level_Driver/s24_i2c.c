@@ -22,12 +22,13 @@ const I2C_REGISTERS * I2cModules[] =
 	(I2C_REGISTERS*)_I2C5_BASE_ADDRESS
 };
 static uint32_t real_frequency_tab[I2C_NUMBER_OF_MODULES] = {0};
-static event_handler_id_type_value_t serial_event_handler[I2C_NUMBER_OF_MODULES] = {NULL};
+static i2c_event_handler_t i2c_event_handler[I2C_NUMBER_OF_MODULES] = {NULL};
 
 /*******************************************************************************
  * Function: 
  *      void i2c_init_as_master(    I2C_MODULE id, 
- *                                  event_handler_id_type_value_t evt_handler,
+ *                                  i2c_event_handler_t evt_handler,
+ *                                  IRQ_EVENT_TYPE event_type_enable,
  *                                  I2C_FREQUENCY frequency,
  *                                  I2C_CONFIGURATION configuration)
  * 
@@ -46,12 +47,12 @@ static event_handler_id_type_value_t serial_event_handler[I2C_NUMBER_OF_MODULES]
  *      none
  ******************************************************************************/
 void i2c_init_as_master(    I2C_MODULE id, 
-                            event_handler_id_type_value_t evt_handler,
+                            i2c_event_handler_t evt_handler,
                             IRQ_EVENT_TYPE event_type_enable,
                             I2C_FREQUENCY frequency,
                             I2C_CONFIGURATION configuration)
 {
-    serial_event_handler[id] = evt_handler;
+    i2c_event_handler[id] = evt_handler;
     irq_init(IRQ_I2C1B + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_I2C_BUS_COLISION) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_i2c_priority(id));
     irq_init(IRQ_I2C1S + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_I2C_SLAVE) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_i2c_priority(id));
     irq_init(IRQ_I2C1M + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_I2C_MASTER) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_i2c_priority(id));
@@ -423,9 +424,9 @@ void i2c_set_slave_address(I2C_MODULE id, uint32_t address, uint32_t mask, I2C_A
  ******************************************************************************/
 void i2c_interrupt_handler(I2C_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
-    if (serial_event_handler[id] != NULL)
+    if (i2c_event_handler[id] != NULL)
     {
-        (*serial_event_handler[id])(id, evt_type, data);
+        (*i2c_event_handler[id])(id, evt_type, data);
     }
 }
 

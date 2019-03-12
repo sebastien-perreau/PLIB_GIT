@@ -12,9 +12,9 @@ const PORTS_REGISTERS * PortsModules[] =
 	(PORTS_REGISTERS*)_PORTF_BASE_ADDRESS,
 	(PORTS_REGISTERS*)_PORTG_BASE_ADDRESS
 };
-static event_handler_t ports_event_handler = NULL;
+static ports_event_handler_t ports_event_handler = NULL;
 
-void ports_change_notice_init(uint32_t cn_pull_up, uint32_t cn_pins_enable, event_handler_t evt_handler)
+void ports_change_notice_init(uint32_t cn_pull_up, uint32_t cn_pins_enable, ports_event_handler_t evt_handler)
 {
     ports_event_handler = evt_handler;
     irq_init(IRQ_CN, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_change_notice_priority());

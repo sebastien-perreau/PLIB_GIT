@@ -19,12 +19,13 @@ const UART_REGISTERS * UartModules[] =
 	(UART_REGISTERS*)_UART6_BASE_ADDRESS
 };
 static uint32_t real_baudrate_tab[UART_NUMBER_OF_MODULES] = {0};
-static event_handler_id_type_value_t serial_event_handler[UART_NUMBER_OF_MODULES] = {NULL};
+static uart_event_handler_t uart_event_handler[UART_NUMBER_OF_MODULES] = {NULL};
 
 /*******************************************************************************
  * Function: 
  *      void uart_init(     UART_MODULE id, 
- *                  event_handler_id_type_value_t evt_handler,
+ *                  uart_event_handler_t evt_handler,
+ *                  IRQ_EVENT_TYPE event_type_enable,
  *                  UART_BAUDRATE baudrate, 
  *                  UART_ENABLE_MODE enable_mode,
  *                  UART_CONFIG_MODE config_mode,
@@ -52,7 +53,7 @@ static event_handler_id_type_value_t serial_event_handler[UART_NUMBER_OF_MODULES
  ******************************************************************************/
 
 void uart_init(     UART_MODULE id, 
-                    event_handler_id_type_value_t evt_handler,
+                    uart_event_handler_t evt_handler,
                     IRQ_EVENT_TYPE event_type_enable,
                     UART_BAUDRATE baudrate, 
                     UART_ENABLE_MODE enable_mode,
@@ -62,7 +63,7 @@ void uart_init(     UART_MODULE id,
                     UART_ADDRESS_DETECTION address_detection)
 {
 
-    serial_event_handler[id] = evt_handler;
+    uart_event_handler[id] = evt_handler;
     irq_init(IRQ_U1E + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_UART_ERROR) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_uart_priority(id));
     irq_init(IRQ_U1RX + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_UART_RX) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_uart_priority(id));
     irq_init(IRQ_U1TX + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_UART_TX) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_uart_priority(id));
@@ -426,8 +427,8 @@ bool uart_get_data(UART_MODULE id, uint16_t *p_data)
  ******************************************************************************/
 void uart_interrupt_handler(UART_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
-    if (serial_event_handler[id] != NULL)
+    if (uart_event_handler[id] != NULL)
     {
-        (*serial_event_handler[id])(id, evt_type, data);
+        (*uart_event_handler[id])(id, evt_type, data);
     }
 }
