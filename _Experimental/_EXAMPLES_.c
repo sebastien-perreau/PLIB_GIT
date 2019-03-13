@@ -64,7 +64,7 @@ void _EXAMPLE_SOFTWARE_PWM()
             spwm.pwm[5] = 250;
             
             spwm.pwm[6] = 0;
-            spwm.pwm[7] = 255;
+            spwm.pwm[7] = 255;  // Not reachable: 99,61% of duty cycle
             break;
     } 
 }
