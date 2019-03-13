@@ -145,7 +145,7 @@ typedef struct
 static uint16_t _name ## _segment_ram_allocation[] = {0, __VA_ARGS__ };                                     \
 static uint8_t _name ## _buffer_ram_allocation[_number_total_of_leds*9] = {0};                              \
 static WS2812B_LED _name ## _led_ram_allocation[_number_total_of_leds] = {0};                               \
-static WS2812B_PARAMS _name = WS2812B_INSTANCE(_spi_module, _XBR(_cs_pin), _IND(_cs_pin), _name ## _segment_ram_allocation, _name ## _led_ram_allocation, _name ## _buffer_ram_allocation, _number_total_of_leds)	
+static WS2812B_PARAMS _name = WS2812B_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _name ## _segment_ram_allocation, _name ## _led_ram_allocation, _name ## _buffer_ram_allocation, _number_total_of_leds)	
 
 #define __WS2812BIntensity                  var->leds[i[var->spi_module]].output_params.intensity
 #define __WS2812BTick                       var->leds[i[var->spi_module]].tick

@@ -41,6 +41,34 @@ void _EXAMPLE_TIMER()
     } 
 }
 
+void _EXAMPLE_SOFTWARE_PWM()
+{
+    static state_machine_t sm_example = {0};
+    SOFTWARE_PWM_DEF(spwm, TIMER5, SOFTWARE_PWM_FREQ_200HZ, SOFTWARE_PWM_RESO_1, __PE0, __PE1, __PE2, __PE3, __PE4, __PE5, __PE6, __PG6, __PG7, __PG12, __PG13, __PG14, __PA6, __PA7, __PB11, __PB12, __PB13, __PB14, __PB4, __PB2, __PA0, __PA1, __PA4, __PA5, __PB0, __PB1, __PB3, __PB5, __PB8, __PB9);
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            
+            software_pwm_init(&spwm);    
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            spwm.pwm[0] = 20;
+            spwm.pwm[1] = 50;
+            spwm.pwm[2] = 100;
+            spwm.pwm[3] = 180;
+            spwm.pwm[4] = 210;
+            spwm.pwm[5] = 250;
+            
+            spwm.pwm[6] = 0;
+            spwm.pwm[7] = 255;
+            break;
+    } 
+}
+
 void _EXAMPLE_SWITCH()
 {
     SWITCH_DEF(sw1, SWITCH1, ACTIVE_LOW);

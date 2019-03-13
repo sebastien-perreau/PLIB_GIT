@@ -9,6 +9,12 @@ volatile QWORD temporary_tmr1_value;
 #define mTickCompare(var)           (mGetTick() - var)
 #define TICK_INIT                   (0ul)
 #define TICK_0                      (0ul)
+
+#define TIMER1_CLR_FLAG()           (IFS0CLR = _IFS0_T1IF_MASK)
+#define TIMER2_CLR_FLAG()           (IFS0CLR = _IFS0_T2IF_MASK)
+#define TIMER3_CLR_FLAG()           (IFS0CLR = _IFS0_T3IF_MASK)
+#define TIMER4_CLR_FLAG()           (IFS0CLR = _IFS0_T4IF_MASK)
+#define TIMER5_CLR_FLAG()           (IFS0CLR = _IFS0_T5IF_MASK)
         
 #if (PERIPHERAL_FREQ == 48000000L)
 #define TICK_1US                    (6ul)
@@ -139,10 +145,11 @@ typedef struct
 
 typedef void (*timer_event_handler_t)(uint8_t id);
 
-void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, uint32_t period_us);
-#define timer_init_2345_hz(id, evt_handler, config, freq_hz)        (timer_init_2345_us(id, evt_handler, config, (uint32_t)(1000000.0/freq_hz)))
-double timer_get_period_us(TIMER_MODULE id);
-#define timer_get_frequency_hz(id)                                  (uint32_t)(1000000.0/timer_get_period_us(id));
+void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, float period_us);
+float timer_get_period_us(TIMER_MODULE id);
+
+#define timer_init_2345_hz(id, evt_handler, config, freq_hz)        (timer_init_2345_us(id, evt_handler, config, (float)(1000000.0/(freq_hz))))
+#define timer_get_frequency_hz(id)                                  (float)(1000000.0/timer_get_period_us(id))
 
 
 void timer_interrupt_handler(TIMER_MODULE id);

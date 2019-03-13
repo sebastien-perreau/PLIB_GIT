@@ -90,7 +90,7 @@ typedef struct
 #define _25LC512_DEF(_name, _spi_module, _cs_pin, _periodic_time, _size_tx, _size_rx)               \
 static uint8_t _name ## _buffer_tx_ram_allocation[3+_size_tx] = {0xff};                             \
 static uint8_t _name ## _buffer_rx_ram_allocation[3+_size_rx] = {0xff};                             \
-static _25LC512_CONFIG _name = _25LC512_INSTANCE(_spi_module, _XBR(_cs_pin), _IND(_cs_pin), _periodic_time, _name ## _buffer_tx_ram_allocation, _name ## _buffer_rx_ram_allocation)
+static _25LC512_CONFIG _name = _25LC512_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _periodic_time, _name ## _buffer_tx_ram_allocation, _name ## _buffer_rx_ram_allocation)
 
 void e_25lc512_deamon(_25LC512_CONFIG *var);
 static char e_25lc512_read_sequences(_25LC512_CONFIG *var);

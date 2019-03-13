@@ -35,7 +35,7 @@ typedef struct
     .tick_longpush = 0,                                     \
 }
 #define SWITCH_DEF(_name, _io, _active_state)   \
-static SWITCH_VAR _name = SWITCH_INSTANCE(_XBR(_io), _IND(_io), _active_state)
+static SWITCH_VAR _name = SWITCH_INSTANCE(__PORT(_io), __INDICE(_io), _active_state)
 
 // ------------------------------------------------------
 // **** MACRO AND STRUCTURE FOR THE ENCODER FUNCTION ****
@@ -64,7 +64,7 @@ typedef struct
     .is_initialization_done = false,                        \
 }
 #define ENCODER_DEF(_name, _io_a, _io_b, _active_state)     \
-static ENCODER_VAR _name = ENCODER_INSTANCE(_XBR(_io_a), _IND(_io_a), _XBR(_io_b), _IND(_io_b), _active_state)
+static ENCODER_VAR _name = ENCODER_INSTANCE(__PORT(_io_a), __INDICE(_io_a), __PORT(_io_b), __INDICE(_io_b), _active_state)
 
 // ---------------------------------------------------
 // ***** MACRO AND STRUCTURE FOR THE LED ROUTINE *****

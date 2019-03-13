@@ -52,6 +52,7 @@
 
 #include "_Experimental/_EXAMPLES_.h"
 #include "_Experimental/_LOG.h"
+#include "_Experimental/software_pwm.h"
 
 uint8_t _ledStatus;
 

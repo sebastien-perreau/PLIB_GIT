@@ -219,7 +219,7 @@ typedef struct
     .SDI = { _sdi_io_port, _sdi_io_indice },    \
     .SS = { _ss_io_port, _ss_io_indice },       \
 }
-#define SPI_IO_DCPT_INSTANCE(_sck, _sdo, _sdi, _ss)         SPI_IO_DCPT_INSTANCE2(_XBR(_sck), _IND(_sck), _XBR(_sdo), _IND(_sdo), _XBR(_sdi), _IND(_sdi), _XBR(_ss), _IND(_ss))
+#define SPI_IO_DCPT_INSTANCE(_sck, _sdo, _sdi, _ss)         SPI_IO_DCPT_INSTANCE2(__PORT(_sck), __INDICE(_sck), __PORT(_sdo), __INDICE(_sdo), __PORT(_sdi), __INDICE(_sdi), __PORT(_ss), __INDICE(_ss))
     
 typedef struct
 {

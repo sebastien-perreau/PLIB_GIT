@@ -9,6 +9,7 @@
                      projectFiles="true">
         <itemPath>../_Experimental/_EXAMPLES_.h</itemPath>
         <itemPath>../_Experimental/_LOG.h</itemPath>
+        <itemPath>../_Experimental/software_pwm.h</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
@@ -65,6 +66,7 @@
                      projectFiles="true">
         <itemPath>../_Experimental/_EXAMPLES_.c</itemPath>
         <itemPath>../_Experimental/_LOG.c</itemPath>
+        <itemPath>../_Experimental/software_pwm.c</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"

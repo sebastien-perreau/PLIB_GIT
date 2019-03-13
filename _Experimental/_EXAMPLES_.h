@@ -8,6 +8,7 @@ typedef enum
 } _EXAMPLE_STATUS;
 
 void _EXAMPLE_TIMER();
+void _EXAMPLE_SOFTWARE_PWM();
 void _EXAMPLE_SWITCH();
 void _EXAMPLE_ENCODER();
 void _EXAMPLE_AVERAGE_AND_NTC();

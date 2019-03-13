@@ -7,6 +7,7 @@
 *               06/10/2018      - Compatibility PLIB
 *                               - No dependencies to xc32 library
 *                               - Add comments   
+*               13/03/2019      - Bug fixed
 *********************************************************************/
 
 #include "../PLIB.h"
@@ -24,7 +25,7 @@ static timer_event_handler_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NUL
 
 /*******************************************************************************
  * Function: 
- *      void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, uint32_t period_us)
+ *      void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, float period_us)
  * 
  * Description:
  *      This routine is used to initialize a timer module.
@@ -35,25 +36,19 @@ static timer_event_handler_t timer_event_handler[TIMER_NUMBER_OF_MODULES] = {NUL
  *      config: The desire timer configuration (TCON register).
  *      period_us: Set the period in micro-seconds for the timer. Time before 
  *                  back to zero and/or interrupt generation.
- * 
- * Return:
- *      none
- * 
- * Example:
- *      See. cfg_pwm() in "config.c"
  ******************************************************************************/
-void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, uint32_t period_us)
+void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint32_t config, float period_us)
 {
     TIMER_REGISTERS * p_timer = (TIMER_REGISTERS *) TimerModules[id];
-    uint32_t v_pr = 100000;
+    float v_pr = 100000;
     uint16_t v_prescale = 1;
     
     timer_event_handler[id] = evt_handler;
     irq_init(IRQ_T1 + id, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_timer_priority(id));
 
-    while(v_pr > 65535)
+    while(v_pr > 65535.0)
     {
-        v_pr = (uint32_t)((period_us * (PERIPHERAL_FREQ / 1000000L)) / v_prescale);
+        v_pr = (float)((period_us * (PERIPHERAL_FREQ / 1000000.0)) / v_prescale);
         if(v_prescale == 1) 
         {
             v_prescale = 2;
@@ -108,7 +103,7 @@ void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint
 
 /*******************************************************************************
  * Function: 
- *      double timer_get_period_us(TIMER_MODULE id)
+ *      float timer_get_period_us(TIMER_MODULE id)
  * 
  * Description:
  *      This routine returns the current period of a timer in micro-seconds.
@@ -117,28 +112,25 @@ void timer_init_2345_us(TIMER_MODULE id, timer_event_handler_t evt_handler, uint
  *      id: The desire TIMER_MODULE.
  * 
  * Return:
- *      The value as a 'double' variable corresponding to the period in micro-seconds.
- * 
- * Example:
- *      none
+ *      The value corresponding to the period in micro-seconds.
  ******************************************************************************/
-double timer_get_period_us(TIMER_MODULE id)
+float timer_get_period_us(TIMER_MODULE id)
 {
     TIMER_REGISTERS * p_timer = (TIMER_REGISTERS *) TimerModules[id];
 
     if(id == TIMER1)
     {
-        return (double)((p_timer->PR*pow(2, (p_timer->TCON >> 4) & 0x0003))*(1000000/PERIPHERAL_FREQ));
+        return (float) (p_timer->PR * pow(8, (p_timer->TCON >> 4) & 0x0003) * 1000000.0 / PERIPHERAL_FREQ);
     }
     else
     {
-        if(((p_timer->TCON >> 4) & 0x0007) < 3)
+        if (((p_timer->TCON >> 4) & 7) < 7)
         {
-            return (double)((p_timer->PR*pow(8, (p_timer->TCON >> 4) & 0x0007))*(1000000/PERIPHERAL_FREQ));
+            return (float) (p_timer->PR * pow(2, (p_timer->TCON >> 4) & 7) * 1000000.0 / PERIPHERAL_FREQ);
         }
         else
         {
-            return (double)((p_timer->PR*256.0)*(1000000/PERIPHERAL_FREQ));
+            return (float) (p_timer->PR * 256.0 * 1000000 / PERIPHERAL_FREQ);
         }
     }
 }

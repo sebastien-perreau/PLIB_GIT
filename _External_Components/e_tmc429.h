@@ -244,7 +244,7 @@ typedef struct
 }
 
 #define TMC429_DEF(_name, _spi_module, _cs_pin, _periodic_time, _shaft, _ref_switch_pol)    \
-static TMC429_CONFIG _name = TMC429_INSTANCE(_spi_module, _XBR(_cs_pin), _IND(_cs_pin), _periodic_time, _shaft, _ref_switch_pol)
+static TMC429_CONFIG _name = TMC429_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _periodic_time, _shaft, _ref_switch_pol)
 
 void eTMC429Deamon(TMC429_CONFIG *var);
 uint8_t eTMC429SetMotorParam(TMC429_CONFIG *var, uint32_t motor, uint16_t stepper_resolution, uint8_t resolution, uint32_t refConf, uint32_t desire_dps_fs, uint32_t time_acc_ms, uint32_t irun, uint32_t ihold, uint32_t rampmode);

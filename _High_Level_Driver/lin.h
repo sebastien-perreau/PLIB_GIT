@@ -110,7 +110,7 @@ typedef struct
 }
 
 #define LIN_DEF(_name, _uart_module, _chip_enable_pin, _version)            \
-static LIN_PARAMS _name = LIN_PARAMS_INSTANCE(_uart_module, _version, _XBR(_chip_enable_pin), _IND(_chip_enable_pin))
+static LIN_PARAMS _name = LIN_PARAMS_INSTANCE(_uart_module, _version, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin))
 
 LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var);
 

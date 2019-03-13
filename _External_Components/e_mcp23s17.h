@@ -81,7 +81,7 @@ typedef struct
 }
 
 #define MCP23S17_DEF(_name, _spi_module, _cs_pin, _periodic_time)   \
-static MCP23S17_CONFIG _name = MCP23S17_INSTANCE(_spi_module, _XBR(_cs_pin), _IND(_cs_pin), _periodic_time)
+static MCP23S17_CONFIG _name = MCP23S17_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _periodic_time)
 
 BYTE eMCP23S17Deamon(MCP23S17_CONFIG *var);
 
