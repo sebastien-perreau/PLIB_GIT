@@ -9,7 +9,6 @@
                      projectFiles="true">
         <itemPath>../_Experimental/_EXAMPLES_.h</itemPath>
         <itemPath>../_Experimental/_LOG.h</itemPath>
-        <itemPath>../_Experimental/software_pwm.h</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
@@ -31,6 +30,7 @@
         <itemPath>../_High_Level_Driver/utilities.h</itemPath>
         <itemPath>../_High_Level_Driver/string_advance.h</itemPath>
         <itemPath>../_High_Level_Driver/lin.h</itemPath>
+        <itemPath>../_High_Level_Driver/software_pwm.h</itemPath>
       </logicalFolder>
       <logicalFolder name="_Low_Level_Driver"
                      displayName="_Low_Level_Driver"
@@ -66,7 +66,6 @@
                      projectFiles="true">
         <itemPath>../_Experimental/_EXAMPLES_.c</itemPath>
         <itemPath>../_Experimental/_LOG.c</itemPath>
-        <itemPath>../_Experimental/software_pwm.c</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
@@ -88,6 +87,7 @@
         <itemPath>../_High_Level_Driver/utilities.c</itemPath>
         <itemPath>../_High_Level_Driver/string_advance.c</itemPath>
         <itemPath>../_High_Level_Driver/lin.c</itemPath>
+        <itemPath>../_High_Level_Driver/software_pwm.c</itemPath>
       </logicalFolder>
       <logicalFolder name="_Low_Level_Driver"
                      displayName="_Low_Level_Driver"

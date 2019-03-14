@@ -38,6 +38,7 @@
 #include "_High_Level_Driver/utilities.h"
 #include "_High_Level_Driver/string_advance.h"
 #include "_High_Level_Driver/one_wire_communication.h"
+#include "_High_Level_Driver/software_pwm.h"
 #include "_High_Level_Driver/lin.h"
 #include "_High_Level_Driver/ble.h"
 
@@ -52,7 +53,6 @@
 
 #include "_Experimental/_EXAMPLES_.h"
 #include "_Experimental/_LOG.h"
-#include "_Experimental/software_pwm.h"
 
 uint8_t _ledStatus;
 
