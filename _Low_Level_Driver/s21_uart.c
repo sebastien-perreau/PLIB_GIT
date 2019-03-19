@@ -21,6 +21,46 @@ const UART_REGISTERS * UartModules[] =
 static uint32_t real_baudrate_tab[UART_NUMBER_OF_MODULES] = {0};
 static uart_event_handler_t uart_event_handler[UART_NUMBER_OF_MODULES] = {NULL};
 
+const uint8_t uart_tx_irq[] = 
+{
+    _UART1_TX_IRQ,
+    _UART2_TX_IRQ,
+    _UART3_TX_IRQ,
+    _UART4_TX_IRQ,
+    _UART5_TX_IRQ,
+    _UART6_TX_IRQ
+};
+
+const uint8_t uart_rx_irq[] = 
+{
+    _UART1_RX_IRQ,
+    _UART2_RX_IRQ,
+    _UART3_RX_IRQ,
+    _UART4_RX_IRQ,
+    _UART5_RX_IRQ,
+    _UART6_RX_IRQ
+};
+
+const void *p_uart_tx_reg[] = 
+{
+    (void*) &U1TXREG,
+    (void*) &U2TXREG,
+    (void*) &U3TXREG,
+    (void*) &U4TXREG,
+    (void*) &U5TXREG,
+    (void*) &U6TXREG
+};
+
+const void *p_uart_rx_reg[] = 
+{
+    (void*) &U1RXREG,
+    (void*) &U2RXREG,
+    (void*) &U3RXREG,
+    (void*) &U4RXREG,
+    (void*) &U5RXREG,
+    (void*) &U6RXREG
+};
+
 /*******************************************************************************
  * Function: 
  *      void uart_init(     UART_MODULE id, 
@@ -407,6 +447,78 @@ bool uart_get_data(UART_MODULE id, uint16_t *p_data)
         return 0;
     }
     return 1;
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const uint8_t uart_get_tx_irq(UART_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the TX IRQ number of a UART module.
+ * 
+ * Parameters:
+ *      id: The UART module you want to use.
+ * 
+ * Return:
+ *      The constant TX IRQ number.
+ ******************************************************************************/
+const uint8_t uart_get_tx_irq(UART_MODULE id)
+{
+    return uart_tx_irq[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const uint8_t uart_get_rx_irq(UART_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the RX IRQ number of a UART module.
+ * 
+ * Parameters:
+ *      id: The UART module you want to use.
+ * 
+ * Return:
+ *      The constant RX IRQ number.
+ ******************************************************************************/
+const uint8_t uart_get_rx_irq(UART_MODULE id)
+{
+    return uart_rx_irq[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const void *uart_get_tx_reg(UART_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the TX Register of a UART module.
+ * 
+ * Parameters:
+ *      id: The UART module you want to use.
+ * 
+ * Return:
+ *      The constant pointer of UART TX REGISTER.
+ ******************************************************************************/
+const void *uart_get_tx_reg(UART_MODULE id)
+{
+    return (void*) p_uart_tx_reg[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const void *uart_get_rx_reg(UART_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the RX Register of a UART module.
+ * 
+ * Parameters:
+ *      id: The UART module you want to use.
+ * 
+ * Return:
+ *      The constant pointer of UART RX REGISTER.
+ ******************************************************************************/
+const void *uart_get_rx_reg(UART_MODULE id)
+{
+    return (void*) p_uart_rx_reg[id];
 }
 
 /*******************************************************************************

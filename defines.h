@@ -24,6 +24,9 @@
     #define LIN2_ENABLE                 __PC14
 
     // level: OFF/ON/BLINK/BLINK_INV
+    #define mToggleLedStatusD2()        _ledStatus = ((_ledStatus & 0xf3) | ((~_ledStatus & 0x01) << 2))
+    #define mToggleLedStatusD3()        _ledStatus = ((_ledStatus & 0xfc) | ((~_ledStatus & 0x01) << 0))
+
     #define mUpdateLedStatusD2(level)   _ledStatus = ((_ledStatus & 0xf3) | ((level & 0x03) << 2))
     #define mUpdateLedStatusD3(level)   _ledStatus = ((_ledStatus & 0xfc) | ((level & 0x03) << 0))
 

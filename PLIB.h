@@ -53,6 +53,7 @@
 
 #include "_Experimental/_EXAMPLES_.h"
 #include "_Experimental/_LOG.h"
+#include "_Experimental/s31_dma.h"
 
 uint8_t _ledStatus;
 

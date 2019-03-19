@@ -1,4 +1,4 @@
-/*********************************************************************
+ /*********************************************************************
 *	Author : Sébastien PERREAU
 *
 *	Revision history	:
@@ -40,6 +40,205 @@ void _EXAMPLE_TIMER()
             break;
     } 
 }
+
+/*********************************************************************************************
+ * Start of _EXAMPLE_DMA_RAM_TO_RAM()
+ * -------------------------------------------------------------------------------------------
+
+    The DMA RAM to RAM example execute a data transfer from a source buffer to a destination
+    buffer. The total data to transfer is 200 bytes length but we choose to transfer 20
+    bytes per 20 bytes (cell block size) in this example. (We can choose a cell size of 200 
+    bytes of course to execute the transfer in one time but this isn't the goal of this example).
+    The sizes source, destination and cell are maximum DMA_MAX_TRANSFER_SIZE.
+    The interruption are set for TRANSFER_ABORD and BLOCK_TRANSFER only. The BLOCK_TRANSFER
+    interrupt will be set when all data (200 bytes) will be transfered.
+    Each time than 20 bytes are transfered (cell size) then a flag (CELL_TRANSFER) is set
+    to tell the user that a new transfer can be operate (interruption are not be enabled for 
+    this flag). Thus we will have 10 cells transfers for transferring the complete BLOCK in 
+    this example. Because NO DMA events are set in this example, we have to FORCE the transfer 
+    each time the DMA channel is free-to-use (cell block is transfered). 
+ 
+ *********************************************************************************************/
+
+static uint8_t buff_src[200] = {0};
+static uint8_t buff_dst[200] = {0};
+static void _example_dma_ram_to_ram_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
+{
+    if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
+    {
+        if (buff_dst[78] == 78)
+        {
+            mUpdateLedStatusD2(ON);
+        }
+        dma_clear_flags(DMA0, DMA_FLAG_CELL_TRANSFER_DONE);
+    }
+}
+
+void _EXAMPLE_DMA_RAM_TO_RAM()
+{
+    static state_machine_t sm_example = {0};
+    static DMA_CHANNEL_TRANSFER dma_tx = {buff_src, buff_dst, 200, 200, 20, 0x0000};
+    static uint8_t loop_counter = 1;
+    static uint8_t i;
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            
+            mUpdateLedStatusD2(OFF);
+            mUpdateLedStatusD3(OFF);
+            dma_init(   DMA0, 
+                        _example_dma_ram_to_ram_event_handler, 
+                        DMA_CONT_PRIO_1, 
+                        DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
+                        DMA_EVT_NONE, 
+                        0xff, 
+                        0xff);
+            for (i = 0 ; i < 200 ; i++)
+            {
+                buff_src[i] = i;
+            }
+            dma_set_transfer(DMA0, &dma_tx, true);
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+           
+            if ((dma_get_flags(DMA0) & DMA_FLAG_CELL_TRANSFER_DONE) > 0)
+            {
+                loop_counter++;
+                dma_force_transfer(DMA0);
+                dma_clear_flags(DMA0, DMA_FLAG_CELL_TRANSFER_DONE);
+            }
+
+            if (loop_counter == 10)
+            {
+                mUpdateLedStatusD3(ON);
+            }
+            else
+            {
+                mUpdateLedStatusD3(BLINK);
+            }
+            break;
+    } 
+}
+/* -------------------------------------------------------------------------------------------
+ * End of   _EXAMPLE_DMA_RAM_TO_RAM()
+ *********************************************************************************************/
+
+/*********************************************************************************************
+ * Start of _EXAMPLE_DMA_RAM_AND_REG()
+ * -------------------------------------------------------------------------------------------
+
+    The DMA RAM and REG example execute 2 different transfers. One from a RAM source to a SFR
+    REG destination and a second from a SFR REG source to a RAM destination. In this code, 
+    we implement a complete DMA example for UART1 (Tx is managing by DMA0 and Rx is managing by
+    DMA1).
+ 
+    The transmission will be manage by DMA0. We 'attach' a start event transfer to the DMA channel,
+    that is to say that each time a UART1 transmission is done a new DMA cell block is transmitted
+    and so on up to all data source is transmitted. At the end, a DMA_INT_BLOCK_TRANSFER_DONE is
+    set, the event handler is called and the DMA channel turns off automatically (because there is
+    no AUTO_ENABLE option for DMA0 Channel). The 2 events that can generate an interruption are
+    DMA_INT_TRANSFER_ABORD and DMA_INT_BLOCK_TRANSFER_DONE.
+    We have to FORCE the first transmission in order to generate the first _UART1_TX_IRQ event. Thus
+    a new cell block will be automatically transmitted and so on...
+ 
+    The reception will be manage by DMA1. The start event transfer is _UART1_RX_IRQ, that is to say
+    that each time a data is received by the UART module, a DMA transfer will operate to store the
+    data UART in a RAM buffer "buff_src".
+    2 ways to generate a Block Transfer Done:
+        - 200 bytes are received by the UART module (buff_src is fully updated).
+        - A pattern match occurs.
+    The Pattern Match mode is enabled (by setting the event DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH)
+    with a pattern size of 2 bytes (pattern = 0xdead). If the reception contains the 2 bytes 0xde 
+    and 0xad then the DMA Channel behavior is the same as a Block Transfer Done (interruption is set, 
+    event handler is called...).
+    The only events which can generate an interruption are DMA_INT_TRANSFER_ABORD and 
+    DMA_INT_BLOCK_TRANSFER_DONE.
+    This DMA Channel is set with DMA_CONT_AUTO_ENABLE in order to keep the channel active even after
+    a Block Transfer Done or a Pattern Match (same behavior as Block Transfer Done). Thus we can
+    continue to receive data and store in the RAM buffer.
+
+    When using Pattern Match mode and a pattern is detected then a DMA_INT_BLOCK_TRANSFER_DONE
+    is set. Interrupt can be called (if enable) and the DMA channel behavior is the same
+    as Block Transfer Complete (DMA_INT_BLOCK_TRANSFER_DONE flag is set and DMA channel is
+    disable).
+
+    Configure the DMA channel in AUTO_ENABLE mode allow the channel to be always ENABLE even 
+    after a BLOCK_TRANSFER_DONE. Thus it is not necessary to re-configure the channel
+    with the dma_set_transfer routine. 
+
+ *********************************************************************************************/
+static void _example_dma_ram_and_reg_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
+{
+    if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
+    {
+        if (id == DMA0)
+        {
+            mToggleLedStatusD2();
+        }
+        else if (id == DMA1)
+        {
+            mToggleLedStatusD3();   
+        }
+        dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
+    }
+    else if ((flags & DMA_FLAG_TRANSFER_ABORD) > 0)
+    {
+        // ...
+        dma_clear_flags(id, DMA_FLAG_TRANSFER_ABORD);
+    }
+}
+
+void _EXAMPLE_DMA_RAM_AND_REG()
+{
+    static state_machine_t sm_example = {0};
+    static UART_MODULE uart_id = UART1;
+    static uint8_t i;
+    static uint8_t buff_src[200] = {0};
+    static DMA_CHANNEL_TRANSFER dma0_tx = {buff_src, NULL, 200, 1, 1, 0x0000};
+    static DMA_CHANNEL_TRANSFER dma1_rx = {NULL, buff_src, 1, 200, 1, 0xdead};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            
+            uart_init(  UART1, NULL, IRQ_NONE, UART_BAUDRATE_2M, UART_STD_PARAMS);
+            dma_init(   DMA0, 
+                        _example_dma_ram_and_reg_event_handler, 
+                        DMA_CONT_PRIO_2, 
+                        DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
+                        DMA_EVT_START_TRANSFER_ON_IRQ, 
+                        uart_get_tx_irq(uart_id), 
+                        0xff);
+            dma_init(   DMA1, 
+                        _example_dma_ram_and_reg_event_handler, 
+                        DMA_CONT_PRIO_0 | DMA_CONT_PATTERN_2_BYTES | DMA_CONT_AUTO_ENABLE, 
+                        DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
+                        DMA_EVT_START_TRANSFER_ON_IRQ | DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH, 
+                        uart_get_rx_irq(uart_id), 
+                        0xff);
+            dma0_tx.dst_start_addr = (void *) uart_get_tx_reg(uart_id);
+            dma1_rx.src_start_addr = (void *) uart_get_rx_reg(uart_id);
+            for (i = 0 ; i < 200 ; i++)
+            {
+                buff_src[i] = i;
+            }
+            dma_set_transfer(DMA0, &dma0_tx, true);
+            dma_set_transfer(DMA1, &dma1_rx, false);
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            // Do what you want...
+            break;
+    } 
+}
+/* -------------------------------------------------------------------------------------------
+ * End of   _EXAMPLE_DMA_RAM_AND_REG()
+ *********************************************************************************************/
 
 void _EXAMPLE_SOFTWARE_PWM()
 {
@@ -354,7 +553,8 @@ void _EXAMPLE_LOG(ACQUISITIONS_VAR var)
     switch (sm_example.index)
     {
         case _SETUP:
-            // Enable LOG with cfg_log(ENABLE, UART1) if using UART1.
+            
+            log_init(UART1, DMA0, UART_BAUDRATE_2M);
             sm_example.index = _MAIN;
             break;
             

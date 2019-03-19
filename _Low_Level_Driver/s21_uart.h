@@ -142,6 +142,12 @@ bool uart_is_rx_data_available(UART_MODULE id);
 bool uart_send_break(UART_MODULE id);
 bool uart_send_data(UART_MODULE id, uint16_t data);
 bool uart_get_data(UART_MODULE id, uint16_t *p_data);
+
+const uint8_t uart_get_tx_irq(UART_MODULE id);
+const uint8_t uart_get_rx_irq(UART_MODULE id);
+const void *uart_get_tx_reg(UART_MODULE id);
+const void *uart_get_rx_reg(UART_MODULE id);
+
 void uart_interrupt_handler(UART_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data);
 
 #endif

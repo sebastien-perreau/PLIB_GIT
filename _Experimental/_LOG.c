@@ -3,46 +3,29 @@
 *
 *	Revision history	:
 *		19/10/2018		- Initial release
+*       19/03/2019      - Implementation with new DMA PLIB driver.
 * 
-*   Description:
-*   ------------ 
- * TO DO
- * STOP to print if overtaken buffer
- * Compatible with UART & DMA perso
 *********************************************************************/
 
 #include "../PLIB.h"
 
-static UART_MODULE module_id;
-static bool dma_tx_in_progress = false;
-const uint8_t uart_tx_irq[] = 
-{
-    _UART1_TX_IRQ,
-    _UART2_TX_IRQ,
-    _UART3_TX_IRQ,
-    _UART4_TX_IRQ,
-    _UART5_TX_IRQ,
-    _UART6_TX_IRQ
-};
-const void *p_tx_reg[] = 
-{
-    (void*)&U1TXREG,
-    (void*)&U2TXREG,
-    (void*)&U3TXREG,
-    (void*)&U4TXREG,
-    (void*)&U5TXREG,
-    (void*)&U6TXREG
-};
+static UART_MODULE m_uart_id;
+static DMA_MODULE m_dma_id;
+static DMA_CHANNEL_TRANSFER dma_tx = {0};
 
-void log_init(UART_MODULE id, uint32_t data_rate)
+void log_init(UART_MODULE id_uart, uint8_t id_dma, uint32_t data_rate)
 {
-    module_id = id;
+    m_uart_id = id_uart;
+    m_dma_id = id_dma;
     
-    DmaChnOpen(DMA_CHANNEL6, DMA_CHN_PRI0, DMA_OPEN_MATCH);
-    DmaChnSetEvEnableFlags(DMA_CHANNEL6, DMA_EV_BLOCK_DONE);
-    DmaChnSetEventControl(DMA_CHANNEL6, DMA_EV_START_IRQ(uart_tx_irq[module_id]));
-
-    uart_init(id, NULL, IRQ_NONE, data_rate, UART_STD_PARAMS);
+    uart_init(  id_uart, NULL, IRQ_NONE, data_rate, UART_STD_PARAMS);
+    dma_init(   id_dma, 
+                NULL, 
+                DMA_CONT_PRIO_2, 
+                DMA_INT_NONE, 
+                DMA_EVT_START_TRANSFER_ON_IRQ, 
+                uart_get_tx_irq(id_uart), 
+                0xff);
 }
 
 static uint16_t _transform_integer_to_string(char *p_buffer, uint16_t index_p_buffer, uint32_t value, LOG_BASE_t _base, uint8_t number_of_char)
@@ -131,14 +114,10 @@ static uint16_t _get_header_to_string(char *p_buffer, uint16_t index_buffer, LOG
 
 void log_wait_end_of_transmission()
 {
-    while (dma_tx_in_progress)
-    {
-        if (irq_get_flag(IRQ_DMA6))
-        {
-            irq_clr_flag(IRQ_DMA6);
-            dma_tx_in_progress = false;
-        }
-    }
+    // Wait while channel is enable (Block Transfer not yet done). 
+    // When a transmission is finished (Block Transfer Done), the channel is automatically disable (not set in DMA_CONT_AUTO_ENABLE).
+    while (dma_channel_is_enable(m_dma_id));
+    dma_clear_flags(m_dma_id, DMA_FLAG_BLOCK_TRANSFER_DONE);    
 }
 
 void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_args, uint8_t nargs)
@@ -259,7 +238,13 @@ void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_ar
     
     buffer[index_buffer++] = '\n'; 
     buffer[index_buffer++] = '\r';
-    DmaChnSetTxfer(DMA_CHANNEL6, buffer, (void *)p_tx_reg[module_id], index_buffer, 1, 1);
-    DmaChnStartTxfer(DMA_CHANNEL6, DMA_WAIT_NOT, 0);
-    dma_tx_in_progress = true;
+    
+    dma_tx.src_start_addr = buffer;
+    dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+    dma_tx.src_size = index_buffer;
+    dma_tx.dst_size = 1;
+    dma_tx.cell_size = 1;
+    dma_tx.pattern_data = 0x0000,
+    
+    dma_set_transfer(m_dma_id, &dma_tx, true);
 }

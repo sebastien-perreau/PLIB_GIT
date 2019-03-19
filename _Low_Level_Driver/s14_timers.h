@@ -115,13 +115,14 @@ volatile QWORD temporary_tmr1_value;
 #define TMR_2345_PS_1_1             (0)		
 #define TMR_1_PS_1_8                (1 << _T1CON_TCKPS_POSITION)
 
-typedef enum {
-    TIMER1 = 0,
+typedef enum 
+{
+    TIMER1                          = 0,
     TIMER2,
     TIMER3,
     TIMER4,
     TIMER5,
-    TIMER_NUMBER_OF_MODULES   // Number of available TMR modules.
+    TIMER_NUMBER_OF_MODULES
 } TIMER_MODULE;
 
 
