@@ -13,7 +13,7 @@ static UART_MODULE m_uart_id;
 static DMA_MODULE m_dma_id;
 static DMA_CHANNEL_TRANSFER dma_tx = {0};
 
-void log_init(UART_MODULE id_uart, uint8_t id_dma, uint32_t data_rate)
+void log_init(UART_MODULE id_uart, DMA_MODULE id_dma, uint32_t data_rate)
 {
     m_uart_id = id_uart;
     m_dma_id = id_dma;

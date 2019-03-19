@@ -9,6 +9,12 @@
 #include "../PLIB.h"
 
 static ble_params_t * p_ble;
+static UART_MODULE m_uart_id;
+static DMA_MODULE m_dma_id;
+static DMA_CHANNEL_TRANSFER dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
+
+static const char _ack[] = "ACK";
+static const char _nack[] = "NACK";
 
 static void _pa_lna(uint8_t *buffer);
 static void _led_status(uint8_t *buffer);
@@ -22,7 +28,7 @@ static void _scenario(uint8_t *buffer);
 
 static uint8_t vsd_outgoing_message_uart(p_function ptr);
 
-static void ble_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
+static void ble_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
     switch (evt_type)
     {
@@ -45,15 +51,34 @@ static void ble_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data
     }
 }
 
-void ble_init(ble_params_t * p_ble_params)
-{   
-    DmaChnOpen(DMA_CHANNEL2, DMA_CHN_PRI0, DMA_OPEN_MATCH);
-    DmaChnSetEvEnableFlags(DMA_CHANNEL2, DMA_EV_BLOCK_DONE);	// enable the transfer done interrupt, when all buffer transferred
-    DmaChnSetEventControl(DMA_CHANNEL2, DMA_EV_START_IRQ(_UART4_TX_IRQ));
-    
-    uart_init(UART4, ble_event_handler, IRQ_UART_RX, UART_BAUDRATE_1M, UART_STD_PARAMS);
+static void ble_dma_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
+{
+    if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
+    {
+        p_ble->uart.dma_tx_in_progress = false;
+        dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
+    }
+    else if ((flags & DMA_FLAG_TRANSFER_ABORD) > 0)
+    {
+        // ...
+        dma_clear_flags(id, DMA_FLAG_TRANSFER_ABORD);
+    }
+}
+
+void ble_init(UART_MODULE uart_id, DMA_MODULE dma_id, uint32_t data_rate, ble_params_t * p_ble_params)
+{       
+    uart_init(  uart_id, ble_uart_event_handler, IRQ_UART_RX, data_rate, UART_STD_PARAMS);
+    dma_init(   dma_id, 
+                ble_dma_event_handler, 
+                DMA_CONT_PRIO_2, 
+                DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
+                DMA_EVT_START_TRANSFER_ON_IRQ, 
+                uart_get_tx_irq(uart_id), 
+                0xff);
     
     p_ble = p_ble_params;
+    m_uart_id = uart_id;
+    m_dma_id = dma_id;
     
     p_ble->flags.pa_lna = 1;
     p_ble->flags.led_status = 1;
@@ -61,12 +86,6 @@ void ble_init(ble_params_t * p_ble_params)
     p_ble->flags.get_version = 1;
     p_ble->flags.adv_interval = 1;
     p_ble->flags.adv_timeout = 1;
-}
-
-void __ISR(_DMA_2_VECTOR, IPL3SOFT) Dma2Handler(void)
-{
-    p_ble->uart.dma_tx_in_progress = false;
-    irq_clr_flag(IRQ_DMA2);
 }
 
 void ble_stack_tasks()
@@ -124,15 +143,23 @@ void ble_stack_tasks()
             {
                 p_ble->incoming_message_uart.data[i] = p_ble->uart.buffer[3+i];
             }
-            DmaChnSetTxfer(DMA_CHANNEL2, "ACK", (void*)&U4TXREG, 3, 1, 1);
-            DmaChnStartTxfer(DMA_CHANNEL2, DMA_WAIT_NOT, 0);
+            dma_tx.src_start_addr = (void *)_ack;
+            dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+            dma_tx.src_size = 3;
+            dma_tx.dst_size = 1;
+            dma_tx.cell_size = 1;
+            dma_set_transfer(m_dma_id, &dma_tx, true);
             p_ble->uart.dma_tx_in_progress = true;
         }
         else
         {
             p_ble->incoming_message_uart.id = 0x00;
-            DmaChnSetTxfer(DMA_CHANNEL2, "NACK", (void*)&U4TXREG, 4, 1, 1);
-            DmaChnStartTxfer(DMA_CHANNEL2, DMA_WAIT_NOT, 0);
+            dma_tx.src_start_addr = (void *)_nack;
+            dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+            dma_tx.src_size = 4;
+            dma_tx.dst_size = 1;
+            dma_tx.cell_size = 1;
+            dma_set_transfer(m_dma_id, &dma_tx, true);
             p_ble->uart.dma_tx_in_progress = true;
         }
         memset(p_ble->uart.buffer, 0, sizeof(p_ble->uart.buffer));
@@ -420,8 +447,12 @@ static uint8_t vsd_outgoing_message_uart(p_function ptr)
             
             (*ptr)(buffer);
 
-            DmaChnSetTxfer(DMA_CHANNEL2, buffer, (void*)&U4TXREG, buffer[2]+5, 1, 1);
-            DmaChnStartTxfer(DMA_CHANNEL2, DMA_WAIT_NOT, 0);
+            dma_tx.src_start_addr = (void *)buffer;
+            dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+            dma_tx.src_size = buffer[2] + 5;
+            dma_tx.dst_size = 1;
+            dma_tx.cell_size = 1;
+            dma_set_transfer(m_dma_id, &dma_tx, true);
             p_ble->uart.dma_tx_in_progress = true;
 
 			sm.index++;

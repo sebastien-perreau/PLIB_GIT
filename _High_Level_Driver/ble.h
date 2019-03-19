@@ -200,7 +200,7 @@ static ble_params_t _var = BLE_PARAMS_INSTANCE(_name)
 
 typedef void (*p_function)(uint8_t *buffer);
 
-void ble_init(ble_params_t * p_ble_params);
+void ble_init(UART_MODULE uart_id, DMA_MODULE dma_id, uint32_t data_rate, ble_params_t * p_ble_params);
 void ble_stack_tasks();
 
 #endif

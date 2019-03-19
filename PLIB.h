@@ -10,7 +10,6 @@
 
 
 
-#include <peripheral/dma.h>         // xc pic32 libraries
 #include <peripheral/system.h>      // xc pic32 libraries 
 #include <peripheral/eth.h>         // xc pic32 libraries
 #include <peripheral/CAN.h>         // xc pic32 libraries NEXT
@@ -35,6 +34,8 @@
 #include "_Low_Level_Driver/s35_ethernet_OSI-5_ApplicationLayer.h"
 #include "_Low_Level_Driver/s35_ethernet_Applications.h"
 
+#include "_Experimental/s31_dma.h"
+
 #include "_High_Level_Driver/utilities.h"
 #include "_High_Level_Driver/string_advance.h"
 #include "_High_Level_Driver/one_wire_communication.h"
@@ -53,7 +54,6 @@
 
 #include "_Experimental/_EXAMPLES_.h"
 #include "_Experimental/_LOG.h"
-#include "_Experimental/s31_dma.h"
 
 uint8_t _ledStatus;
 
