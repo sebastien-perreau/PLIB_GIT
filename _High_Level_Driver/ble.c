@@ -51,27 +51,13 @@ static void ble_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t
     }
 }
 
-static void ble_dma_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
-{
-    if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
-    {
-        p_ble->uart.dma_tx_in_progress = false;
-        dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
-    }
-    else if ((flags & DMA_FLAG_TRANSFER_ABORD) > 0)
-    {
-        // ...
-        dma_clear_flags(id, DMA_FLAG_TRANSFER_ABORD);
-    }
-}
-
 void ble_init(UART_MODULE uart_id, DMA_MODULE dma_id, uint32_t data_rate, ble_params_t * p_ble_params)
 {       
     uart_init(  uart_id, ble_uart_event_handler, IRQ_UART_RX, data_rate, UART_STD_PARAMS);
     dma_init(   dma_id, 
-                ble_dma_event_handler, 
+                NULL, 
                 DMA_CONT_PRIO_2, 
-                DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
+                DMA_INT_NONE, 
                 DMA_EVT_START_TRANSFER_ON_IRQ, 
                 uart_get_tx_irq(uart_id), 
                 0xff);
@@ -90,7 +76,6 @@ void ble_init(UART_MODULE uart_id, DMA_MODULE dma_id, uint32_t data_rate, ble_pa
 
 void ble_stack_tasks()
 {    
-    p_ble->uart.transmit_in_progress = (p_ble->uart.dma_tx_in_progress | !U4STAbits.TRMT);
     
     if (p_ble->uart.index > 0)
     {
@@ -149,7 +134,6 @@ void ble_stack_tasks()
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
             dma_set_transfer(m_dma_id, &dma_tx, true);
-            p_ble->uart.dma_tx_in_progress = true;
         }
         else
         {
@@ -160,7 +144,6 @@ void ble_stack_tasks()
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
             dma_set_transfer(m_dma_id, &dma_tx, true);
-            p_ble->uart.dma_tx_in_progress = true;
         }
         memset(p_ble->uart.buffer, 0, sizeof(p_ble->uart.buffer));
        
@@ -254,7 +237,7 @@ void ble_stack_tasks()
         }
         else if (p_ble->flags.exec_reset)
         {
-            if (!p_ble->uart.transmit_in_progress)
+            if (uart_transmission_has_completed(m_uart_id))
             {
                 SoftReset();
             }
@@ -421,7 +404,7 @@ static uint8_t vsd_outgoing_message_uart(p_function ptr)
             sm.tick = mGetTick();
         case 1:
             
-            if (!p_ble->uart.transmit_in_progress && !p_ble->uart.receive_in_progress)
+            if (uart_transmission_has_completed(m_uart_id) && !p_ble->uart.receive_in_progress)
             {
                 sm.index++;
                 sm.tick = mGetTick();
@@ -431,7 +414,7 @@ static uint8_t vsd_outgoing_message_uart(p_function ptr)
         case 2:
             if (mTickCompare(sm.tick) >= TICK_400US)
         	{
-        		if (!p_ble->uart.transmit_in_progress && !p_ble->uart.receive_in_progress)
+        		if (uart_transmission_has_completed(m_uart_id) && !p_ble->uart.receive_in_progress)
 				{
 					sm.index++;
 					sm.tick = mGetTick();
@@ -453,7 +436,6 @@ static uint8_t vsd_outgoing_message_uart(p_function ptr)
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
             dma_set_transfer(m_dma_id, &dma_tx, true);
-            p_ble->uart.dma_tx_in_progress = true;
 
 			sm.index++;
 			sm.tick = mGetTick();
@@ -461,7 +443,7 @@ static uint8_t vsd_outgoing_message_uart(p_function ptr)
 
 		case 4:
 
-            if (!p_ble->uart.transmit_in_progress)
+            if (uart_transmission_has_completed(m_uart_id))
             {
                 memset(buffer, 0, sizeof(buffer));
                 sm.index++;

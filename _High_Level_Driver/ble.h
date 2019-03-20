@@ -39,8 +39,6 @@ typedef enum
 typedef struct
 {
     BLE_UART_MESSAGE_TYPE           message_type;
-    bool                            dma_tx_in_progress;
-	bool                            transmit_in_progress;
 	bool                            receive_in_progress;
 	uint8_t                         buffer[256];
 	uint8_t                         index;
