@@ -1,5 +1,5 @@
 /*********************************************************************
- *	TIMER modules (1, 2, 3, 4 et 5)
+ *	TIMER modules (1, 2, 3, 4 and 5)
  *	Author : Sébastien PERREAU
  *
  *	Revision history	:

@@ -10,6 +10,7 @@ typedef enum
 void _EXAMPLE_TIMER();
 void _EXAMPLE_DMA_RAM_TO_RAM();
 void _EXAMPLE_DMA_RAM_AND_REG();
+void _EXAMPLE_PWM();
 void _EXAMPLE_SOFTWARE_PWM();
 void _EXAMPLE_SWITCH();
 void _EXAMPLE_ENCODER();

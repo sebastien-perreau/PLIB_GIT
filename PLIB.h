@@ -26,6 +26,7 @@
 #include "_Low_Level_Driver/s21_uart.h"
 #include "_Low_Level_Driver/s23_spi.h"
 #include "_Low_Level_Driver/s24_i2c.h"
+#include "_Low_Level_Driver/s31_dma.h"
 #include "_Low_Level_Driver/s34_can.h"
 #include "_Low_Level_Driver/s35_ethernet_TCPIP.h"
 #include "_Low_Level_Driver/s35_ethernet_OSI-2_DataLinkLayer.h"
@@ -33,8 +34,6 @@
 #include "_Low_Level_Driver/s35_ethernet_OSI-4_TransportLayer.h"
 #include "_Low_Level_Driver/s35_ethernet_OSI-5_ApplicationLayer.h"
 #include "_Low_Level_Driver/s35_ethernet_Applications.h"
-
-#include "_Experimental/s31_dma.h"
 
 #include "_High_Level_Driver/utilities.h"
 #include "_High_Level_Driver/string_advance.h"

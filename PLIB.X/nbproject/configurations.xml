@@ -9,7 +9,6 @@
                      projectFiles="true">
         <itemPath>../_Experimental/_EXAMPLES_.h</itemPath>
         <itemPath>../_Experimental/_LOG.h</itemPath>
-        <itemPath>../_Experimental/s31_dma.h</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
@@ -51,6 +50,7 @@
         <itemPath>../_Low_Level_Driver/s35_ethernet_TCPIP.h</itemPath>
         <itemPath>../_Low_Level_Driver/s12_ports.h</itemPath>
         <itemPath>../_Low_Level_Driver/s21_uart.h</itemPath>
+        <itemPath>../_Low_Level_Driver/s31_dma.h</itemPath>
       </logicalFolder>
       <itemPath>../defines.h</itemPath>
       <itemPath>../PLIB.h</itemPath>
@@ -67,7 +67,6 @@
                      projectFiles="true">
         <itemPath>../_Experimental/_EXAMPLES_.c</itemPath>
         <itemPath>../_Experimental/_LOG.c</itemPath>
-        <itemPath>../_Experimental/s31_dma.c</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
@@ -109,6 +108,7 @@
         <itemPath>../_Low_Level_Driver/s35_ethernet_TCPIP.c</itemPath>
         <itemPath>../_Low_Level_Driver/s12_ports.c</itemPath>
         <itemPath>../_Low_Level_Driver/s21_uart.c</itemPath>
+        <itemPath>../_Low_Level_Driver/s31_dma.c</itemPath>
       </logicalFolder>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"

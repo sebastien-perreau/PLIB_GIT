@@ -240,6 +240,52 @@ void _EXAMPLE_DMA_RAM_AND_REG()
  * End of   _EXAMPLE_DMA_RAM_AND_REG()
  *********************************************************************************************/
 
+void _EXAMPLE_PWM()
+{
+    SWITCH_DEF(sw1, SWITCH1, ACTIVE_LOW);            
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            
+            // NOTE: PWM2 (OC2) and PWM3 (OC3) are assign to LED2 and LED3
+            pwm_init(PWM1_T2_ON | PWM4_T2_ON | PWM5_T3_ON, 40000, 250000);
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            switch (sw1.indice)
+            {
+                case 0:
+                    
+                    pwm_set_duty_cycle(PWM1, 0);
+                    pwm_set_duty_cycle(PWM4, 1);
+                    pwm_set_duty_cycle(PWM5, 2);
+                    break;
+                case 1:
+                    
+                    pwm_set_duty_cycle(PWM1, 50);
+                    pwm_set_duty_cycle(PWM4, 100);
+                    pwm_set_duty_cycle(PWM5, 150);
+                    break;
+                case 2:
+                    
+                    pwm_set_duty_cycle(PWM1, 255);
+                    pwm_set_duty_cycle(PWM4, 254);
+                    pwm_set_duty_cycle(PWM5, 253);
+                    break;
+                case 3:
+                    
+                    sw1.indice = 0;
+                    break;
+            }
+            fu_switch(&sw1);
+            break;
+    } 
+}
+
 void _EXAMPLE_SOFTWARE_PWM()
 {
     static state_machine_t sm_example = {0};
