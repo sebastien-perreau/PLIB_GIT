@@ -15,6 +15,7 @@
     #define LED2                        __PD1
     #define LED3                        __PD2
 
+    #define ADC_MUX                     AN15
     #define MUX0                        __PD5
     #define MUX1                        __PD9
 
