@@ -25,91 +25,94 @@ const SPI_REGISTERS * SpiModules[] =
     (SPI_REGISTERS *)_SPI3_BASE_ADDRESS,
     (SPI_REGISTERS *)_SPI4_BASE_ADDRESS
 };
+static spi_event_handler_t spi_event_handler[SPI_NUMBER_OF_MODULES] = {NULL};
 
-SPI_IO_DCPT_PARAMS SpiIoDcpt[] =
+const uint8_t spi_tx_irq[] = 
 {
-    SPI_IO_DCPT_INSTANCE(SPI1_CLK, SPI1_SDO, SPI1_SDI, SPI1_SS),
-    SPI_IO_DCPT_INSTANCE(SPI2_CLK, SPI2_SDO, SPI2_SDI, SPI2_SS),
-    SPI_IO_DCPT_INSTANCE(SPI3_CLK, SPI3_SDO, SPI3_SDI, SPI3_SS),
-    SPI_IO_DCPT_INSTANCE(SPI4_CLK, SPI4_SDO, SPI4_SDI, SPI4_SS),
+    _SPI1_TX_IRQ,
+    _SPI2_TX_IRQ,
+    _SPI3_TX_IRQ,
+    _SPI4_TX_IRQ
 };
 
-IRQ_SOURCE spiIrqSource[] =
+const uint8_t spi_rx_irq[] = 
 {
-    IRQ_SPI1RX,
-    IRQ_SPI2RX,
-    IRQ_SPI3RX,
-    IRQ_SPI4RX
+    _SPI1_RX_IRQ,
+    _SPI2_RX_IRQ,
+    _SPI3_RX_IRQ,
+    _SPI4_RX_IRQ
 };
 
-void SPIInit(SPI_MODULE id, QWORD freqHz, SPI_CONFIG config)
+const void *p_spi_tx_reg[] = 
 {
-    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[id];
-    SPI_IO_DCPT_PARAMS * p_dcpt = &SpiIoDcpt[id];
-    uint32_t dummy;
-    
-    ports_reset_pin_output(p_dcpt->SDO);
-    ports_reset_pin_input(p_dcpt->SDI);
+    (void*) &SPI1BUF,
+    (void*) &SPI2BUF,
+    (void*) &SPI3BUF,
+    (void*) &SPI4BUF
+};
 
-    if(!config&~SPI_CONF_MSTEN)
-    {
-        ports_reset_pin_output(p_dcpt->SCK);
-    }
-    else
-    {
-        ports_reset_pin_input(p_dcpt->SCK);
-    }
+const void *p_spi_rx_reg[] = 
+{
+    (void*) &SPI1BUF,
+    (void*) &SPI2BUF,
+    (void*) &SPI3BUF,
+    (void*) &SPI4BUF
+};
 
-    if(!config&~SPI_CONF_SSEN)
+static void spi_io_init(SPI_MODULE id, SPI_CONFIG config)
+{
+    SPI_IO _spi_io[] =
     {
-        ports_reset_pin_input(p_dcpt->SS);
-    }
-
-    spiRegister->SPIxCON = 0;
-    spiRegister->SPIxBRG = ((uint32_t) (PERIPHERAL_FREQ / freqHz) >> 1) - 1;
-    dummy = spiRegister->SPIxBUF;
-    spiRegister->SPIxSTATCLR = _SPI1STAT_SPIROV_MASK;
-    spiRegister->SPIxCON = config;
-    spiRegister->SPIxCONbits.SPION = ON;
+        SPI_IO_INSTANCE(SPI1_CLK, SPI1_SDO, SPI1_SDI, SPI1_SS),
+        SPI_IO_INSTANCE(SPI2_CLK, SPI2_SDO, SPI2_SDI, SPI2_SS),
+        SPI_IO_INSTANCE(SPI3_CLK, SPI3_SDO, SPI3_SDI, SPI3_SS),
+        SPI_IO_INSTANCE(SPI4_CLK, SPI4_SDO, SPI4_SDI, SPI4_SS),
+    };
+    (!config&~SPI_CONF_MSTEN) ? ports_reset_pin_output(_spi_io[id].SCK) : ports_reset_pin_input(_spi_io[id].SCK);
+    ports_reset_pin_output(_spi_io[id].SDO);
+    ports_reset_pin_input(_spi_io[id].SDI);
+    (!config&~SPI_CONF_SSEN) ? ports_reset_pin_input(_spi_io[id].SS) : 0;
 }
 
-void SPIEnable(SPI_MODULE mSpiModule, BOOL enable)
+void spi_init(SPI_MODULE id, spi_event_handler_t evt_handler, IRQ_EVENT_TYPE event_type_enable, uint32_t freq_hz, SPI_CONFIG config)
 {
-    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[mSpiModule];
+    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[id];
+    uint32_t dummy;
+
+    spi_event_handler[id] = evt_handler;
+    irq_init(IRQ_SPI1E + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_SPI_FAULT) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_spi_priority(id));
+    irq_init(IRQ_SPI1RX + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_SPI_RX) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_spi_priority(id));
+    irq_init(IRQ_SPI1TX + id, ((evt_handler != NULL) && ((event_type_enable & IRQ_SPI_TX) > 0)) ? IRQ_ENABLED : IRQ_DISABLED, irq_spi_priority(id));
+ 
+    spi_io_init(id, config);
     
+    spiRegister->SPIxCON = 0;
+    // Clear the receive buffer
+    dummy = spiRegister->SPIxBUF;
+    // Clear the overflow
+    spiRegister->SPIxSTATCLR = _SPI1STAT_SPIROV_MASK;
+    spi_set_frequency(id, freq_hz);    
+    spiRegister->SPIxCON = config;
+    spi_enable(id, ON);
+}
+
+void spi_enable(SPI_MODULE id, bool enable)
+{
+    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[id];    
     spiRegister->SPIxCONbits.SPION = enable;
 }
 
-void SPIInitIOAsChipSelect(_IO chip_select)
+void spi_set_mode(SPI_MODULE id, SPI_CONFIG mode)
 {
-    ports_reset_pin_output(chip_select);
-    ports_set_bit(chip_select);
-}
-
-DWORD SPIGetMode(SPI_MODULE mSpiModule)
-{
-    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[mSpiModule];
-    // return SPI_CONF_MODE8 | SPI_CONF_MODE16 | SPI_CONF_MODE32
-    return (spiRegister->SPIxCON & 0x00000C00);
-}
-
-void SPISetMode(SPI_MODULE mSpiModule, SPI_CONFIG mode)
-{
-    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[mSpiModule];
+    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[id];
     spiRegister->SPIxCONbits.MODE16 = ((mode >> 10) & 0x00000001);
     spiRegister->SPIxCONbits.MODE32 = ((mode >> 11) & 0x00000001);
 }
 
-void SPISetFreq(SPI_MODULE mSpiModule, QWORD freqHz)
+void spi_set_frequency(SPI_MODULE id, uint32_t freq_hz)
 {
-    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[mSpiModule];
-    spiRegister->SPIxBRG = ((DWORD) (PERIPHERAL_FREQ / freqHz) >> 1) - 1;
-}
-
-QWORD SPIGetFreq(SPI_MODULE mSpiModule)
-{
-    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[mSpiModule];
-    return (QWORD) (PERIPHERAL_FREQ/(2*(spiRegister->SPIxBRG + 1)));
+    SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[id];
+    spiRegister->SPIxBRG = ((uint32_t) (PERIPHERAL_FREQ / freq_hz) >> 1) - 1;
 }
 
 BOOL SPIIsRxAvailable(SPI_MODULE mSpiModule)
@@ -163,14 +166,14 @@ BYTE SPIWriteAndStore8_16_32(SPI_MODULE spi_module, _IO chip_select, uint32_t tx
     switch(functionState[spi_module])
     {
         case 0:
-            SPISetMode(spi_module, confMode);
+            spi_set_mode(spi_module, confMode);
             SPIPointerDwordDataReceived[spi_module] = rxData;
             SPICurrentChipSelect[spi_module] = chip_select;
             SPIReleaseChipSelect[spi_module] = TRUE;
             ports_clr_bit(chip_select);
             functionState[spi_module]++;
         case 1:
-            if((!spiRegister->SPIxCONbits.ENHBUF && spiRegister->SPIxSTATbits.SPITBE) || (spiRegister->SPIxCONbits.ENHBUF && !spiRegister->SPIxSTATbits.SPITBF))
+            if(SPIIsTxAvailable(spi_module))
             {
                 spiRegister->SPIxBUF = txData;
                 functionState[spi_module]++;
@@ -193,6 +196,13 @@ BYTE SPIWriteAndStoreByteArray(SPI_MODULE spi_module, _IO chip_select, void *txB
     static BYTE functionState[SPI_NUMBER_OF_MODULES] = {0};
     static QWORD tickEOT[SPI_NUMBER_OF_MODULES] = {0};
     static QWORD periodEOT[SPI_NUMBER_OF_MODULES] = {0};
+    IRQ_SOURCE spiIrqSource[] =
+    {
+        IRQ_SPI1RX,
+        IRQ_SPI2RX,
+        IRQ_SPI3RX,
+        IRQ_SPI4RX
+    };
     
     switch(functionState[spi_module])
     {
@@ -229,4 +239,100 @@ BYTE SPIWriteAndStoreByteArray(SPI_MODULE spi_module, _IO chip_select, void *txB
     }
 
     return functionState[spi_module];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const uint8_t spi_get_tx_irq(SPI_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the TX IRQ number of a SPI module.
+ * 
+ * Parameters:
+ *      id: The SPI module you want to use.
+ * 
+ * Return:
+ *      The constant TX IRQ number.
+ ******************************************************************************/
+const uint8_t spi_get_tx_irq(SPI_MODULE id)
+{
+    return spi_tx_irq[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const uint8_t spi_get_rx_irq(SPI_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the RX IRQ number of a SPI module.
+ * 
+ * Parameters:
+ *      id: The SPI module you want to use.
+ * 
+ * Return:
+ *      The constant RX IRQ number.
+ ******************************************************************************/
+const uint8_t spi_get_rx_irq(SPI_MODULE id)
+{
+    return spi_rx_irq[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const void *spi_get_tx_reg(SPI_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the TX Register of a SPI module.
+ * 
+ * Parameters:
+ *      id: The SPI module you want to use.
+ * 
+ * Return:
+ *      The constant pointer of SPI TX REGISTER.
+ ******************************************************************************/
+const void *spi_get_tx_reg(SPI_MODULE id)
+{
+    return (void*) p_spi_tx_reg[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      const void *spi_get_rx_reg(SPI_MODULE id)
+ * 
+ * Description:
+ *      This routine is used to get the RX Register of a SPI module.
+ * 
+ * Parameters:
+ *      id: The SPI module you want to use.
+ * 
+ * Return:
+ *      The constant pointer of SPI RX REGISTER.
+ ******************************************************************************/
+const void *spi_get_rx_reg(SPI_MODULE id)
+{
+    return (void*) p_spi_rx_reg[id];
+}
+
+/*******************************************************************************
+ * Function: 
+ *      void spi_interrupt_handler(SPI_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)
+ * 
+ * Description:
+ *      This routine is called when an interruption occured. This interrupt 
+ *      handler calls the user _event_handler (if existing) otherwise do nothing.
+ * 
+ * Parameters:
+ *      id: The SPI module you want to use.
+ *      evt_type: The type of event (RX, TX, FAULT...). See IRQ_EVENT_TYPE.
+ *      data: The data (in case of a reception) read in the interruption.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
+void spi_interrupt_handler(SPI_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data)
+{
+    if (spi_event_handler[id] != NULL)
+    {
+        (*spi_event_handler[id])(id, evt_type, data);
+    }
 }

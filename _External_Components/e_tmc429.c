@@ -81,7 +81,8 @@ void eTMC429Deamon(TMC429_CONFIG *var)
     
     if (!var->spi_params.is_chip_select_initialize)
     {
-        SPIInitIOAsChipSelect(var->spi_params.chip_select);
+        ports_reset_pin_output(var->spi_params.chip_select);
+        ports_set_bit(var->spi_params.chip_select);
         var->spi_params.is_chip_select_initialize = true;
     }
     

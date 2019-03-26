@@ -642,12 +642,6 @@ uint8_t eWS2812BFlush(uint64_t periodRefresh, WS2812B_PARAMS *var)
     uint8_t ret = 1;
     static uint16_t i[4] = {0};
     
-    if (!var->is_chip_select_init)
-    {
-        SPIInitIOAsChipSelect(var->chip_select);
-        var->is_chip_select_init = true;
-    }
-
     switch(var->leds[i[var->spi_module]].effect.TYPE_OF_EFFECT)
     {
         case WS2812B_EFFECT_NONE:

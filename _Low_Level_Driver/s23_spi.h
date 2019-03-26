@@ -210,16 +210,16 @@ typedef struct
     _IO SDO;
     _IO SDI;
     _IO SS;
-} SPI_IO_DCPT_PARAMS;
+} SPI_IO;
 
-#define SPI_IO_DCPT_INSTANCE2(_sck_io_port, _sck_io_indice, _sdo_io_port, _sdo_io_indice, _sdi_io_port, _sdi_io_indice, _ss_io_port, _ss_io_indice)             \
+#define SPI_IO_INSTANCE2(_sck_io_port, _sck_io_indice, _sdo_io_port, _sdo_io_indice, _sdi_io_port, _sdi_io_indice, _ss_io_port, _ss_io_indice)             \
 {                                               \
     .SCK = { _sck_io_port, _sck_io_indice },    \
     .SDO = { _sdo_io_port, _sdo_io_indice },    \
     .SDI = { _sdi_io_port, _sdi_io_indice },    \
     .SS = { _ss_io_port, _ss_io_indice },       \
 }
-#define SPI_IO_DCPT_INSTANCE(_sck, _sdo, _sdi, _ss)         SPI_IO_DCPT_INSTANCE2(__PORT(_sck), __INDICE(_sck), __PORT(_sdo), __INDICE(_sdo), __PORT(_sdi), __INDICE(_sdi), __PORT(_ss), __INDICE(_ss))
+#define SPI_IO_INSTANCE(_sck, _sdo, _sdi, _ss)         SPI_IO_INSTANCE2(__PORT(_sck), __INDICE(_sck), __PORT(_sdo), __INDICE(_sdo), __PORT(_sdi), __INDICE(_sdi), __PORT(_ss), __INDICE(_ss))
     
 typedef struct
 {
@@ -246,18 +246,24 @@ typedef struct
     .state_machine = {0}                            \
 }
 
-void SPIInit(SPI_MODULE id, QWORD freqHz, SPI_CONFIG config);
-void SPIEnable(SPI_MODULE mSpiModule, BOOL enable);
-void SPIInitIOAsChipSelect(_IO chip_select);
-DWORD SPIGetMode(SPI_MODULE mSpiModule);
-void SPISetMode(SPI_MODULE mSpiModule, SPI_CONFIG mode);
-void SPISetFreq(SPI_MODULE mSpiModule, QWORD freqHz);
-QWORD SPIGetFreq(SPI_MODULE mSpiModule);
+typedef void (*spi_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
+
+void spi_init(SPI_MODULE id, spi_event_handler_t evt_handler, IRQ_EVENT_TYPE event_type_enable, uint32_t freq_hz, SPI_CONFIG config);
+void spi_enable(SPI_MODULE id, bool enable);
+void spi_set_mode(SPI_MODULE mSpiModule, SPI_CONFIG mode);
+void spi_set_frequency(SPI_MODULE id, uint32_t freq_hz);
+
 BOOL SPIIsRxAvailable(SPI_MODULE mSpiModule);
 BOOL SPIIsTxAvailable(SPI_MODULE mSpiModule);
-
 BOOL SPIWriteAndStore(SPI_MODULE mSpiModule, _IO chip_select, uint32_t txData, uint32_t* rxData, bool releaseChipSelect);
 BYTE SPIWriteAndStore8_16_32(SPI_MODULE spi_module, _IO chip_select, uint32_t txData, uint32_t *rxData, SPI_CONFIG confMode);
 BYTE SPIWriteAndStoreByteArray(SPI_MODULE spi_module, _IO chip_select, void *txBuffer, void *rxBuffer, uint32_t size);
+
+const uint8_t spi_get_tx_irq(SPI_MODULE id);
+const uint8_t spi_get_rx_irq(SPI_MODULE id);
+const void *spi_get_tx_reg(SPI_MODULE id);
+const void *spi_get_rx_reg(SPI_MODULE id);
+
+void spi_interrupt_handler(SPI_MODULE id, IRQ_EVENT_TYPE evt_type, uint32_t data);
 
 #endif
