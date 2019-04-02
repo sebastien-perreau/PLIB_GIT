@@ -88,6 +88,29 @@ typedef struct
 
 typedef struct
 {
+    bool            enable;
+    uint8_t         intensity;
+    uint8_t         *p_out;
+    uint32_t        t_up;
+    uint32_t        t_down;
+    uint64_t        tick;
+} LED_PARAMS;
+
+#define LED_INSTANCE(_p_out, _enable, _intensity, _t_up, _t_down)       \
+{                                                                       \
+    .enable = _enable,                                                  \
+	.intensity = _intensity,                                            \
+    .p_out = (uint8_t *) _p_out,                                        \
+    .t_up = _t_up,                                                      \
+    .t_down = _t_down,                                                  \
+    .tick = 0                                                           \
+}
+
+#define LED_DEF(_name, _p_out, _enable, _intensity, _t_up, _t_down)     \
+static LED_PARAMS _name = LED_INSTANCE(_p_out, _enable, _intensity, _t_up, _t_down)
+
+typedef struct
+{
     BOOL            enable;
     volatile char   *pwmOut;
     BYTE            intensity;
@@ -250,7 +273,6 @@ static ACQUISITIONS_VAR _name = ACQUISITIONS_INSTANCE(_name ## _buffer_ntc_ram_a
 
 // ----------------------------------------------------
 // ************** PROTOTYPES OF FUNCTIONS *************
-void        fUtilitiesLed(LED_CONFIG *config);
 void        fUtilitiesLedRgb(LED_RGB_CONFIG *config);
 void        fUtilitiesLedTsv(LED_TSV_CONFIG *config);
 TSV_COLOR   fUtilitiesRGBtoTSV(RGB_COLOR rgbColor);
@@ -259,6 +281,7 @@ WORD        fUtilitiesGetNumberOfStep(TSV_COLOR color1, TSV_COLOR color2);
 TSV_COLOR   fUtilitiesGetMiddleTsvColor(TSV_COLOR color1, TSV_COLOR color2, WORD indice, WORD thresholdToFrom);
 void        fUtilitiesSlider(LED_SLIDER_CONFIG *config);
 
+void        fu_led(LED_PARAMS *var);
 
 void        fu_switch(SWITCH_VAR *var);
 void        fu_encoder(ENCODER_VAR *config);

@@ -129,9 +129,6 @@ void fu_encoder(ENCODER_VAR *var)
  * 
  * Return:
  *      The current state of the turn indicator. Should be apply to an I/O pin.
- * 
- * Example:
- *      See. _EXAMPLE_SWITCH() or _EXAMPLE_ENCODER()
  ******************************************************************************/
 bool fu_turn_indicator(bool enable, uint32_t time_on, uint32_t time_off)
 {
@@ -167,73 +164,45 @@ bool fu_turn_indicator(bool enable, uint32_t time_on, uint32_t time_off)
 }
 
 /*******************************************************************************
-  Function:
-    void fUtilitiesLed(LED_CONFIG *config);
-
-  Description:
-    This routine is used for managing a LED (pwm value, time up, time down...).
-
-  Parameters:
-    *config     - Pointer containing all parameters of the led (pwm value, time up, time down...).
-
-  Returns:
-
-
-  Example:
-    <code>
-
-    LED_CONFIG led = INIT_LED(f_PWM1, OFF, 100, TICK_1MS, TICK_2MS);
-    while(1) {
-    ...
-    led.enable = ON;
-    led.intensity = 70;
-    fUtilitiesLed(&led);
-    ...
-    }
-
-    </code>
-  *****************************************************************************/
-void fUtilitiesLed(LED_CONFIG *config)
+ * Function: 
+ *      void fu_led(LED_PARAMS *var)
+ * 
+ * Description:
+ *      This routine is used for managing a LED (pwm value, time up, time down...).
+ * 
+ * Parameters:
+ *      *var: A pointer of LED_PARAMS.
+ * 
+ * Return:
+ *      none.
+ ******************************************************************************/
+void fu_led(LED_PARAMS *var)
 {
-    if (config->enable == ON)
+    if (var->enable)
     {
-        
-        if ((config->tUp == 0) && (*(config->pwmOut) < config->intensity))
+        if (*var->p_out < var->intensity)
         {
-            *(config->pwmOut) = config->intensity;
-        }
-        else if ((config->tDown == 0) && (*(config->pwmOut) > config->intensity))
-        {
-            *(config->pwmOut) = config->intensity;
-        }
-        else if (mTickCompare(config->tick) > (QWORD)config->tUp)
-        {
-            config->tick = mGetTick();
-
-            if(*(config->pwmOut) < config->intensity)
+            if (mTickCompare(var->tick) >= var->t_up)
             {
-                (*(config->pwmOut))++;
+                var->tick = mGetTick();
+                (*(var->p_out))++;
             }
-            else if(*(config->pwmOut) > config->intensity)
+        }
+        else if (*var->p_out > var->intensity)
+        {
+            if (mTickCompare(var->tick) >= var->t_down)
             {
-                (*(config->pwmOut))--;
+                var->tick = mGetTick();
+                (*(var->p_out))--;
             }
         }
     }
-    else
+    else if (mTickCompare(var->tick) >= var->t_down)
     {
-        if (config->tDown == 0)
+        var->tick = mGetTick();
+        if (*var->p_out > 0)
         {
-            *(config->pwmOut) = 0;
-        }
-        else if (mTickCompare(config->tick) > (QWORD)config->tDown)
-        {
-            config->tick = mGetTick();
-
-            if (*(config->pwmOut) > 0)
-            {
-                (*(config->pwmOut))--;
-            }
+            (*(var->p_out))--;
         }
     }
 }

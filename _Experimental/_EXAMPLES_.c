@@ -70,7 +70,7 @@ static void _example_dma_ram_to_ram_event_handler(uint8_t id, DMA_CHANNEL_FLAGS 
         {
             mUpdateLedStatusD2(ON);
         }
-        dma_clear_flags(DMA0, DMA_FLAG_CELL_TRANSFER_DONE);
+        dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
     }
 }
 

@@ -144,6 +144,7 @@ void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bo
 {
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
     dma_channel_enable(id, OFF);
+    while (dma_channel_is_enable(id));
     p_dma_channel->DCHSSA = _VirtToPhys2(channel_transfer->src_start_addr);
     p_dma_channel->DCHDSA = _VirtToPhys2(channel_transfer->dst_start_addr);
     p_dma_channel->DCHSSIZ = channel_transfer->src_size;

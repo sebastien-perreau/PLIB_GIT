@@ -2,16 +2,6 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Experimental/pink_lady.c</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_External_Components/e_ws2812b.h</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Low_Level_Driver/s23_spi.c</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Experimental/pink_lady.h</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_High_Level_Driver/utilities.h</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Low_Level_Driver/s23_spi.h</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_High_Level_Driver/utilities.c</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_External_Components/e_ws2812b.c</file>
-            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/PLIB.h</file>
-        </group>
+        <group/>
     </open-files>
 </project-private>
