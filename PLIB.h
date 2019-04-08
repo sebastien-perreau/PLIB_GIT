@@ -44,7 +44,6 @@
 
 #include "_External_Components/e_25lc512.h"
 #include "_External_Components/e_mcp23s17.h"
-#include "_External_Components/e_ws2812b.h"
 #include "_External_Components/e_amis30621.h"
 #include "_External_Components/e_tmc429.h"
 #include "_External_Components/e_at42qt2120.h"

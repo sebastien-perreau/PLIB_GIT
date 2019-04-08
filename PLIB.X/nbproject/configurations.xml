@@ -15,7 +15,6 @@
                      displayName="_External_Components"
                      projectFiles="true">
         <itemPath>../_External_Components/e_mcp23s17.h</itemPath>
-        <itemPath>../_External_Components/e_ws2812b.h</itemPath>
         <itemPath>../_External_Components/e_amis30621.h</itemPath>
         <itemPath>../_External_Components/e_tmc429.h</itemPath>
         <itemPath>../_External_Components/e_25lc512.h</itemPath>
@@ -74,7 +73,6 @@
                      displayName="_External_Components"
                      projectFiles="true">
         <itemPath>../_External_Components/e_mcp23s17.c</itemPath>
-        <itemPath>../_External_Components/e_ws2812b.c</itemPath>
         <itemPath>../_External_Components/e_amis30621.c</itemPath>
         <itemPath>../_External_Components/e_tmc429.c</itemPath>
         <itemPath>../_External_Components/e_25lc512.c</itemPath>

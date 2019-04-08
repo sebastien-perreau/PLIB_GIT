@@ -14,21 +14,18 @@
 
 /*******************************************************************************
  * Function: 
- *      void fu_switch(SWITCH_VAR *var)
+ *      void fu_switch(SWITCH_PARAMS *var)
  * 
  * Description:
  *      This routine is used to manage a switch (debounce & type of push included).
  * 
  * Parameters:
- *      *var: The pointer of SWITCH_VAR.
+ *      *var: The pointer of SWITCH_PARAMS.
  * 
  * Return:
  *      none
- * 
- * Example:
- *      See. _EXAMPLE_SWITCH()
  ******************************************************************************/
-void fu_switch(SWITCH_VAR *var)
+void fu_switch(SWITCH_PARAMS *var)
 {
     if (!var->is_initialization_done)
     {
@@ -64,7 +61,7 @@ void fu_switch(SWITCH_VAR *var)
 
 /*******************************************************************************
  * Function: 
- *      void fu_encoder(ENCODER_VAR *var)
+ *      void fu_encoder(ENCODER_PARAMS *var)
  * 
  * Description:
  *      This routine is used to manage an encoder. You can either use pull_up or 
@@ -72,15 +69,12 @@ void fu_switch(SWITCH_VAR *var)
  *      active_state you want to use.
  * 
  * Parameters:
- *      *var: The pointer of ENCODER_VAR.
+ *      *var: The pointer of ENCODER_PARAMS.
  * 
  * Return:
  *      none
- * 
- * Example:
- *      See. _EXAMPLE_ENCODER()
  ******************************************************************************/
-void fu_encoder(ENCODER_VAR *var)
+void fu_encoder(ENCODER_PARAMS *var)
 {
     if (!var->is_initialization_done)
     {
@@ -208,399 +202,130 @@ void fu_led(LED_PARAMS *var)
 }
 
 /*******************************************************************************
-  Function:
-    void fUtilitiesLedRgb(LED_RGB_CONFIG *config);
-
-  Description:
-    This routine is used for managing a RGB LED from a RGB model.
-
-  Parameters:
-    *config     - Pointer containing all parameters of the rgb led (pwm value red/green/blue, time up, time down...).
-
-  Returns:
-
-
-  Example:
-    <code>
-
-    LED_RGB_CONFIG led = INIT_LED_RGB(f_PWM1, f_PWM2, f_PWM3, OFF, 100, TICK_20MS, TICK_20MS);
-    while(1) {
-    ...
-    led.enable = ON;
-    led.intensity = 70;
-    led.red = 100; led.green = 70; led.blue = 10;
-    fUtilitiesLedRgb(&led);
-    ...
-    }
-
-    </code>
-  *****************************************************************************/
-void fUtilitiesLedRgb(LED_RGB_CONFIG *config)
+ * Function: 
+ *      HSV_COLOR fu_rgb_to_hsv(RGB_COLOR rgb_color)
+ * 
+ * Description:
+ *      This routine is used to convert a RGB model to a HSV model.
+ * 
+ * Parameters:
+ *      rgb_color: A RGB model.
+ * 
+ * Return:
+ *      A HSV model. 
+ ******************************************************************************/
+HSV_COLOR fu_rgb_to_hsv(RGB_COLOR rgb_color)
 {
-    char red = ((config->rgbParams.red*config->intensity)/100);
-    char green = ((config->rgbParams.green*config->intensity)/100);
-    char blue = ((config->rgbParams.blue*config->intensity)/100);
+    float min, max, delta, x;
+    HSV_COLOR hsv_color = {0};
     
-    if(config->enable)
-    {
-        if((mGetTick() - config->tick) > config->tUp)
-        {
-            config->tick = mGetTick();
-
-            if(*(config->pwmRedOut) < red)
-            {
-                (*(config->pwmRedOut))++;
-            }
-            else if(*(config->pwmRedOut) > red)
-            {
-                (*(config->pwmRedOut))--;
-            }
-
-            if(*(config->pwmGreenOut) < green)
-            {
-                (*(config->pwmGreenOut))++;
-            }
-            else if(*(config->pwmGreenOut) > green)
-            {
-                (*(config->pwmGreenOut))--;
-            }
-
-            if(*(config->pwmBlueOut) < blue)
-            {
-                (*(config->pwmBlueOut))++;
-            }
-            else if(*(config->pwmBlueOut) > blue)
-            {
-                (*(config->pwmBlueOut))--;
-            }
-        }
-    }
-    else
-    {
-        if((mGetTick() - config->tick) > config->tDown)
-        {
-            config->tick = mGetTick();
-
-            if(*(config->pwmRedOut) > 0)
-            {
-                (*(config->pwmRedOut))--;
-            }
-            if(*(config->pwmGreenOut) > 0)
-            {
-                (*(config->pwmGreenOut))--;
-            }
-            if(*(config->pwmBlueOut) > 0)
-            {
-                (*(config->pwmBlueOut))--;
-            }
-        }
-    }
-}
-
-/*******************************************************************************
-  Function:
-    void fUtilitiesLedTsv(LED_TSV_CONFIG *config);
-
-  Description:
-    This routine is used for managing a RGB LED from a TSV model.
-
-  Parameters:
-    *config     - Pointer containing all parameters of the TSV model (shade, saturation, intensity, time up, time down...).
-
-  Returns:
-
-
-  Example:
-    <code>
-
-    LED_TSV_CONFIG led = INIT_LED_TSV(f_PWM1, f_PWM2, f_PWM3, ON, 100, TICK_20MS, TICK_20MS);
-    while(1) {
-    ...
-    led.enable = ON;
-    led.shade = 450; led.saturation = 70; led.intensity = 100;
-    fUtilitiesLedTsv(&led);
-    ...
-    }
-
-    </code>
-  *****************************************************************************/
-void fUtilitiesLedTsv(LED_TSV_CONFIG *config)
-{    
-    RGB_COLOR temp = fUtilitiesTSVtoRGB(config->tsvParams);
-
-    if(config->enable)
-    {
-        if((mGetTick() - config->tick) > config->tUp)
-        {
-            config->tick = mGetTick();
-
-            if(*(config->pwmRedOut) < temp.red)
-            {
-                (*(config->pwmRedOut))++;
-            }
-            else if(*(config->pwmRedOut) > temp.red)
-            {
-                (*(config->pwmRedOut))--;
-            }
-
-            if(*(config->pwmGreenOut) < temp.green)
-            {
-                (*(config->pwmGreenOut))++;
-            }
-            else if(*(config->pwmGreenOut) > temp.green)
-            {
-                (*(config->pwmGreenOut))--;
-            }
-
-            if(*(config->pwmBlueOut) < temp.blue)
-            {
-                (*(config->pwmBlueOut))++;
-            }
-            else if(*(config->pwmBlueOut) > temp.blue)
-            {
-                (*(config->pwmBlueOut))--;
-            }
-        }
-    }
-    else
-    {
-        if((mGetTick() - config->tick) > config->tDown)
-        {
-            config->tick = mGetTick();
-
-            if(*(config->pwmRedOut) > 0)
-            {
-                (*(config->pwmRedOut))--;
-            }
-            if(*(config->pwmGreenOut) > 0)
-            {
-                (*(config->pwmGreenOut))--;
-            }
-            if(*(config->pwmBlueOut) > 0)
-            {
-                (*(config->pwmBlueOut))--;
-            }
-        }
-    }
-}
-
-/*******************************************************************************
-  Function:
-    TSV_COLOR fUtilitiesRGBtoTSV(RGB_COLOR rgbColor);
-
-  Description:
-    This routine is used for getting the TSV model from the RGB model.
-
-  Parameters:
-    The RGB model.
-
-  Returns:
-    The TSV model.
-  *****************************************************************************/
-TSV_COLOR fUtilitiesRGBtoTSV(RGB_COLOR rgbColor)
-{
-    TSV_COLOR ret;
-    float min, max, delta, tShade;
-    
-    min = (rgbColor.red < rgbColor.green) ? rgbColor.red : rgbColor.green;
-    min = (min < rgbColor.blue) ? min : rgbColor.blue;
-    max = (rgbColor.red > rgbColor.green) ? rgbColor.red : rgbColor.green;
-    max = (max > rgbColor.blue) ? max : rgbColor.blue;
+    min = (rgb_color.red < rgb_color.green) ? rgb_color.red : rgb_color.green;
+    min = (min < rgb_color.blue) ? min : rgb_color.blue;
+    max = (rgb_color.red > rgb_color.green) ? rgb_color.red : rgb_color.green;
+    max = (max > rgb_color.blue) ? max : rgb_color.blue;
     delta = max - min;
     
     if(max > 0.0)
     {
-        if(rgbColor.red >= max)
+        if(rgb_color.red >= max)
         {
-            tShade = (100.0 * ((rgbColor.green - rgbColor.blue) / delta));
+            x = (255.0 * (rgb_color.green - rgb_color.blue) / delta);
         }
-        else if(rgbColor.green >= max)
+        else if(rgb_color.green >= max)
         {
-            tShade = (100.0 * (2.0 + ((rgbColor.blue - rgbColor.red) / delta)));
+            x = (510.0 + 255.0 * (rgb_color.blue - rgb_color.red) / delta);
         }
         else
         {
-            tShade = (100.0 * (4.0 + ((rgbColor.red - rgbColor.green) / delta)));
+            x = (1020.0 + 255.0 * (rgb_color.red - rgb_color.green) / delta);
         }
         
-        ret.shade = (tShade >= 0.0 ? ((WORD) tShade) : ((WORD) (tShade + 599.0)));
-        ret.saturation = (WORD) ((delta / max) * 100.0);
-        ret.intensity = (BYTE) max;
-    }
-    else
-    {
-        ret.shade = 0;
-        ret.saturation = 100;
-        ret.intensity = 0;
+        hsv_color.hue = (uint16_t) ((x >= 0.0) ? x : (x + 1529.0));
+        hsv_color.saturation = (uint8_t) (delta * 255.0 / max);
+        hsv_color.value = (uint8_t) max;
     }
     
-    return ret;
+    return hsv_color;
 }
 
 /*******************************************************************************
-  Function:
-    RGB_COLOR fUtilitiesTSVtoRGB(TSV_COLOR tsvColor);
-
-  Description:
-    This routine is used for getting the RGB model from the TSV model.
-
-  Parameters:
-    The TSV model.
-
-  Returns:
-    The RGB model.
-  *****************************************************************************/
-RGB_COLOR fUtilitiesTSVtoRGB(TSV_COLOR tsvColor)
+ * Function: 
+ *      RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
+ * 
+ * Description:
+ *      This routine is used to convert a HSV model to a RGB model.
+ * 
+ * Parameters:
+ *      hsv_color: A HSV model.
+ * 
+ * Return:
+ *      A RGB model. 
+ ******************************************************************************/
+RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
 {
-    RGB_COLOR ret;
-    BYTE tempShade = ((tsvColor.shade / 100) % 6);
-    float f = (float) ((float)(tsvColor.shade / 100.0) - (float)tempShade);
-    int l = tsvColor.intensity * (100 - tsvColor.saturation) / 100;
-    int m = tsvColor.intensity * (100 - (f * tsvColor.saturation)) / 100;
-    int n = tsvColor.intensity * (100 - tsvColor.saturation + (f * tsvColor.saturation)) / 100;
-
-    if((tsvColor.shade > 600) || (tsvColor.saturation > 100) || (tsvColor.intensity > 100))
+    uint8_t shade_index;
+    RGB_COLOR rgb_color = {0};
+    
+    shade_index = (hsv_color.hue / 255);
+    float f = (float) ((hsv_color.hue / 255.0) - shade_index);
+    uint16_t l = hsv_color.value * (255 - hsv_color.saturation) / 255;
+    uint16_t m = hsv_color.value * (255 - (float) (f * hsv_color.saturation)) / 255;
+    uint16_t n = hsv_color.value * (255 - hsv_color.saturation + (float) (f * hsv_color.saturation)) / 255;
+    
+    switch (shade_index)
     {
-        ret.red = 0;
-        ret.green = 0;
-        ret.blue = 0;
-    }
-    else
-    {
-        switch (tempShade)
-        {
-            case 0:
-                ret.red = tsvColor.intensity;
-                ret.green = n;
-                ret.blue = l;
-                break;
-            case 1:
-                ret.red = m;
-                ret.green = tsvColor.intensity;
-                ret.blue = l;
-                break;
-            case 2:
-                ret.red = l;
-                ret.green = tsvColor.intensity;
-                ret.blue = n;
-                break;
-            case 3:
-                ret.red = l;
-                ret.green = m;
-                ret.blue = tsvColor.intensity;
-                break;
-            case 4:
-                ret.red = n;
-                ret.green = l;
-                ret.blue = tsvColor.intensity;
-                break;
-            case 5:
-                ret.red = tsvColor.intensity;
-                ret.green = l;
-                ret.blue = m;
-                break;
-        }
+        case 0:
+            
+            rgb_color.red = hsv_color.value;
+            rgb_color.green = n;
+            rgb_color.blue = l;
+            break;
+            
+        case 1:
+            
+            rgb_color.red = m;
+            rgb_color.green = hsv_color.value;
+            rgb_color.blue = l;
+            break;
+            
+        case 2:
+            
+            rgb_color.red = l;
+            rgb_color.green = hsv_color.value;
+            rgb_color.blue = n;
+            break;
+            
+        case 3:
+            
+            rgb_color.red = l;
+            rgb_color.green = m;
+            rgb_color.blue = hsv_color.value;
+            break;
+            
+        case 4:
+            
+            rgb_color.red = n;
+            rgb_color.green = l;
+            rgb_color.blue = hsv_color.value;
+            break;
+            
+        case 5:
+            
+            rgb_color.red = hsv_color.value;
+            rgb_color.green = l;
+            rgb_color.blue = m;
+            break;
+            
+        default:
+            
+            rgb_color.red = 0;
+            rgb_color.green = 0;
+            rgb_color.blue = 0;
+            break;
+            
     }
     
-    return ret;
-}
-
-WORD fUtilitiesGetNumberOfStep(TSV_COLOR color1, TSV_COLOR color2)
-{
-    WORD ret = 0;
-    WORD shade_threshold = abs((int) (color1.shade - color2.shade));
-    WORD saturation_threshold = abs((int) (color1.saturation - color2.saturation));
-    WORD intensity_threshold = abs((int) (color1.intensity - color2.intensity));
-    (shade_threshold > 300)?(shade_threshold = (600-saturation_threshold)):0;
-    ret = shade_threshold;
-    (ret < saturation_threshold)?(ret = saturation_threshold):0;
-    (ret < intensity_threshold)?(ret = intensity_threshold):0;
-    return ret;
-}
-
-TSV_COLOR fUtilitiesGetMiddleTsvColor(TSV_COLOR color1, TSV_COLOR color2, WORD indice, WORD thresholdToFrom)
-{
-    TSV_COLOR ret;
-    
-    if((thresholdToFrom != indice) && ((color1.shade != color2.shade) || (color1.saturation != color2.saturation) || (color1.intensity != color2.intensity)))
-    {
-        float temp = 0.0;
-        WORD shade_threshold = 0;
-        BOOL sens = 0;      // --
-        
-        if(color1.shade > color2.shade)
-        {
-            shade_threshold = color1.shade - color2.shade;
-            if(shade_threshold > 300)
-            {
-                shade_threshold = 600 - shade_threshold;
-                sens = 1;   // ++
-            }
-        }
-        else if(color1.shade < color2.shade)
-        {
-            shade_threshold = color2.shade - color1.shade;
-            if(shade_threshold > 300)
-            {
-                shade_threshold = 600 - shade_threshold;
-            }
-            else
-            {
-                sens = 1;
-            }
-        }
-        else
-        {
-            ret.shade = color1.shade;
-        }
-
-        if(color1.shade != color2.shade)
-        {
-            if(sens)
-            {
-                temp = (float) (color1.shade + indice*shade_threshold/thresholdToFrom);    
-                if(temp >= 600.0)
-                {
-                    temp -= 600.0;
-                }
-            }
-            else
-            {
-                temp = (float) (600.0 + color1.shade - indice*shade_threshold/thresholdToFrom);    
-                if(temp >= 600.0)
-                {
-                    temp -= 600.0;
-                }
-            }
-            ret.shade = (WORD) temp;
-        }
-
-        if(color1.saturation >= color2.saturation)
-        {
-            temp = (float) (color1.saturation - indice*(color1.saturation - color2.saturation)/thresholdToFrom);
-        }
-        else
-        {
-            temp = (float) (color1.saturation + indice*(color2.saturation - color1.saturation)/thresholdToFrom);
-        }
-        ret.saturation = (BYTE) temp;
-        
-        if(color1.intensity >= color2.intensity)
-        {
-            temp = (float) (color1.intensity - indice*(color1.intensity - color2.intensity)/thresholdToFrom);
-        }
-        else
-        {
-            temp = (float) (color1.intensity + indice*(color2.intensity - color1.intensity)/thresholdToFrom);
-        }
-        ret.intensity = (BYTE) temp;
-    }
-    else
-    {
-        ret = color2;
-    }
-    
-    return ret;
+    return rgb_color;
 }
 
 /*******************************************************************************
@@ -640,179 +365,179 @@ TSV_COLOR fUtilitiesGetMiddleTsvColor(TSV_COLOR color1, TSV_COLOR color2, WORD i
 
     </code>
   *****************************************************************************/
-void fUtilitiesSlider(LED_SLIDER_CONFIG *config)
-{
-    BYTE i = 0;
-
-    if(config->enable)
-    {
-        switch(config->modeSlidingOn)
-        {
-            case DIR_RIGHT:
-                if(!config->previousState)
-                {
-                    config->currentIndice = 0;
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice < (config->sizeTab - 1))
-                    {
-                        config->currentIndice++;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = ON;
-                break;
-            case DIR_LEFT:
-                if(!config->previousState)
-                {
-                    config->currentIndice = config->sizeTab - 1;
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice > 0)
-                    {
-                        config->currentIndice--;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = ON;
-                break;
-            case DIR_EXTERNAL:
-                if(!config->previousState)
-                {
-                    config->currentIndice = (config->sizeTab / 2);
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice > 0)
-                    {
-                        config->currentIndice--;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = ON;
-                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = ON;
-                break;
-            case DIR_CENTER:
-                if(!config->previousState)
-                {
-                    config->currentIndice = 0;
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice < config->sizeTab/2)
-                    {
-                        config->currentIndice++;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = ON;
-                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = ON;
-                break;
-            default:
-                break;
-        }
-        config->previousState = 1;
-    }
-    else
-    {
-        switch(config->modeSlidingOff)
-        {
-            case DIR_NONE:
-                while(i < config->sizeTab)
-                {
-                    (config->ptrLed)[i].enable = OFF;
-                    i++;
-                }
-                config->currentIndice = 0xFF;
-                break;
-            case DIR_RIGHT:
-                if(config->previousState)
-                {
-                    config->currentIndice = 0;
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice < (config->sizeTab - 1))
-                    {
-                        config->currentIndice++;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = OFF;
-                break;
-            case DIR_LEFT:
-                if(config->previousState)
-                {
-                    config->currentIndice = config->sizeTab - 1;
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice > 0)
-                    {
-                        config->currentIndice--;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = OFF;
-                break;
-            case DIR_EXTERNAL:
-                if(config->previousState)
-                {
-                    config->currentIndice = (config->sizeTab / 2);
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice > 0)
-                    {
-                        config->currentIndice--;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = OFF;
-                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = OFF;
-                break;
-            case DIR_CENTER:
-                if(config->previousState)
-                {
-                    config->currentIndice = 0;
-                    config->tickSlider = mGetTick();
-                }
-                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-                {
-                    config->tickSlider = mGetTick();
-                    if(config->currentIndice < config->sizeTab/2)
-                    {
-                        config->currentIndice++;
-                    }
-                }
-                (config->ptrLed)[config->currentIndice].enable = OFF;
-                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = OFF;
-                break;
-            default:
-                break;
-        }
-        config->previousState = 0;
-    }
-}
+//void fUtilitiesSlider(LED_SLIDER_CONFIG *config)
+//{
+//    BYTE i = 0;
+//
+//    if(config->enable)
+//    {
+//        switch(config->modeSlidingOn)
+//        {
+//            case DIR_RIGHT:
+//                if(!config->previousState)
+//                {
+//                    config->currentIndice = 0;
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice < (config->sizeTab - 1))
+//                    {
+//                        config->currentIndice++;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = ON;
+//                break;
+//            case DIR_LEFT:
+//                if(!config->previousState)
+//                {
+//                    config->currentIndice = config->sizeTab - 1;
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice > 0)
+//                    {
+//                        config->currentIndice--;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = ON;
+//                break;
+//            case DIR_EXTERNAL:
+//                if(!config->previousState)
+//                {
+//                    config->currentIndice = (config->sizeTab / 2);
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice > 0)
+//                    {
+//                        config->currentIndice--;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = ON;
+//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = ON;
+//                break;
+//            case DIR_CENTER:
+//                if(!config->previousState)
+//                {
+//                    config->currentIndice = 0;
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice < config->sizeTab/2)
+//                    {
+//                        config->currentIndice++;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = ON;
+//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = ON;
+//                break;
+//            default:
+//                break;
+//        }
+//        config->previousState = 1;
+//    }
+//    else
+//    {
+//        switch(config->modeSlidingOff)
+//        {
+//            case DIR_NONE:
+//                while(i < config->sizeTab)
+//                {
+//                    (config->ptrLed)[i].enable = OFF;
+//                    i++;
+//                }
+//                config->currentIndice = 0xFF;
+//                break;
+//            case DIR_RIGHT:
+//                if(config->previousState)
+//                {
+//                    config->currentIndice = 0;
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice < (config->sizeTab - 1))
+//                    {
+//                        config->currentIndice++;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = OFF;
+//                break;
+//            case DIR_LEFT:
+//                if(config->previousState)
+//                {
+//                    config->currentIndice = config->sizeTab - 1;
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice > 0)
+//                    {
+//                        config->currentIndice--;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = OFF;
+//                break;
+//            case DIR_EXTERNAL:
+//                if(config->previousState)
+//                {
+//                    config->currentIndice = (config->sizeTab / 2);
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice > 0)
+//                    {
+//                        config->currentIndice--;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = OFF;
+//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = OFF;
+//                break;
+//            case DIR_CENTER:
+//                if(config->previousState)
+//                {
+//                    config->currentIndice = 0;
+//                    config->tickSlider = mGetTick();
+//                }
+//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
+//                {
+//                    config->tickSlider = mGetTick();
+//                    if(config->currentIndice < config->sizeTab/2)
+//                    {
+//                        config->currentIndice++;
+//                    }
+//                }
+//                (config->ptrLed)[config->currentIndice].enable = OFF;
+//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = OFF;
+//                break;
+//            default:
+//                break;
+//        }
+//        config->previousState = 0;
+//    }
+//}
 
 /*******************************************************************************
  * Function: 
- *      void fu_adc_average(AVERAGE_VAR *var)
+ *      void fu_adc_average(AVERAGE_PARAMS *var)
  * 
  * Description:
  *      This routine is used to get the average of an ADC acquisition.
  * 
  * Parameters:
- *      *var: The pointer of AVERAGE_VAR.
+ *      *var: The pointer of AVERAGE_PARAMS.
  * 
  * Return:
  *      true: if new acquisition and new average calculated.
@@ -821,7 +546,7 @@ void fUtilitiesSlider(LED_SLIDER_CONFIG *config)
  * Example:
  *      See. _EXAMPLE_NTC()
  ******************************************************************************/
-bool fu_adc_average(AVERAGE_VAR *var)
+bool fu_adc_average(AVERAGE_PARAMS *var)
 {    
     if(mTickCompare(var->tick) >= var->period)
     {
@@ -1038,7 +763,7 @@ float fu_get_float_value(uint32_t integer, uint8_t decimal)
  * Example:
  *      none
  ******************************************************************************/
-void background_tasks(ACQUISITIONS_VAR *var)
+void background_tasks(ACQUISITIONS_PARAMS *var)
 {
     static uint8_t index_tab_speed = 0;
     static uint64_t tab_speed[20] = {0};

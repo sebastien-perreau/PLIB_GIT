@@ -20,7 +20,7 @@ typedef struct
     bool                    is_debounce_protection_active;
     uint64_t                tick_debounce;
     uint64_t                tick_longpush;
-} SWITCH_VAR;
+} SWITCH_PARAMS;
 
 #define SWITCH_INSTANCE(_io_port, _io_indice, _active_state) \
 {                                                           \
@@ -34,8 +34,9 @@ typedef struct
     .tick_debounce = 0,                                     \
     .tick_longpush = 0,                                     \
 }
-#define SWITCH_DEF(_name, _io, _active_state)   \
-static SWITCH_VAR _name = SWITCH_INSTANCE(__PORT(_io), __INDICE(_io), _active_state)
+
+#define SWITCH_DEF(_name, _io, _active_state)               \
+static SWITCH_PARAMS _name = SWITCH_INSTANCE(__PORT(_io), __INDICE(_io), _active_state)
 
 // ------------------------------------------------------
 // **** MACRO AND STRUCTURE FOR THE ENCODER FUNCTION ****
@@ -49,7 +50,7 @@ typedef struct
     bool                a0;
     bool                b0;
     bool                is_initialization_done;
-}ENCODER_VAR;
+} ENCODER_PARAMS;
 
 #define ENCODER_INSTANCE(_io_port_a, _io_indice_a, _io_port_b, _io_indice_b, _active_state) \
 {                                                           \
@@ -63,29 +64,12 @@ typedef struct
     .b0 = 0,                                                \
     .is_initialization_done = false,                        \
 }
+
 #define ENCODER_DEF(_name, _io_a, _io_b, _active_state)     \
-static ENCODER_VAR _name = ENCODER_INSTANCE(__PORT(_io_a), __INDICE(_io_a), __PORT(_io_b), __INDICE(_io_b), _active_state)
+static ENCODER_PARAMS _name = ENCODER_INSTANCE(__PORT(_io_a), __INDICE(_io_a), __PORT(_io_b), __INDICE(_io_b), _active_state)
 
 // ---------------------------------------------------
 // ***** MACRO AND STRUCTURE FOR THE LED ROUTINE *****
-#define INIT_LED(ptrSrc, enable, intensity, tUp, tDown)                         {enable, &ptrSrc, intensity, TICK_INIT, tUp, tDown}
-#define INIT_LED_RGB(ptrSrcR, ptrSrcG, ptrSrcB, enable, intensity, tUp, tDown)  {enable, &ptrSrcR, &ptrSrcG, &ptrSrcB, 0, 0, 0, intensity, TICK_INIT, tUp, tDown}
-#define INIT_LED_TSV(ptrSrcR, ptrSrcG, ptrSrcB, enable, intensity, tUp, tDown)  {enable, &ptrSrcR, &ptrSrcG, &ptrSrcB, 0, 100, intensity, TICK_INIT, tUp, tDown}
-
-typedef struct
-{
-    BYTE    red;
-    BYTE    green;
-    BYTE    blue;
-}RGB_COLOR;
-
-typedef struct
-{
-    WORD    shade;
-    BYTE    saturation;
-    BYTE    intensity;
-}TSV_COLOR;
-
 typedef struct
 {
     bool            enable;
@@ -111,74 +95,61 @@ static LED_PARAMS _name = LED_INSTANCE(_p_out, _enable, _intensity, _t_up, _t_do
 
 typedef struct
 {
-    BOOL            enable;
-    volatile char   *pwmOut;
-    BYTE            intensity;
-    QWORD           tick;
-    QWORD           tUp;
-    QWORD           tDown;
-}LED_CONFIG;
+    uint8_t                     red;
+    uint8_t                     green;
+    uint8_t                     blue;
+    uint8_t                     white;
+} RGBW_COLOR;
 
 typedef struct
 {
-    BOOL            enable;
-    volatile char   *pwmRedOut;
-    volatile char   *pwmGreenOut;
-    volatile char   *pwmBlueOut;
-    RGB_COLOR       rgbParams;
-    BYTE            intensity;
-    QWORD           tick;
-    QWORD           tUp;
-    QWORD           tDown;
-}LED_RGB_CONFIG;
+    uint8_t                     red;
+    uint8_t                     green;
+    uint8_t                     blue;
+} RGB_COLOR;
 
 typedef struct
 {
-    BOOL            enable;
-    volatile char   *pwmRedOut;
-    volatile char   *pwmGreenOut;
-    volatile char   *pwmBlueOut;
-    TSV_COLOR       tsvParams;
-    QWORD           tick;
-    QWORD           tUp;
-    QWORD           tDown;
-}LED_TSV_CONFIG;
+    uint16_t                    hue;
+    uint8_t                     saturation;
+    uint8_t                     value;
+} HSV_COLOR;
 
 // ----------------------------------------------------
 // **** MACRO AND STRUCTURE FOR THE SLIDER ROUTINE ****
-#define DIR_NONE        0
-#define DIR_RIGHT       1   //  *------->
-#define DIR_LEFT        2   //  <-------*
-#define DIR_EXTERNAL    3   //  <-- * -->
-#define DIR_CENTER      4   //  *--> <--*
-#define INIT_SLIDER(ptr, modeOn, modeOff, tOn, tOff)      {OFF, 0, modeOn, modeOff, 0, ptr, sizeof(ptr)/sizeof(LED_CONFIG), tOn, tOff, TICK_INIT}
-
-typedef struct
-{
-    BOOL enable;
-    BOOL previousState;
-    BYTE modeSlidingOn;
-    BYTE modeSlidingOff;
-    BYTE currentIndice;
-    LED_CONFIG *ptrLed;
-    BYTE sizeTab;
-    QWORD tSliderOn;
-    QWORD tSliderOff;
-    QWORD tickSlider;
-}LED_SLIDER_CONFIG;
+//#define DIR_NONE        0
+//#define DIR_RIGHT       1   //  *------->
+//#define DIR_LEFT        2   //  <-------*
+//#define DIR_EXTERNAL    3   //  <-- * -->
+//#define DIR_CENTER      4   //  *--> <--*
+//#define INIT_SLIDER(ptr, modeOn, modeOff, tOn, tOff)      {OFF, 0, modeOn, modeOff, 0, ptr, sizeof(ptr)/sizeof(LED_CONFIG), tOn, tOff, TICK_INIT}
+//
+//typedef struct
+//{
+//    BOOL enable;
+//    BOOL previousState;
+//    BYTE modeSlidingOn;
+//    BYTE modeSlidingOff;
+//    BYTE currentIndice;
+//    LED_CONFIG *ptrLed;
+//    BYTE sizeTab;
+//    QWORD tSliderOn;
+//    QWORD tSliderOff;
+//    QWORD tickSlider;
+//}LED_SLIDER_CONFIG;
 
 // ---------------------------------------------------
 // ******** STRUCTURE FOR THE AVERAGE ROUTINE ********
 typedef struct
 {
-    uint16_t adc_module;
-    DYNAMIC_TAB_FLOAT buffer;
-    float average;
-    float sum_of_buffer;
-    uint16_t index_buffer;
-    uint64_t period;
-    uint64_t tick;
-} AVERAGE_VAR;
+    uint16_t                adc_module;
+    DYNAMIC_TAB_FLOAT       buffer;
+    float                   average;
+    float                   sum_of_buffer;
+    uint16_t                index_buffer;
+    uint64_t                period;
+    uint64_t                tick;
+} AVERAGE_PARAMS;
 
 #define AVERAGE_INSTANCE(_adc_module, _buffer, _period)         \
 {                                                               \
@@ -190,9 +161,10 @@ typedef struct
     .period = _period,                                          \
     .tick = 0,                                                  \
 }
+
 #define AVERAGE_DEF(_name, _adc_module, _number_of_acquisition, _period)        \
 static float _name ## _buffer_ram_allocation[_number_of_acquisition] = {0.0};   \
-static AVERAGE_VAR _name = AVERAGE_INSTANCE(_adc_module, _name ## _buffer_ram_allocation, _period)
+static AVERAGE_PARAMS _name = AVERAGE_INSTANCE(_adc_module, _name ## _buffer_ram_allocation, _period)
 
 // ---------------------------------------------------
 // ********** STRUCTURE FOR THE NTC ROUTINE **********
@@ -205,7 +177,7 @@ typedef struct
 
 typedef struct
 {
-    AVERAGE_VAR average;
+    AVERAGE_PARAMS average;
     NTC_PARAMS  ntc_params;
     float       temperature;
 } NTC_VAR;
@@ -247,13 +219,13 @@ static BUS_MANAGEMENT_VAR _name = BUS_MANAGEMENT_INSTANCE(__VA_ARGS__)
 // ***** STRUCTURE FOR THE BACKGROUND TASKS ROUTINE *****
 typedef struct
 {    
-    NTC_VAR     ntc;                // .temperature : -40.0 .. 200.0
-    AVERAGE_VAR current;            // .average: (e.i) 17.48
-    AVERAGE_VAR voltage;            // .average: (e.i) 12.56
-    AVERAGE_VAR an15;               // .average: 0 .. 1023
-    float       power_consumption;  // voltage x current (@ t time)
-    uint64_t    speed;              // UC Speed define in uS
-} ACQUISITIONS_VAR;
+    NTC_VAR         ntc;                // .temperature : -40.0 .. 200.0
+    AVERAGE_PARAMS  current;            // .average: (e.i) 17.48
+    AVERAGE_PARAMS  voltage;            // .average: (e.i) 12.56
+    AVERAGE_PARAMS  an15;               // .average: 0 .. 1023
+    float           power_consumption;  // voltage x current (@ t time)
+    uint64_t        speed;              // UC Speed define in uS
+} ACQUISITIONS_PARAMS;
 
 #define ACQUISITIONS_INSTANCE(_buffer_ntc, _buffer_current, _buffer_voltage, _buffer_an15)    \
 {                                                                               \
@@ -264,30 +236,28 @@ typedef struct
     .power_consumption = 0.0,                                                   \
     .speed = 0,                                                                 \
 }
+
 #define ACQUISITIONS_DEF(_name)                                     \
 static float _name ## _buffer_ntc_ram_allocation[20] = {0.0};       \
 static float _name ## _buffer_current_ram_allocation[10] = {0.0};   \
 static float _name ## _buffer_voltage_ram_allocation[10] = {0.0};   \
 static float _name ## _buffer_an15_ram_allocation[1] = {0.0};   \
-static ACQUISITIONS_VAR _name = ACQUISITIONS_INSTANCE(_name ## _buffer_ntc_ram_allocation, _name ## _buffer_current_ram_allocation, _name ## _buffer_voltage_ram_allocation, _name ## _buffer_an15_ram_allocation)
+static ACQUISITIONS_PARAMS _name = ACQUISITIONS_INSTANCE(_name ## _buffer_ntc_ram_allocation, _name ## _buffer_current_ram_allocation, _name ## _buffer_voltage_ram_allocation, _name ## _buffer_an15_ram_allocation)
 
 // ----------------------------------------------------
 // ************** PROTOTYPES OF FUNCTIONS *************
-void        fUtilitiesLedRgb(LED_RGB_CONFIG *config);
-void        fUtilitiesLedTsv(LED_TSV_CONFIG *config);
-TSV_COLOR   fUtilitiesRGBtoTSV(RGB_COLOR rgbColor);
-RGB_COLOR   fUtilitiesTSVtoRGB(TSV_COLOR tsvColor);
-WORD        fUtilitiesGetNumberOfStep(TSV_COLOR color1, TSV_COLOR color2);
-TSV_COLOR   fUtilitiesGetMiddleTsvColor(TSV_COLOR color1, TSV_COLOR color2, WORD indice, WORD thresholdToFrom);
-void        fUtilitiesSlider(LED_SLIDER_CONFIG *config);
 
-void        fu_led(LED_PARAMS *var);
+//void        fUtilitiesSlider(LED_SLIDER_CONFIG *config);
 
-void        fu_switch(SWITCH_VAR *var);
-void        fu_encoder(ENCODER_VAR *config);
+void        fu_switch(SWITCH_PARAMS *var);
+void        fu_encoder(ENCODER_PARAMS *config);
 bool        fu_turn_indicator(bool enable, uint32_t time_on, uint32_t time_off);
 
-bool        fu_adc_average(AVERAGE_VAR *var);
+void        fu_led(LED_PARAMS *var);
+HSV_COLOR   fu_rgb_to_hsv(RGB_COLOR rgb_color);
+RGB_COLOR   fu_hsv_to_rgb(HSV_COLOR hsv_color);
+
+bool        fu_adc_average(AVERAGE_PARAMS *var);
 bool        fu_ntc(NTC_VAR *var);
 
 void        fu_bus_management_task(BUS_MANAGEMENT_VAR *dp);
@@ -297,6 +267,6 @@ uint32_t    fu_get_integer_value(float v);
 uint32_t    fu_get_decimal_value(float v, uint8_t numbers_after_coma);
 float       fu_get_float_value(uint32_t integer, uint8_t decimal);
 
-void        background_tasks(ACQUISITIONS_VAR *var);
+void        background_tasks(ACQUISITIONS_PARAMS *var);
 
 #endif

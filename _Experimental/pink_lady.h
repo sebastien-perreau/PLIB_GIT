@@ -18,14 +18,6 @@ typedef enum
 
 typedef struct
 {
-    uint8_t                     red;
-    uint8_t                     green;
-    uint8_t                     blue;
-    uint8_t                     white;
-} RGBW_COLOR;
-
-typedef struct
-{
     RGBW_COLOR                  delta_color;
     uint16_t                    number_of_led;
     uint16_t                    ind_pos;
