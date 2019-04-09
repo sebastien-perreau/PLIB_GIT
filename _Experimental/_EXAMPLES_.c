@@ -1221,3 +1221,69 @@ void _EXAMPLE_LIN()
             break;
     } 
 }
+
+void _EXAMPLE_PINK_LADY()
+{
+    PINK_LADY_DEF(smartled, SPI1, DMA2, SK6812RGBW_MODEL, 50);
+    PINK_LADY_SEGMENT_DEF(smartled_seg_1, smartled);
+    static state_machine_t sm_colors = {0};
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:          
+            
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            if (mTickCompare(sm_colors.tick) >= TICK_1S)
+            {
+                sm_colors.tick = mGetTick();
+                sm_colors.index++;
+            }
+
+            switch (sm_colors.index)
+            {
+                case 0:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_GREEN, TICK_500MS))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 1:
+                    break;
+                case 2:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_GREEN, RGBW_COLOR_BLUE, TICK_500MS))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 3:
+                    break;
+                case 4:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_WHITE, RGBW_COLOR_WHITE_MIX, TICK_500MS))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 5:
+                    break;
+                case 6:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_CYAN, RGBW_COLOR_OFF, TICK_500MS))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 7:
+                    break;
+                default:
+                    sm_colors.index = 0;
+                    break;
+            }
+
+            pink_lady_deamon(&smartled);
+            break;
+    } 
+}

@@ -93,6 +93,35 @@ typedef struct
 #define LED_DEF(_name, _p_out, _enable, _intensity, _t_up, _t_down)     \
 static LED_PARAMS _name = LED_INSTANCE(_p_out, _enable, _intensity, _t_up, _t_down)
 
+#define RGBW_COLOR_OFF          (RGBW_COLOR) {0, 0, 0, 0}
+#define RGBW_COLOR_WHITE        (RGBW_COLOR) {0, 0, 0, 255}
+#define RGBW_COLOR_WHITE_MIX    (RGBW_COLOR) {255, 255, 255, 0}
+#define RGBW_COLOR_WHITE_ALL    (RGBW_COLOR) {255, 255, 255, 255}
+#define RGBW_COLOR_RED          (RGBW_COLOR) {255, 0, 0, 0}
+#define RGBW_COLOR_GREEN        (RGBW_COLOR) {0, 255, 0, 0}
+#define RGBW_COLOR_BLUE         (RGBW_COLOR) {0, 0, 255, 0}
+#define RGBW_COLOR_YELLOW       (RGBW_COLOR) {255, 255, 0, 0}
+#define RGBW_COLOR_CYAN         (RGBW_COLOR) {0, 255, 255, 0}
+#define RGBW_COLOR_PURPLE       (RGBW_COLOR) {255, 0, 255, 0}
+
+#define RGB_COLOR_OFF           (RGB_COLOR) {0, 0, 0}
+#define RGB_COLOR_WHITE         (RGB_COLOR) {255, 255, 255}
+#define RGB_COLOR_RED           (RGB_COLOR) {255, 0, 0}
+#define RGB_COLOR_GREEN         (RGB_COLOR) {0, 255, 0}
+#define RGB_COLOR_BLUE          (RGB_COLOR) {0, 0, 255}
+#define RGB_COLOR_YELLOW        (RGB_COLOR) {255, 255, 0}
+#define RGB_COLOR_CYAN          (RGB_COLOR) {0, 255, 255}
+#define RGB_COLOR_PURPLE        (RGB_COLOR) {255, 0, 255}
+
+#define HSV_COLOR_OFF           (HSV_COLOR) {0, 0, 0}
+#define HSV_COLOR_WHITE         (HSV_COLOR) {0, 0, 255}
+#define HSV_COLOR_RED           (HSV_COLOR) {0, 255, 255}
+#define HSV_COLOR_GREEN         (HSV_COLOR) {510, 255, 255}
+#define HSV_COLOR_BLUE          (HSV_COLOR) {1020, 255, 255}
+#define HSV_COLOR_YELLOW        (HSV_COLOR) {255, 255, 255}
+#define HSV_COLOR_CYAN          (HSV_COLOR) {765, 255, 255}
+#define HSV_COLOR_PURPLE        (HSV_COLOR) {1275, 255, 255}
+
 typedef struct
 {
     uint8_t                     red;
