@@ -1247,37 +1247,65 @@ void _EXAMPLE_PINK_LADY()
             switch (sm_colors.index)
             {
                 case 0:
-                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_GREEN, TICK_500MS))
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 30, RGBW_COLOR_BLUE, RGBW_COLOR_WHITE, 0))
                     {
                         sm_colors.index++;
                     }
                     break;
                 case 1:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 20, 49, RGBW_COLOR_WHITE, RGBW_COLOR_RED, 0))
+                    {
+                        sm_colors.index++;
+                    }
                     break;
                 case 2:
+                    break;
+                    
+                case 3:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_GREEN, TICK_500MS))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 4:
+                    break;
+                    
+                case 5:
                     if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_GREEN, RGBW_COLOR_BLUE, TICK_500MS))
                     {
                         sm_colors.index++;
                     }
                     break;
-                case 3:
+                case 6:
                     break;
-                case 4:
+                    
+                case 7:
                     if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_WHITE, RGBW_COLOR_WHITE_MIX, TICK_500MS))
                     {
                         sm_colors.index++;
                     }
                     break;
-                case 5:
+                case 8:
                     break;
-                case 6:
+                    
+                case 9:
                     if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_CYAN, RGBW_COLOR_OFF, TICK_500MS))
                     {
                         sm_colors.index++;
                     }
                     break;
-                case 7:
+                case 10:
                     break;
+                    
+                case 11:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_RED, 0))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 12:
+                    break;
+                    
                 default:
                     sm_colors.index = 0;
                     break;
