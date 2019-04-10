@@ -42,6 +42,20 @@ static const uint32_t sk6812rgbw_ws2812b_mapping[] =
     0x8888eeee, 0x8e88eeee, 0xe888eeee, 0xee88eeee, 0x888eeeee, 0x8e8eeeee, 0xe88eeeee, 0xee8eeeee, 0x88e8eeee, 0x8ee8eeee, 0xe8e8eeee, 0xeee8eeee, 0x88eeeeee, 0x8eeeeeee, 0xe8eeeeee, 0xeeeeeeee
 };
 
+/*******************************************************************************
+ * Function: 
+ *      void pink_lady_deamon(PINK_LADY_PARAMS *var)
+ * 
+ * Description:
+ *      This routine is the main state machine for managing a PINK LADY driver.
+ * 
+ * Parameters:
+ *      *var:   A PINK_LADY_PARAMS pointer used by the user/driver to manage the 
+ *              state machine.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
 void pink_lady_deamon(PINK_LADY_PARAMS *var)
 {
     if (!var->is_init_done)
@@ -89,10 +103,35 @@ void pink_lady_deamon(PINK_LADY_PARAMS *var)
     }
 }
 
-/*
- * TO DO:
- * - Rattrapage de temps sur deadline_to_appear
- */
+/*******************************************************************************
+ * Function: 
+ *      uint8_t pink_lady_set_segment_params(
+ *                  PINK_LADY_SEGMENT_PARAMS *p_seg_params, 
+ *                  uint16_t from, 
+ *                  uint16_t to, 
+ *                  RGBW_COLOR color1, 
+ *                  RGBW_COLOR color2, 
+ *                  PINK_LADY_RESOLUTIONS resolution, 
+ *                  uint32_t deadline_to_appear)
+ * 
+ * Description:
+ *      This routine is used to update a segment (part of leds on a bus) with
+ *      basic parameters (gradient, led resolution, deadline to appear...).
+ *      It returns its state machine index.
+ * 
+ * Parameters:
+ *      *p_seg_params:      qsd
+ *      from:               qsd
+ *      to:                 lkds
+ *      color1:             qsd
+ *      color2:             qsd
+ *      resolution:         sdqd
+ *      deadline_to_appear: sqd
+ * 
+ * Return:
+ *      0:      Home (finish)
+ *      >0:     On going
+ ******************************************************************************/
 uint8_t pink_lady_set_segment_params(PINK_LADY_SEGMENT_PARAMS *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
 {
     static uint16_t ind;
@@ -179,7 +218,7 @@ uint8_t pink_lady_set_segment_params(PINK_LADY_SEGMENT_PARAMS *p_seg_params, uin
             
             if (mTickCompare(p_seg_params->sm.tick) > p_seg_params->time_between_increment)
             {
-                p_seg_params->sm.tick = mGetTick();
+                p_seg_params->sm.tick += p_seg_params->time_between_increment;
                 if (++p_seg_params->intensity > 100)
                 {
                     p_seg_params->sm.index = 0;

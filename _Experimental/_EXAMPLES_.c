@@ -1262,7 +1262,7 @@ void _EXAMPLE_PINK_LADY()
                     break;
                     
                 case 3:
-                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_GREEN, LED_RESO_ALL, TICK_500MS))
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_GREEN, LED_RESO_ALL, TICK_200MS))
                     {
                         sm_colors.index++;
                     }
@@ -1310,6 +1310,21 @@ void _EXAMPLE_PINK_LADY()
                     }
                     break;
                 case 13:
+                    break;
+                    
+                case 14:
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_OFF, RGBW_COLOR_OFF, LED_RESO_ALL, 0))
+                    {
+                        sm_colors.index++;
+                    }
+                    break;
+                case 15:
+                    pink_lady_set_led_rgbw(smartled, 0, 255, 0, 0, 0);
+                    pink_lady_set_led_rgbw(smartled, 9, 0, 255, 0, 0);
+                    pink_lady_set_led_rgbw(smartled, 19, 0, 0, 255, 0);
+                    pink_lady_set_led_rgbw(smartled, 29, 0, 0, 0, 255);
+                    pink_lady_set_led_rgbw(smartled, 39, 255, 255, 0, 0);
+                    pink_lady_set_led_rgbw(smartled, 49, 0, 255, 255, 0);
                     break;
                     
                 default:

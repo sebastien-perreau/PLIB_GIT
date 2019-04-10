@@ -91,7 +91,6 @@ const void *p_uart_rx_reg[] =
  * Return:
  *      none
  ******************************************************************************/
-
 void uart_init(     UART_MODULE id, 
                     uart_event_handler_t evt_handler,
                     IRQ_EVENT_TYPE event_type_enable,
