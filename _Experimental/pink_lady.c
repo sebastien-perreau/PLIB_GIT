@@ -120,13 +120,20 @@ void pink_lady_deamon(PINK_LADY_PARAMS *var)
  *      It returns its state machine index.
  * 
  * Parameters:
- *      *p_seg_params:      qsd
- *      from:               qsd
- *      to:                 lkds
- *      color1:             qsd
- *      color2:             qsd
- *      resolution:         sdqd
- *      deadline_to_appear: sqd
+ *      *p_seg_params:      A PINK_LADY_SEGMENT_PARAMS pointer used by the 
+ *                          user/driver to manage the segment.
+ *      from:               The first LED index for which the parameters will be apply.
+ *                          This "from" value should be always inferior or equal to "to" value.
+ *      to:                 The last LED index for which the parameters will be apply.
+ *                          This "to" value should be always superior or equal to "from" value.
+ *      color1:             The first color (RGBW model).
+ *      color2:             The second (and last) color (RGBW model).
+ *      resolution:         The step between each LED (see PINK_LADY_RESOLUTIONS for
+ *                          more details on available resolutions). For instance 
+ *                          a value of LED_RESO_1_3 will lit one LED on three.
+ *      deadline_to_appear: The total time for a dynamic change. Set this parameter
+ *                          to zero if you want to apply instantly the new parameters
+ *                          (without dynamic change).
  * 
  * Return:
  *      0:      Home (finish)
