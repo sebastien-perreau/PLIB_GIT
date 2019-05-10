@@ -72,9 +72,12 @@ void dma_init(  DMA_MODULE id,
     
     dma_event_handler[id] = evt_handler;
     irq_init(IRQ_DMA0 + id, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_dma_priority(id));
-    
+          
     // Enable the DMA controller
     p_dma->DMACONSET = _DMACON_ON_MASK;
+    
+    // Abord all current operations on the DMA module.
+    dma_abord_transfer(id);
     
     // Set DMA Channel Control Register
     p_dma_channel->DCHCON = (dma_channel_control & ~DMA_CONT_CHANNEL_ENABLE);
@@ -119,7 +122,7 @@ bool dma_channel_is_enable(DMA_MODULE id)
 }
 /*******************************************************************************
   Function:
-    void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool force_transfer)
+    void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer)
 
   Description:
     This routine is used to configure a transfer. It setup all pointers, sizes and
@@ -136,11 +139,16 @@ bool dma_channel_is_enable(DMA_MODULE id)
     id                  - The DMA module you want to use.
     channel_transfer*   - The pointer of DMA_CHANNEL_TRANSFER containing all data 
                         require by the DMA channel to initialize a transfer. 
+    enable_channel      - Enable or keep disable the DMA channel after initializing its
+                        parameters for the transmission. 
+                        For example (DMA RAM to UART Tx) if you enable the DMA channel after
+                        the initialization of "set_dma_transfer", the DMA transmission will
+                        occurs even if the "force_transfer" is disable.
     force_transfer      - If true then force a start transfer just after initializing 
                         the DMA channel else wait for an event or a manual force 
                         transfer (dma_force_transfer(id)).
   *****************************************************************************/
-void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool force_transfer)
+void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer)
 {
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
     dma_channel_enable(id, OFF);
@@ -150,10 +158,14 @@ void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bo
     p_dma_channel->DCHSSIZ = channel_transfer->src_size;
     p_dma_channel->DCHDSIZ = channel_transfer->dst_size;
     p_dma_channel->DCHCSIZ = channel_transfer->cell_size;
-    p_dma_channel->DCHDAT = channel_transfer->pattern_data;
-    dma_channel_enable(id, ON);
-    if (force_transfer)
+    p_dma_channel->DCHDAT = channel_transfer->pattern_data;    
+    p_dma_channel->DCHINTCLR = DMA_FLAG_ALL;
+    if (enable_channel)
     {
+        dma_channel_enable(id, ON);
+    }    
+    if (force_transfer)
+    {        
         dma_force_transfer(id);
     }
 }
@@ -172,6 +184,7 @@ void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bo
 void dma_force_transfer(DMA_MODULE id)
 {
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
+    dma_channel_enable(id, ON);
     p_dma_channel->DCHECONSET = DMA_EVT_FORCE_TRANSFER;
 }
 

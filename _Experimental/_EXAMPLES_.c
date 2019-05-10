@@ -98,7 +98,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
             {
                 buff_src[i] = i;
             }
-            dma_set_transfer(DMA0, &dma_tx, true);
+            dma_set_transfer(DMA0, &dma_tx, true, true);
             sm_example.index = _MAIN;
             break;
             
@@ -111,7 +111,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
                 dma_clear_flags(DMA0, DMA_FLAG_CELL_TRANSFER_DONE);
             }
 
-            if (loop_counter == 10)
+            if (loop_counter >= 10)
             {
                 mUpdateLedStatusD3(ON);
             }
@@ -127,15 +127,15 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
  *********************************************************************************************/
 
 /*********************************************************************************************
- * Start of _EXAMPLE_DMA_RAM_AND_REG()
+ * Start of _EXAMPLE_DMA_UART()
  * -------------------------------------------------------------------------------------------
 
-    The DMA RAM and REG example execute 2 different transfers. One from a RAM source to a SFR
+    The DMA UART example execute 2 different transfers. One from a RAM source to a SFR
     REG destination and a second from a SFR REG source to a RAM destination. In this code, 
-    we implement a complete DMA example for UART1 (Tx is managing by DMA0 and Rx is managing by
-    DMA1).
+    we implement a complete DMA example for UART1 (Tx is managing by DMA6 and Rx is managing by
+    DMA7).
  
-    The transmission will be manage by DMA0. We 'attach' a start event transfer to the DMA channel,
+    The transmission will be manage by DMA6. We 'attach' a start event transfer to the DMA channel,
     that is to say that each time a UART1 transmission is done a new DMA cell block is transmitted
     and so on up to all data source is transmitted. At the end, a DMA_INT_BLOCK_TRANSFER_DONE is
     set, the event handler is called and the DMA channel turns off automatically (because there is
@@ -144,7 +144,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
     We have to FORCE the first transmission in order to generate the first _UART1_TX_IRQ event. Thus
     a new cell block will be automatically transmitted and so on...
  
-    The reception will be manage by DMA1. The start event transfer is _UART1_RX_IRQ, that is to say
+    The reception will be manage by DMA7. The start event transfer is _UART1_RX_IRQ, that is to say
     that each time a data is received by the UART module, a DMA transfer will operate to store the
     data UART in a RAM buffer "buff_src".
     2 ways to generate a Block Transfer Done:
@@ -170,15 +170,15 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
     with the dma_set_transfer routine. 
 
  *********************************************************************************************/
-static void _example_dma_ram_and_reg_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
+static void _example_dma_uart_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
 {
     if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
     {
-        if (id == DMA0)
+        if (id == DMA6)
         {
             mToggleLedStatusD2();
         }
-        else if (id == DMA1)
+        else if (id == DMA7)
         {
             mToggleLedStatusD3();   
         }
@@ -191,42 +191,44 @@ static void _example_dma_ram_and_reg_event_handler(uint8_t id, DMA_CHANNEL_FLAGS
     }
 }
 
-void _EXAMPLE_DMA_RAM_AND_REG()
+void _EXAMPLE_DMA_UART()
 {
     static state_machine_t sm_example = {0};
     static UART_MODULE uart_id = UART1;
     static uint8_t i;
     static uint8_t buff_src[200] = {0};
-    static DMA_CHANNEL_TRANSFER dma0_tx = {buff_src, NULL, 200, 1, 1, 0x0000};
-    static DMA_CHANNEL_TRANSFER dma1_rx = {NULL, buff_src, 1, 200, 1, 0xdead};
+    static DMA_CHANNEL_TRANSFER dma6_tx = {buff_src, NULL, 200, 1, 1, 0x0000};
+    static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 200, 1, 0xdead};
     
     switch (sm_example.index)
     {
         case _SETUP:
             
-            uart_init(  UART1, NULL, IRQ_NONE, UART_BAUDRATE_2M, UART_STD_PARAMS);
-            dma_init(   DMA0, 
-                        _example_dma_ram_and_reg_event_handler, 
+            mUpdateLedStatusD2(OFF);
+            mUpdateLedStatusD3(OFF);
+            uart_init(  uart_id, NULL, IRQ_NONE, UART_BAUDRATE_2M, UART_STD_PARAMS);
+            dma_init(   DMA6, 
+                        _example_dma_uart_event_handler, 
                         DMA_CONT_PRIO_2, 
                         DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
                         DMA_EVT_START_TRANSFER_ON_IRQ, 
                         uart_get_tx_irq(uart_id), 
                         0xff);
-            dma_init(   DMA1, 
-                        _example_dma_ram_and_reg_event_handler, 
+            dma_init(   DMA7, 
+                        _example_dma_uart_event_handler, 
                         DMA_CONT_PRIO_0 | DMA_CONT_PATTERN_2_BYTES | DMA_CONT_AUTO_ENABLE, 
                         DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
                         DMA_EVT_START_TRANSFER_ON_IRQ | DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH, 
                         uart_get_rx_irq(uart_id), 
                         0xff);
-            dma0_tx.dst_start_addr = (void *) uart_get_tx_reg(uart_id);
-            dma1_rx.src_start_addr = (void *) uart_get_rx_reg(uart_id);
+            dma6_tx.dst_start_addr = (void *) uart_get_tx_reg(uart_id);
+            dma7_rx.src_start_addr = (void *) uart_get_rx_reg(uart_id);
             for (i = 0 ; i < 200 ; i++)
             {
                 buff_src[i] = i;
             }
-            dma_set_transfer(DMA0, &dma0_tx, true);
-            dma_set_transfer(DMA1, &dma1_rx, false);
+            dma_set_transfer(DMA6, &dma6_tx, true, true);
+            dma_set_transfer(DMA7, &dma7_rx, true, false);
             sm_example.index = _MAIN;
             break;
             
@@ -237,7 +239,100 @@ void _EXAMPLE_DMA_RAM_AND_REG()
     } 
 }
 /* -------------------------------------------------------------------------------------------
- * End of   _EXAMPLE_DMA_RAM_AND_REG()
+ * End of   _EXAMPLE_DMA_UART()
+ *********************************************************************************************/
+
+/*********************************************************************************************
+ * Start of _EXAMPLE_DMA_SPI()
+ * -------------------------------------------------------------------------------------------
+
+ 
+
+ *********************************************************************************************/
+static void _example_dma_spi_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
+{
+    if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
+    {
+        if (id == DMA6)
+        {
+            mSetIO(__PE0);
+            mToggleLedStatusD2();
+        }
+        else if (id == DMA7)
+        {
+            mToggleLedStatusD3();   
+        }
+        dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
+    }
+    else if ((flags & DMA_FLAG_TRANSFER_ABORD) > 0)
+    {
+        // ...
+        dma_clear_flags(id, DMA_FLAG_TRANSFER_ABORD);
+    }
+}
+
+void _EXAMPLE_DMA_SPI()
+{
+    static uint8_t i;
+    static uint8_t buff_src[20] = {0};
+    static DMA_CHANNEL_TRANSFER dma6_tx = {buff_src, NULL, 20, 1, 1, 0x0000};
+    static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 200, 1, 0x0000};
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            
+            // Initialize chip select
+            mInitIOAsOutput(__PE0);
+            mSetIO(__PE0);
+            
+            spi_init(   SPI1, 
+                        NULL, 
+                        IRQ_NONE, 
+                        10000000, 
+                        SPI_CONF_MSTEN | SPI_CONF_FRMPOL_LOW | SPI_CONF_SMP_MIDDLE | SPI_CONF_MODE8 | SPI_CONF_CKP_HIGH | SPI_CONF_CKE_OFF);
+
+            dma_init(   DMA6, 
+                        _example_dma_spi_event_handler, 
+                        DMA_CONT_PRIO_3, 
+                        DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
+                        DMA_EVT_START_TRANSFER_ON_IRQ, 
+                        spi_get_tx_irq(SPI1), 
+                        0xff);
+            
+            dma_init(   DMA7, 
+                        NULL, 
+                        DMA_CONT_PRIO_3, 
+                        DMA_INT_NONE, 
+                        DMA_EVT_START_TRANSFER_ON_IRQ, 
+                        spi_get_rx_irq(SPI1), 
+                        0xff);
+            
+            dma6_tx.dst_start_addr = (void *) spi_get_tx_reg(SPI1);
+            dma7_rx.src_start_addr = (void *) spi_get_rx_reg(SPI1);
+            dma_set_transfer(DMA6, &dma6_tx, true, false);
+            dma_set_transfer(DMA7, &dma7_rx, true, false);
+            
+            for (i = 0 ; i < 200 ; i++)
+            {
+                buff_src[i] = i;
+            }
+            
+            mClrIO(__PE0);
+            dma_force_transfer(DMA6);
+            
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            // Do what you want...
+            break;
+    } 
+}
+/* -------------------------------------------------------------------------------------------
+ * End of   _EXAMPLE_DMA_SPI()
  *********************************************************************************************/
 
 void _EXAMPLE_PWM()
@@ -1238,7 +1333,7 @@ void _EXAMPLE_PINK_LADY()
             
         case _MAIN:
             
-            if (mTickCompare(sm_colors.tick) >= TICK_1S)
+            if (mTickCompare(sm_colors.tick) >= TICK_10S)
             {
                 sm_colors.tick = mGetTick();
                 sm_colors.index++;
@@ -1247,7 +1342,7 @@ void _EXAMPLE_PINK_LADY()
             switch (sm_colors.index)
             {
                 case 0:
-                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 30, RGBW_COLOR_BLUE, RGBW_COLOR_WHITE, LED_RESO_1_2, 0))
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_WHITE, RGBW_COLOR_WHITE, LED_RESO_ALL, 0))
                     {
                         sm_colors.index++;
                     }

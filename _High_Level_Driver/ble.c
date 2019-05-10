@@ -26,7 +26,7 @@ static void _reset(uint8_t *buffer);
 static void _buffer(uint8_t *buffer);
 static void _scenario(uint8_t *buffer);
 
-static uint8_t vsd_outgoing_message_uart(p_function ptr);
+static uint8_t vsd_outgoing_message_uart(p_ble_function ptr);
 
 static void ble_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
@@ -133,7 +133,7 @@ void ble_stack_tasks()
             dma_tx.src_size = 3;
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true);
+            dma_set_transfer(m_dma_id, &dma_tx, true, true);
         }
         else
         {
@@ -143,7 +143,7 @@ void ble_stack_tasks()
             dma_tx.src_size = 4;
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true);
+            dma_set_transfer(m_dma_id, &dma_tx, true, true);
         }
         memset(p_ble->uart.buffer, 0, sizeof(p_ble->uart.buffer));
        
@@ -391,7 +391,7 @@ static void _scenario(uint8_t *buffer)
 	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
 }
 
-static uint8_t vsd_outgoing_message_uart(p_function ptr)
+static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
 {
     static state_machine_t sm;
 	static uint8_t buffer[256] = {0};
@@ -435,7 +435,7 @@ static uint8_t vsd_outgoing_message_uart(p_function ptr)
             dma_tx.src_size = buffer[2] + 5;
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true);
+            dma_set_transfer(m_dma_id, &dma_tx, true, true);
 
 			sm.index++;
 			sm.tick = mGetTick();

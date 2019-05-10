@@ -73,7 +73,9 @@ typedef enum
     DMA_FLAG_DEST_HALF_FULL                 = 0x00000010,
     DMA_FLAG_DEST_FULL                      = 0x00000020,
     DMA_FLAG_SRC_HALF_FULL                  = 0x00000040,
-    DMA_FLAG_SRC_FULL                       = 0x00000080
+    DMA_FLAG_SRC_FULL                       = 0x00000080,
+            
+    DMA_FLAG_ALL                            = 0x000000ff
 } DMA_CHANNEL_FLAGS;
 
 typedef struct
@@ -198,7 +200,7 @@ void dma_init(  DMA_MODULE id,
                 uint8_t irq_num_tx_abord);
 void dma_channel_enable(DMA_MODULE id, bool enable);
 bool dma_channel_is_enable(DMA_MODULE id);
-void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool force_transfer);
+void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer);
 void dma_force_transfer(DMA_MODULE id);
 void dma_abord_transfer(DMA_MODULE id);
 DMA_CHANNEL_FLAGS dma_get_flags(DMA_MODULE id);

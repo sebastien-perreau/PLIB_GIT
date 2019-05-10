@@ -10,6 +10,7 @@
         <itemPath>../_Experimental/_EXAMPLES_.h</itemPath>
         <itemPath>../_Experimental/_LOG.h</itemPath>
         <itemPath>../_Experimental/pink_lady.h</itemPath>
+        <itemPath>../_Experimental/e_tps92662.h</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
@@ -68,6 +69,7 @@
         <itemPath>../_Experimental/_EXAMPLES_.c</itemPath>
         <itemPath>../_Experimental/_LOG.c</itemPath>
         <itemPath>../_Experimental/pink_lady.c</itemPath>
+        <itemPath>../_Experimental/e_tps92662.c</itemPath>
       </logicalFolder>
       <logicalFolder name="_External_Components"
                      displayName="_External_Components"
