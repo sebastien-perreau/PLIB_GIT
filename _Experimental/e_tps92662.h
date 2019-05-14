@@ -7,6 +7,7 @@
 typedef enum
 {
     SM_TPS92662_HOME = 0,
+    SM_TPS92662_SEARCH,
             
     SM_TPS92662_READ_IC_IDENTIFIER,     // Upper priority
     SM_TPS92662_READ_ERRORS,
@@ -49,8 +50,8 @@ typedef enum
 
 typedef enum
 {
-    TPS92662_ADDR_PHASE                     = 0x20,
-    TPS92662_ADDR_WIDTH                     = 0x30,
+    TPS92662_ADDR_PHASE                     = 0x00,
+    TPS92662_ADDR_WIDTH                     = 0x10,
     TPS92662_ADDR_SLEW_RATE                 = 0x70,
     TPS92662_ADDR_OVER_VOLTAGE_LIMIT        = 0x71,
     TPS92662_ADDR_PARALLEL_LED_STRING       = 0x72,
@@ -86,30 +87,6 @@ typedef enum
 
 typedef enum
 {
-    TPS92662_SYS_CONF_SEPTR_ENABLE          = 0x80,     // Separate TX/RX enabled (signals on TX do not appear on RX)
-    TPS92662_SYS_CONF_SEPTR_DISABLE         = 0x00,     // Separate TX/RX disabled (signals on TX appear on RX)
-            
-    TPS92662_SYS_CONF_I2CEN_ENABLE          = 0x40,     // I2C function enabled
-    TPS92662_SYS_CONF_I2CEN_DISABLE         = 0x00,     // I2C function disabled
-            
-    TPS92662_SYS_CONF_ACKEN_ENABLE          = 0x20,     // Acknowledge (0x7f) will be transmitted following successfully received writes
-    TPS92662_SYS_CONF_ACKEN_DISABLE         = 0x00,     // No acknowledge will be transmitted following successfully received writes
-                
-    TPS92662_SYS_CONF_PSON_ON_TIMES         = 0x10,     // LED phase shifts apply to LED turn-on times
-    TPS92662_SYS_CONF_PSON_OFF_TIMES        = 0x00,     // LED phase shifts apply to LED turn-off times
-            
-    TPS92662_SYS_CONF_CMWEN_ENABLE          = 0x08,     // Communications watchdog timer enabled
-    TPS92662_SYS_CONF_CMWEN_DISABLE         = 0x00,     // Communications watchdog timer disabled
-            
-    TPS92662_SYS_CONF_SYNCOEN_ENABLE        = 0x04,     // SYNC output enabled
-    TPS92662_SYS_CONF_SYNCOEN_DISABLE       = 0x00,     // SYNC output disabled
-            
-    TPS92662_SYS_CONF_SYNCPEN_CONTINUE      = 0x00,     // If SYNCOEN = 1, the SYNC output is driven continuously low (no pulses)
-    TPS92662_SYS_CONF_SYNCPEN_50_PERCENT    = 0x02      // If SYNCOEN = 1, the SYNC output is driven with a 50% duty cycle pulse to synchronize other connected TPS92662 ICs
-} TPS92662_SYSTEM_CONFIG;
-
-typedef enum
-{
     TPS92662_OVLMT_03_01_LOW                = 0x00,
     TPS92662_OVLMT_03_01_MEDIUM             = 0x01,
     TPS92662_OVLMT_03_01_HIGH               = 0x02,
@@ -134,6 +111,107 @@ typedef enum
     TPS92662_PARALLEL_S1_S2_AND_S3_S4       = 0x02,
     TPS92662_PARALLEL_S1_S2_S3_S4           = 0x03
 } TPS92662_PARALLEL_LED_STRING;
+
+typedef enum
+{
+    TPS92662_SYS_CONF_SEPTR_ENABLE          = 0x80,     // Separate TX/RX enabled (signals on TX do not appear on RX)
+    TPS92662_SYS_CONF_SEPTR_DISABLE         = 0x00,     // Separate TX/RX disabled (signals on TX appear on RX)
+            
+    TPS92662_SYS_CONF_I2CEN_ENABLE          = 0x40,     // I2C function enabled
+    TPS92662_SYS_CONF_I2CEN_DISABLE         = 0x00,     // I2C function disabled
+            
+    TPS92662_SYS_CONF_ACKEN_ENABLE          = 0x20,     // Acknowledge (0x7f) will be transmitted following successfully received writes
+    TPS92662_SYS_CONF_ACKEN_DISABLE         = 0x00,     // No acknowledge will be transmitted following successfully received writes
+                
+    TPS92662_SYS_CONF_PSON_ON_TIMES         = 0x10,     // LED phase shifts apply to LED turn-on times
+    TPS92662_SYS_CONF_PSON_OFF_TIMES        = 0x00,     // LED phase shifts apply to LED turn-off times
+            
+    TPS92662_SYS_CONF_CMWEN_ENABLE          = 0x08,     // Communications watchdog timer enabled
+    TPS92662_SYS_CONF_CMWEN_DISABLE         = 0x00,     // Communications watchdog timer disabled
+            
+    TPS92662_SYS_CONF_SYNCOEN_ENABLE        = 0x04,     // SYNC output enabled
+    TPS92662_SYS_CONF_SYNCOEN_DISABLE       = 0x00,     // SYNC output disabled
+            
+    TPS92662_SYS_CONF_SYNCPEN_CONTINUE      = 0x00,     // If SYNCOEN = 1, the SYNC output is driven continuously low (no pulses)
+    TPS92662_SYS_CONF_SYNCPEN_50_PERCENT    = 0x02,     // If SYNCOEN = 1, the SYNC output is driven with a 50% duty cycle pulse to synchronize other connected TPS92662 ICs
+            
+    TPS92662_SYS_CONF_SET_PWR               = 0x01      // This bit is reset to 0 upon power-up. It may be written to 1 by the MCU. Reading this bit allows the MCU to detect when there has been z power cycle.
+                                                        // 0 = A power cycle has occurred since last write to '1'
+                                                        // 1 = No power cycle has occurred since last write to '1'
+} TPS92662_SYSTEM_CONFIG;
+
+typedef enum
+{
+    TPS92662_DIV1_1                         = 0x00,
+    TPS92662_DIV1_50                        = 0x40,
+    TPS92662_DIV1_125                       = 0x80,
+    TPS92662_DIV1_200                       = 0xc0,
+            
+    TPS92662_DIV2_2                         = 0,
+    TPS92662_DIV2_3                         = 1,
+    TPS92662_DIV2_4                         = 2,
+    TPS92662_DIV2_6                         = 3,
+    TPS92662_DIV2_8                         = 4,
+    TPS92662_DIV2_9                         = 5,
+    TPS92662_DIV2_10                        = 6,
+    TPS92662_DIV2_11                        = 7,
+    TPS92662_DIV2_12                        = 8,
+    TPS92662_DIV2_13                        = 9,
+    TPS92662_DIV2_14                        = 10,
+    TPS92662_DIV2_15                        = 11,
+    TPS92662_DIV2_16                        = 12,
+    TPS92662_DIV2_17                        = 13,
+    TPS92662_DIV2_18                        = 14,
+    TPS92662_DIV2_19                        = 15,
+    TPS92662_DIV2_20                        = 16,
+    TPS92662_DIV2_21                        = 17,
+    TPS92662_DIV2_22                        = 18,
+    TPS92662_DIV2_23                        = 19,
+    TPS92662_DIV2_24                        = 20,
+    TPS92662_DIV2_25                        = 21,
+    TPS92662_DIV2_26                        = 22,
+    TPS92662_DIV2_27                        = 23,
+    TPS92662_DIV2_28                        = 24,
+    TPS92662_DIV2_29                        = 25,
+    TPS92662_DIV2_30                        = 26,
+    TPS92662_DIV2_31                        = 27,
+    TPS92662_DIV2_32                        = 28,
+    TPS92662_DIV2_33                        = 29,
+    TPS92662_DIV2_34                        = 30,
+    TPS92662_DIV2_35                        = 31,            
+    TPS92662_DIV2_36                        = 32,
+    TPS92662_DIV2_37                        = 33,
+    TPS92662_DIV2_38                        = 34,
+    TPS92662_DIV2_39                        = 35,
+    TPS92662_DIV2_40                        = 36,
+    TPS92662_DIV2_41                        = 37,
+    TPS92662_DIV2_42                        = 38,
+    TPS92662_DIV2_43                        = 39,
+    TPS92662_DIV2_44                        = 40,
+    TPS92662_DIV2_45                        = 41,
+    TPS92662_DIV2_46                        = 42,
+    TPS92662_DIV2_47                        = 43,
+    TPS92662_DIV2_49                        = 44,
+    TPS92662_DIV2_50                        = 45,
+    TPS92662_DIV2_51                        = 46,
+    TPS92662_DIV2_52                        = 47,
+    TPS92662_DIV2_53                        = 48,
+    TPS92662_DIV2_54                        = 49,
+    TPS92662_DIV2_55                        = 50,
+    TPS92662_DIV2_56                        = 51,
+    TPS92662_DIV2_57                        = 52,
+    TPS92662_DIV2_58                        = 53,
+    TPS92662_DIV2_59                        = 54,
+    TPS92662_DIV2_60                        = 55,
+    TPS92662_DIV2_62                        = 56,
+    TPS92662_DIV2_63                        = 57,
+    TPS92662_DIV2_65                        = 58,
+    TPS92662_DIV2_68                        = 59,
+    TPS92662_DIV2_71                        = 60,
+    TPS92662_DIV2_74                        = 61,
+    TPS92662_DIV2_78                        = 62,
+    TPS92662_DIV2_85                        = 63
+} TPS92662_PWM_DIVISION;
 
 typedef struct
 {
@@ -185,7 +263,7 @@ typedef struct
                                                         // 6: 22 Tap Point (bit number)
                                                         // 7: 23 Tap Point (bit number)
     uint8_t                 pwm_tick_period;            // R/W [0x82 / 00 001100]
-                                                        // This register determines division block applied to input CLK, generating the PWM clock cycle. PWM_CLK = CLK quartz / DIV1 (PTBASE) / DIV2 (PTCNT)
+                                                        // This register determines division block applied to input CLK, generating the PWM clock cycle. PWM_CLK = CLK quartz / (DIV1 (PTBASE) x DIV2 (PTCNT) x 1024)
                                                         // There are two fields: PTBASE[7:6] PTCNT[5:0]
                                                         // These two fields program the two divider blocks in series, which are applied to the input CLK and generate the PWM clock. 
                                                         // PTBASE: 0 = div 1 (default) // 1 = div 50 // 2 = div 125 // 3 = div 200
@@ -229,6 +307,8 @@ typedef struct
     uint8_t                 *p_receip;
     
     uint32_t                *p_flags;
+    uint8_t                 selected_device_index;
+    state_machine_t         state_machine_for_read_write_request;
     state_machine_t         state_machine;
 } TPS92662_PARAMS;
 
@@ -248,6 +328,8 @@ typedef struct
     .p_transfer = _p_transfer,                                              \
     .p_receip = _p_receip,                                                  \
     .p_flags = _p_flags,                                                    \
+    .selected_device_index = 0,                                             \
+    .state_machine_for_read_write_request = {0},                            \
     .state_machine = {0}                                                    \
 }
 
@@ -278,9 +360,9 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var);
 #define e_tps92662_set_adc_id(var, _id_device, _value)                                  (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_ADC_ID), var.p_registers[_id_device].adc_id = _value)
 #define e_tps92662_set_softsync(var, _id_device, _value)                                (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_SOFTSYNC), var.p_registers[_id_device].softsync = _value)
 
-#define e_tps92662_set_phase_and_width(var, _id_device, _id_led, _phase, _width)        (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_PHASE_AND_WIDTH), var.p_registers[_id_device].phase[_id_led] = _phase, var.p_registers[_id_device].width[_id_led] = _width)
-#define e_tps92662_set_phase(var, _id_device, _id_led, _phase)                          (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_PHASE), var.p_registers[_id_device].phase[_id_led] = _phase)
-#define e_tps92662_set_width(var, _id_device, _id_led, _width)                          (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_WIDTH), var.p_registers[_id_device].width[_id_led] = _width)
+#define e_tps92662_set_phase_and_width(var, _id_device, _id_led, _phase, _width)        (var.p_registers[_id_device].phase[_id_led] = _phase, var.p_registers[_id_device].width[_id_led] = _width)
+#define e_tps92662_set_phase(var, _id_device, _id_led, _phase)                          (var.p_registers[_id_device].phase[_id_led] = _phase)
+#define e_tps92662_set_width(var, _id_device, _id_led, _width)                          (var.p_registers[_id_device].width[_id_led] = _width)
 
 #define e_tps92662_send_phases_and_widths(var, _id_device)                              (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_PHASE_AND_WIDTH))
 #define e_tps92662_send_phases(var, _id_device)                                         (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_PHASE))
