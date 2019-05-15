@@ -213,7 +213,14 @@ static uint8_t e_tps92662_read_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM
             
         case 1:
             
-            if (!dma_channel_is_enable(var->dma_tx_id))
+            if (var->number_of_read_fail > 10)
+            {
+                uart_send_break(var->uart_id);      // Fail: do a UART communications RESET.
+                var->number_of_read_fail = 0;
+                var->state_machine_for_read_write_request.tick = mGetTick();   
+                var->state_machine_for_read_write_request.index = 4;
+            }            
+            else if (!dma_channel_is_enable(var->dma_tx_id))
             {
                 var->state_machine_for_read_write_request.tick = mGetTick();            
                 var->state_machine_for_read_write_request.index++;
@@ -246,21 +253,27 @@ static uint8_t e_tps92662_read_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM
             {
                 crc_calc = fu_crc_16_ibm(&var->p_receip[5], tps92662_init_param_number_of_bytes[cde_type]);
                 crc_uart = (var->p_receip[5 + tps92662_init_param_number_of_bytes[cde_type]] << 0) + (var->p_receip[5 + tps92662_init_param_number_of_bytes[cde_type] + 1] << 8);
-                if (crc_calc != crc_uart)
-                {
-                    var->state_machine_for_read_write_request.index = 1;   // Fail: incorrect CRC. Retry.
-                }
-                else
+                if (crc_calc == crc_uart)
                 {
                     (*p_fct)(var, device_index, &var->p_receip[5]);
                     var->state_machine_for_read_write_request.index = 0;   // End
+                    var->number_of_read_fail = 0;
                 }
                 dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE); 
             }
             
             if (mTickCompare(var->state_machine_for_read_write_request.tick) >= TICK_10MS)
             {
-                var->state_machine_for_read_write_request.index = 1;   // Fail: nothing has been received. Retry.
+                var->state_machine_for_read_write_request.index = 1;   // Fail: nothing has been received or incorrect CRC. Retry.
+                var->number_of_read_fail++;
+            }
+            break;
+            
+        case 4:
+            
+            if (mTickCompare(var->state_machine_for_read_write_request.tick) >= TICK_1MS)
+            {
+                var->state_machine_for_read_write_request.index = 1;                
             }
             break;
             

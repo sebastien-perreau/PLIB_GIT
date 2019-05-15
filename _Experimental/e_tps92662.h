@@ -307,6 +307,7 @@ typedef struct
     uint8_t                 *p_receip;
     
     uint32_t                *p_flags;
+    uint8_t                 number_of_read_fail;
     uint8_t                 selected_device_index;
     state_machine_t         state_machine_for_read_write_request;
     state_machine_t         state_machine;
@@ -328,6 +329,7 @@ typedef struct
     .p_transfer = _p_transfer,                                              \
     .p_receip = _p_receip,                                                  \
     .p_flags = _p_flags,                                                    \
+    .number_of_read_fail = 0,                                               \
     .selected_device_index = 0,                                             \
     .state_machine_for_read_write_request = {0},                            \
     .state_machine = {0}                                                    \
