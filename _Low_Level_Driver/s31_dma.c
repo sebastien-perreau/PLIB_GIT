@@ -23,6 +23,7 @@ const DMA_CHANNEL_REGISTERS * DmaChannels[] =
     (DMA_CHANNEL_REGISTERS *)_DMAC7_BASE_ADDRESS
 };
 static dma_event_handler_t dma_event_handler[DMA_NUMBER_OF_MODULES] = {NULL};
+static bool dma_channel_is_using[DMA_NUMBER_OF_MODULES] = {0};
 
 /*******************************************************************************
   Function:
@@ -70,6 +71,8 @@ void dma_init(  DMA_MODULE id,
     DMA_REGISTERS * p_dma = (DMA_REGISTERS *) DmaModule;
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
     
+    dma_channel_is_using[id] = true;
+    
     dma_event_handler[id] = evt_handler;
     irq_init(IRQ_DMA0 + id, (evt_handler != NULL) ? IRQ_ENABLED : IRQ_DISABLED, irq_dma_priority(id));
           
@@ -86,6 +89,29 @@ void dma_init(  DMA_MODULE id,
     // Set DMA Channel Interrupt Control Register
     p_dma_channel->DCHINTCLR = DMA_INT_ALL;
     p_dma_channel->DCHINTSET = (dma_channel_interrupt & 0x00ff0000);
+}
+
+/*******************************************************************************
+  Function:
+    DMA_MODULE dma_get_free_channel()
+
+  Description:
+    This routine is used to get a free DMA channel. The first channel to be used
+    is DMA0 and so on up to channel DMA7.    
+
+  *****************************************************************************/
+DMA_MODULE dma_get_free_channel()
+{
+    DMA_MODULE i;
+    for (i = DMA0 ; i < DMA_NUMBER_OF_MODULES ; i++)
+    {
+        if (!dma_channel_is_using[i])
+        {
+            dma_channel_is_using[i] = true;
+            break;
+        }
+    }
+    return i;
 }
 
 /*******************************************************************************

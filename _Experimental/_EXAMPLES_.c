@@ -80,6 +80,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
     static DMA_CHANNEL_TRANSFER dma_tx = {buff_src, buff_dst, 200, 200, 20, 0x0000};
     static uint8_t loop_counter = 1;
     static uint8_t i;
+    static DMA_MODULE dma_id;
     
     switch (sm_example.index)
     {
@@ -87,7 +88,10 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
             
             mUpdateLedStatusD2(OFF);
             mUpdateLedStatusD3(OFF);
-            dma_init(   DMA0, 
+            
+            dma_id = dma_get_free_channel();
+            
+            dma_init(   dma_id, 
                         _example_dma_ram_to_ram_event_handler, 
                         DMA_CONT_PRIO_1, 
                         DMA_INT_TRANSFER_ABORD | DMA_INT_BLOCK_TRANSFER_DONE, 
@@ -98,17 +102,17 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
             {
                 buff_src[i] = i;
             }
-            dma_set_transfer(DMA0, &dma_tx, true, true);
+            dma_set_transfer(dma_id, &dma_tx, true, true);
             sm_example.index = _MAIN;
             break;
             
         case _MAIN:
            
-            if ((dma_get_flags(DMA0) & DMA_FLAG_CELL_TRANSFER_DONE) > 0)
+            if ((dma_get_flags(dma_id) & DMA_FLAG_CELL_TRANSFER_DONE) > 0)
             {
                 loop_counter++;
-                dma_force_transfer(DMA0);
-                dma_clear_flags(DMA0, DMA_FLAG_CELL_TRANSFER_DONE);
+                dma_force_transfer(dma_id);
+                dma_clear_flags(dma_id, DMA_FLAG_CELL_TRANSFER_DONE);
             }
 
             if (loop_counter >= 10)
@@ -695,7 +699,7 @@ void _EXAMPLE_LOG(ACQUISITIONS_PARAMS var)
     {
         case _SETUP:
             
-            log_init(UART1, DMA0, UART_BAUDRATE_2M);
+            log_init(UART1, UART_BAUDRATE_2M);
             sm_example.index = _MAIN;
             break;
             
@@ -1319,7 +1323,7 @@ void _EXAMPLE_LIN()
 
 void _EXAMPLE_PINK_LADY()
 {
-    PINK_LADY_DEF(smartled, SPI1, DMA2, SK6812RGBW_MODEL, 50);
+    PINK_LADY_DEF(smartled, SPI1, SK6812RGBW_MODEL, 50);
     PINK_LADY_SEGMENT_DEF(smartled_seg_1, smartled);
     static state_machine_t sm_colors = {0};
     static state_machine_t sm_example = {0};

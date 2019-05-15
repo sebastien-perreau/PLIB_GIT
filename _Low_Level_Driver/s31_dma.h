@@ -198,6 +198,7 @@ void dma_init(  DMA_MODULE id,
                 DMA_CHANNEL_EVENT dma_channel_event,
                 uint8_t irq_num_tx_start,
                 uint8_t irq_num_tx_abord);
+DMA_MODULE dma_get_free_channel();
 void dma_channel_enable(DMA_MODULE id, bool enable);
 bool dma_channel_is_enable(DMA_MODULE id);
 void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer);

@@ -114,8 +114,8 @@ typedef enum
 
 typedef enum
 {
-    TPS92662_SYS_CONF_SEPTR_ENABLE          = 0x80,     // Separate TX/RX enabled (signals on TX do not appear on RX)
-    TPS92662_SYS_CONF_SEPTR_DISABLE         = 0x00,     // Separate TX/RX disabled (signals on TX appear on RX)
+    TPS92662_SYS_CONF_SEPTR_ENABLE          = 0x80,     // Separate TX/RX enabled (signals on TX do not appear on RX) - no CAN transceiver.
+    TPS92662_SYS_CONF_SEPTR_DISABLE         = 0x00,     // Separate TX/RX disabled (signals on TX appear on RX) - use CAN transceiver.
             
     TPS92662_SYS_CONF_I2CEN_ENABLE          = 0x40,     // I2C function enabled
     TPS92662_SYS_CONF_I2CEN_DISABLE         = 0x00,     // I2C function disabled
@@ -313,14 +313,14 @@ typedef struct
     state_machine_t         state_machine;
 } TPS92662_PARAMS;
 
-#define TPS92662_INSTANCE(_uart_id, _dma_tx_id, _dma_rx_id, _io_port, _io_indice, _uart_baudrate, _number_of_device, _p_transfer, _p_receip, _p_device_id, _p_registers, _p_flags) \
+#define TPS92662_INSTANCE(_uart_id, _io_port, _io_indice, _number_of_device, _p_transfer, _p_receip, _p_device_id, _p_registers, _p_flags) \
 {                                                                           \
     .is_init_done = 0,                                                      \
     .uart_id = _uart_id,                                                    \
-    .dma_tx_id = _dma_tx_id,                                                \
-    .dma_rx_id = _dma_rx_id,                                                \
+    .dma_tx_id = DMA_NUMBER_OF_MODULES,                                     \
+    .dma_rx_id = DMA_NUMBER_OF_MODULES,                                     \
     .chip_enable = { _io_port, _io_indice },                                \
-    .uart_baudrate = _uart_baudrate,                                        \
+    .uart_baudrate = 500000,                                                \
     .dma_tx_params = {_p_transfer, NULL, 0, 1, 1, 0},                       \
     .dma_rx_params = {NULL, _p_receip, 1, 0, 1, 0},                         \
     .number_of_device = _number_of_device,                                  \
@@ -335,13 +335,13 @@ typedef struct
     .state_machine = {0}                                                    \
 }
 
-#define TPS92662_DEF(_name, _uart_id, _dma_tx_id, _dma_rx_id, _chip_enable_pin, _uart_baudrate, ...)        \
+#define TPS92662_DEF(_name, _uart_id, _chip_enable_pin, ...)        \
 static uint8_t _name ## _device_id_ram_allocation[COUNT_ARGUMENTS( __VA_ARGS__ )] = { __VA_ARGS__ };        \
 static TPS92662_REGS _name ## _registers_ram_allocation[COUNT_ARGUMENTS( __VA_ARGS__ )] = {0};              \
 static uint8_t _name ## _transfer_ram_allocation[TPS92662_MAX_TX_SIZE] = {0};                               \
 static uint8_t _name ## _receip_ram_allocation[TPS92662_MAX_RX_SIZE] = {0};                                 \
 static uint32_t _name ## _flags[COUNT_ARGUMENTS( __VA_ARGS__ )] = {0};                                      \
-static TPS92662_PARAMS _name = TPS92662_INSTANCE(_uart_id, _dma_tx_id, _dma_rx_id, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin), _uart_baudrate, COUNT_ARGUMENTS( __VA_ARGS__ ), _name ## _transfer_ram_allocation, _name ## _receip_ram_allocation, _name ## _device_id_ram_allocation, _name ## _registers_ram_allocation, _name ## _flags)
+static TPS92662_PARAMS _name = TPS92662_INSTANCE(_uart_id, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin), COUNT_ARGUMENTS( __VA_ARGS__ ), _name ## _transfer_ram_allocation, _name ## _receip_ram_allocation, _name ## _device_id_ram_allocation, _name ## _registers_ram_allocation, _name ## _flags)
 
 typedef void (*p_tps92662_function)(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer);
 
@@ -371,9 +371,26 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var);
 #define e_tps92662_send_widths(var, _id_device)                                         (SET_BIT(var.p_flags[_id_device], SM_TPS92662_WRITE_WIDTH))
 
 // Defines POINTER version
-#define e_tps92662_set_system_config_ptr(var, _id_device, _value)                       (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_SYSTEM_CONFIG), var->p_registers[_id_device].system_config = _value)
 #define e_tps92662_get_ic_identifier_ptr(var, _id_device)                               (SET_BIT(var->p_flags[_id_device], SM_TPS92662_READ_IC_IDENTIFIER))
+#define e_tps92662_get_errors_ptr(var, _id_device)                                      (SET_BIT(var->p_flags[_id_device], SM_TPS92662_READ_ERRORS))
+#define e_tps92662_get_adc_ptr(var, _id_device)                                         (SET_BIT(var->p_flags[_id_device], SM_TPS92662_READ_ADCS))
+
+#define e_tps92662_set_system_config_ptr(var, _id_device, _value)                       (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_SYSTEM_CONFIG), var->p_registers[_id_device].system_config = _value)
+#define e_tps92662_set_slew_rate_ptr(var, _id_device, _value)                           (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_SLEW_RATE), var->p_registers[_id_device].slew_rate = _value)
+#define e_tps92662_set_overvoltage_limit_ptr(var, _id_device, _value)                   (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_OVER_VOLTAGE_LIMIT), var->p_registers[_id_device].over_voltage_limit = _value)
+#define e_tps92662_set_parallel_led_string_ptr(var, _id_device, _value)                 (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_PARALLEL_LED_STRING), var->p_registers[_id_device].parallel_led_string = _value)
+#define e_tps92662_set_default_pulse_width_ptr(var, _id_device, _id_led, _value)        (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_DEFAULT_PULSE_WIDTH), var->p_registers[_id_device].default_pulse_width[_id_led] = _value)
+#define e_tps92662_set_watchdog_timer_ptr(var, _id_device, _value)                      (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_WATCHDOG_TIMER), var->p_registers[_id_device].watchdog_timer = _value)
 #define e_tps92662_set_pwm_tick_period_ptr(var, _id_device, _value)                     (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_PWM_TICK_PERIOD), var->p_registers[_id_device].pwm_tick_period = _value)
+#define e_tps92662_set_adc_id_ptr(var, _id_device, _value)                              (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_ADC_ID), var->p_registers[_id_device].adc_id = _value)
+#define e_tps92662_set_softsync_ptr(var, _id_device, _value)                            (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_SOFTSYNC), var->p_registers[_id_device].softsync = _value)
+
+#define e_tps92662_set_phase_and_width_ptr(var, _id_device, _id_led, _phase, _width)    (var->p_registers[_id_device].phase[_id_led] = _phase, var->p_registers[_id_device].width[_id_led] = _width)
+#define e_tps92662_set_phase_ptr(var, _id_device, _id_led, _phase)                      (var->p_registers[_id_device].phase[_id_led] = _phase)
+#define e_tps92662_set_width_ptr(var, _id_device, _id_led, _width)                      (var->p_registers[_id_device].width[_id_led] = _width)
+
 #define e_tps92662_send_phases_and_widths_ptr(var, _id_device)                          (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_PHASE_AND_WIDTH))
+#define e_tps92662_send_phases_ptr(var, _id_device)                                     (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_PHASE))
+#define e_tps92662_send_widths_ptr(var, _id_device)                                     (SET_BIT(var->p_flags[_id_device], SM_TPS92662_WRITE_WIDTH))
 
 #endif

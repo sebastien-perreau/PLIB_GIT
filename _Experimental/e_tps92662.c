@@ -14,6 +14,8 @@
 *   sleep mode - it enter in this mode when a short circuit is detected).
 * 
 *   - MOGNOT driver: No problem detected. 
+* 
+*   IMPORTANT: The UART RX line should have a PULL-UP resistor (10K).
 *********************************************************************/
 
 #include "../PLIB.h"
@@ -353,6 +355,9 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
             ports_reset_pin_output(var->chip_enable);
             ports_clr_bit(var->chip_enable);
         }
+        
+        var->dma_tx_id = dma_get_free_channel();
+        var->dma_rx_id = dma_get_free_channel();
         
         uart_init(  var->uart_id, NULL, IRQ_NONE, var->uart_baudrate, UART_STD_PARAMS);
         

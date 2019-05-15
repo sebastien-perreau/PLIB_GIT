@@ -13,13 +13,14 @@ static UART_MODULE m_uart_id;
 static DMA_MODULE m_dma_id;
 static DMA_CHANNEL_TRANSFER dma_tx = {0};
 
-void log_init(UART_MODULE id_uart, DMA_MODULE id_dma, uint32_t data_rate)
+void log_init(UART_MODULE id_uart, uint32_t data_rate)
 {
     m_uart_id = id_uart;
-    m_dma_id = id_dma;
+    m_dma_id = dma_get_free_channel();
     
     uart_init(  id_uart, NULL, IRQ_NONE, data_rate, UART_STD_PARAMS);
-    dma_init(   id_dma, 
+    
+    dma_init(   m_dma_id, 
                 NULL, 
                 DMA_CONT_PRIO_2, 
                 DMA_INT_NONE, 

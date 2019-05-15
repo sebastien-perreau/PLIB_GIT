@@ -60,6 +60,8 @@ void pink_lady_deamon(PINK_LADY_PARAMS *var)
 {
     if (!var->is_init_done)
     {
+        var->dma_id = dma_get_free_channel();
+        
         spi_init(   var->spi_id, 
                     NULL, 
                     IRQ_NONE, 

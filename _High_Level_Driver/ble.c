@@ -51,20 +51,21 @@ static void ble_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t
     }
 }
 
-void ble_init(UART_MODULE uart_id, DMA_MODULE dma_id, uint32_t data_rate, ble_params_t * p_ble_params)
+void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_params)
 {       
+    p_ble = p_ble_params;
+    m_uart_id = uart_id;
+    m_dma_id = dma_get_free_channel();
+    
     uart_init(  uart_id, ble_uart_event_handler, IRQ_UART_RX, data_rate, UART_STD_PARAMS);
-    dma_init(   dma_id, 
+    
+    dma_init(   m_dma_id, 
                 NULL, 
                 DMA_CONT_PRIO_2, 
                 DMA_INT_NONE, 
                 DMA_EVT_START_TRANSFER_ON_IRQ, 
                 uart_get_tx_irq(uart_id), 
-                0xff);
-    
-    p_ble = p_ble_params;
-    m_uart_id = uart_id;
-    m_dma_id = dma_id;
+                0xff);       
     
     p_ble->flags.pa_lna = 1;
     p_ble->flags.led_status = 1;
