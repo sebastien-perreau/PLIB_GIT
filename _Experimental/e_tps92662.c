@@ -16,6 +16,9 @@
 *   - MOGNOT driver: No problem detected. 
 * 
 *   IMPORTANT: The UART RX line should have a PULL-UP resistor (10K).
+* 
+*   I2C features are not implemented.
+*   Always use a CAN transceiver and no acknowledge.
 *********************************************************************/
 
 #include "../PLIB.h"
@@ -203,7 +206,7 @@ static void _set_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buff
     buffer[15] = (((var->p_registers[device_index].width[9] >> 8) & 0x03) << 0) | (((var->p_registers[device_index].width[10] >> 8) & 0x03) << 2) | (((var->p_registers[device_index].width[11] >> 8) & 0x03) << 4);
 }
 
-static uint8_t e_tps92662_read_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_type, uint8_t device_index, uint8_t address_register, p_tps92662_function p_fct)
+static uint8_t e_tps92662_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_type, uint8_t device_index, uint8_t address_register, p_tps92662_function p_fct_read, p_tps92662_function p_fct_write)
 {
     uint16_t crc_calc, crc_uart;
     
@@ -234,15 +237,30 @@ static uint8_t e_tps92662_read_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM
             var->p_transfer[0] = tps92662_init_param[cde_type];
             var->p_transfer[1] = tps92662_device_id[var->p_device_id[device_index]];
             var->p_transfer[2] = address_register;     
-            crc_calc = fu_crc_16_ibm(var->p_transfer, 3);
-            var->p_transfer[3] = (crc_calc >> 0) & 0xff;
-            var->p_transfer[4] = (crc_calc >> 8) & 0xff;
-
-            dma_abord_transfer(var->dma_rx_id);        
-            var->dma_tx_params.src_size = 5;
-            var->dma_rx_params.dst_size = (5 + tps92662_init_param_number_of_bytes[cde_type] + 2);
-
-            dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE); 
+            
+            if (p_fct_write != NULL)
+            {
+                (*p_fct_write)(var, device_index, &var->p_transfer[3]);
+                
+                crc_calc = fu_crc_16_ibm(var->p_transfer, 3 + tps92662_init_param_number_of_bytes[cde_type]);
+                var->p_transfer[3 + tps92662_init_param_number_of_bytes[cde_type]] = (crc_calc >> 0) & 0xff;
+                var->p_transfer[4 + tps92662_init_param_number_of_bytes[cde_type]] = (crc_calc >> 8) & 0xff;
+                
+                var->dma_tx_params.src_size = (3 + tps92662_init_param_number_of_bytes[cde_type] + 2);
+                var->dma_rx_params.dst_size = var->dma_tx_params.src_size;
+            }
+            else
+            {
+                crc_calc = fu_crc_16_ibm(var->p_transfer, 3);
+                var->p_transfer[3] = (crc_calc >> 0) & 0xff;
+                var->p_transfer[4] = (crc_calc >> 8) & 0xff;
+                
+                var->dma_tx_params.src_size = 3 + 2;
+                var->dma_rx_params.dst_size = (3 + 2 + tps92662_init_param_number_of_bytes[cde_type] + 2);
+            }
+            
+            dma_abord_transfer(var->dma_rx_id);
+            dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE);             
             dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, true);
             dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, true, false);
         
@@ -253,17 +271,21 @@ static uint8_t e_tps92662_read_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM
             
             if ((dma_get_flags(var->dma_rx_id) & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
             {
-                crc_calc = fu_crc_16_ibm(&var->p_receip[5], tps92662_init_param_number_of_bytes[cde_type]);
-                crc_uart = (var->p_receip[5 + tps92662_init_param_number_of_bytes[cde_type]] << 0) + (var->p_receip[5 + tps92662_init_param_number_of_bytes[cde_type] + 1] << 8);
-                if (crc_calc == crc_uart)
+                if (p_fct_read != NULL)
                 {
-                    (*p_fct)(var, device_index, &var->p_receip[5]);
-                    var->state_machine_for_read_write_request.index = 0;   // End
-                    var->number_of_read_fail = 0;
+                    crc_calc = fu_crc_16_ibm(&var->p_receip[5], tps92662_init_param_number_of_bytes[cde_type]);
+                    crc_uart = (var->p_receip[5 + tps92662_init_param_number_of_bytes[cde_type]] << 0) + (var->p_receip[5 + tps92662_init_param_number_of_bytes[cde_type] + 1] << 8);
+                    if (crc_calc == crc_uart)
+                    {
+                        (*p_fct_read)(var, device_index, &var->p_receip[5]);
+                        var->state_machine_for_read_write_request.index = 0;   // End
+                        var->number_of_read_fail = 0;
+                    }
                 }
+                var->state_machine_for_read_write_request.index = 0;   // End
                 dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE); 
             }
-            
+                        
             if (mTickCompare(var->state_machine_for_read_write_request.tick) >= TICK_10MS)
             {
                 var->state_machine_for_read_write_request.index = 1;   // Fail: nothing has been received or incorrect CRC. Retry.
@@ -276,64 +298,6 @@ static uint8_t e_tps92662_read_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM
             if (mTickCompare(var->state_machine_for_read_write_request.tick) >= TICK_1MS)
             {
                 var->state_machine_for_read_write_request.index = 1;                
-            }
-            break;
-            
-        default:
-            break;
-    }
-    
-    return var->state_machine_for_read_write_request.index;
-}
-
-static uint8_t e_tps92662_write_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_type, uint8_t device_index, uint8_t address_register, p_tps92662_function p_fct)
-{
-    uint16_t crc_calc;
-    
-    switch (var->state_machine_for_read_write_request.index)
-    {
-        case 0:     
-            
-            var->state_machine_for_read_write_request.index++;
-            
-        case 1:
-            
-            if (!dma_channel_is_enable(var->dma_tx_id))
-            {
-                var->state_machine_for_read_write_request.tick = mGetTick();            
-                var->state_machine_for_read_write_request.index++;
-            }
-            break;
-            
-        case 2:
-            
-            var->p_transfer[0] = tps92662_init_param[cde_type];
-            var->p_transfer[1] = tps92662_device_id[var->p_device_id[device_index]];
-            var->p_transfer[2] = address_register;     
-            
-            (*p_fct)(var, device_index, &var->p_transfer[3]);
-            
-            crc_calc = fu_crc_16_ibm(var->p_transfer, 3 + tps92662_init_param_number_of_bytes[cde_type]);
-            var->p_transfer[3 + tps92662_init_param_number_of_bytes[cde_type]] = (crc_calc >> 0) & 0xff;
-            var->p_transfer[4 + tps92662_init_param_number_of_bytes[cde_type]] = (crc_calc >> 8) & 0xff;
-    
-            dma_abord_transfer(var->dma_rx_id); 
-            var->dma_tx_params.src_size = (3 + tps92662_init_param_number_of_bytes[cde_type] + 2);
-            var->dma_rx_params.dst_size = var->dma_tx_params.src_size;
-            
-            dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE);             
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, true);
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, true, false);
-        
-            var->state_machine_for_read_write_request.tick = mGetTick();
-            var->state_machine_for_read_write_request.index++;
-            
-        case 3:
-            
-            if ((dma_get_flags(var->dma_rx_id) & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
-            {
-                var->state_machine_for_read_write_request.index = 0;   // End
-                dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE); 
             }
             break;
             
@@ -410,7 +374,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
             
             e_tps92662_get_ic_identifier_ptr(var, device_index);
             e_tps92662_set_system_config_ptr(var, device_index, TPS92662_SYS_CONF_SET_PWR);
-            e_tps92662_set_pwm_tick_period_ptr(var, device_index, TPS92662_DIV1_1 | TPS92662_DIV2_44);    // PWM_CLK = 8Mhz / (1x44x1024) = 177,56 Hz
+            e_tps92662_set_pwm_tick_period_ptr(var, device_index, TPS92662_DIV1_1 | TPS92662_DIV2_44);
             e_tps92662_send_phases_and_widths_ptr(var, device_index);
         }
         
@@ -442,7 +406,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_READ_IC_IDENTIFIER:
                 
-                if (!e_tps92662_read_request(var, TPS_READ_1B, var->selected_device_index, TPS92662_ADDR_IC_IDENTIFIER, _get_ic_identifier))
+                if (!e_tps92662_request(var, TPS_READ_1B, var->selected_device_index, TPS92662_ADDR_IC_IDENTIFIER, _get_ic_identifier, NULL))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -451,7 +415,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_READ_ERRORS:
                 
-                if (!e_tps92662_read_request(var, TPS_READ_3B, var->selected_device_index, TPS92662_ADDR_ERRORS, _get_errors))
+                if (!e_tps92662_request(var, TPS_READ_3B, var->selected_device_index, TPS92662_ADDR_ERRORS, _get_errors, NULL))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -460,7 +424,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_READ_ADCS:
                 
-                if (!e_tps92662_read_request(var, TPS_READ_2B, var->selected_device_index, TPS92662_ADDR_ADC, _get_adc))
+                if (!e_tps92662_request(var, TPS_READ_2B, var->selected_device_index, TPS92662_ADDR_ADC, _get_adc, NULL))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -469,7 +433,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_SYSTEM_CONFIG:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_SYSTEM_CONFIG, _set_system_config))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_SYSTEM_CONFIG, NULL, _set_system_config))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -478,7 +442,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_SLEW_RATE:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_SLEW_RATE, _set_slew_rate))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_SLEW_RATE, NULL, _set_slew_rate))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -487,7 +451,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_OVER_VOLTAGE_LIMIT:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_OVER_VOLTAGE_LIMIT, _set_overvoltage_limit))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_OVER_VOLTAGE_LIMIT, NULL, _set_overvoltage_limit))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -496,7 +460,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_PARALLEL_LED_STRING:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_PARALLEL_LED_STRING, _set_parallel_led_string))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_PARALLEL_LED_STRING, NULL, _set_parallel_led_string))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -505,7 +469,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_DEFAULT_PULSE_WIDTH:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_12B, var->selected_device_index, TPS92662_ADDR_DEFAULT_PULSE_WIDTH, _set_default_pulse_width))
+                if (!e_tps92662_request(var, TPS_WRITE_12B, var->selected_device_index, TPS92662_ADDR_DEFAULT_PULSE_WIDTH, NULL, _set_default_pulse_width))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -514,7 +478,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_WATCHDOG_TIMER:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_WATCHDOG_TIMER, _set_watchdog_timer))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_WATCHDOG_TIMER, NULL, _set_watchdog_timer))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -523,7 +487,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_PWM_TICK_PERIOD:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_PWM_TICK_PERIOD, _set_pwm_tick_period))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_PWM_TICK_PERIOD, NULL, _set_pwm_tick_period))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -532,7 +496,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_ADC_ID:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_ADC_ID, _set_adc_id))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_ADC_ID, NULL, _set_adc_id))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -541,7 +505,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_SOFTSYNC:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_SOFTSYNC, _set_softsync))
+                if (!e_tps92662_request(var, TPS_WRITE_1B, var->selected_device_index, TPS92662_ADDR_SOFTSYNC, NULL, _set_softsync))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -550,7 +514,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_PHASE_AND_WIDTH:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_32B, var->selected_device_index, TPS92662_ADDR_PHASE, _set_phase_and_width))
+                if (!e_tps92662_request(var, TPS_WRITE_32B, var->selected_device_index, TPS92662_ADDR_PHASE, NULL, _set_phase_and_width))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -559,7 +523,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_PHASE:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_16B, var->selected_device_index, TPS92662_ADDR_PHASE, _set_phase))
+                if (!e_tps92662_request(var, TPS_WRITE_16B, var->selected_device_index, TPS92662_ADDR_PHASE, NULL, _set_phase))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;
@@ -568,7 +532,7 @@ uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
                 
             case SM_TPS92662_WRITE_WIDTH:
                 
-                if (!e_tps92662_write_request(var, TPS_WRITE_16B, var->selected_device_index, TPS92662_ADDR_WIDTH, _set_width))
+                if (!e_tps92662_request(var, TPS_WRITE_16B, var->selected_device_index, TPS92662_ADDR_WIDTH, NULL, _set_width))
                 {
                     CLR_BIT(var->p_flags[var->selected_device_index], var->state_machine.index);
                     var->state_machine.index = SM_TPS92662_SEARCH;

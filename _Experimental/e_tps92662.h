@@ -1,8 +1,8 @@
 #ifndef __DEF_E_TPS92662
 #define	__DEF_E_TPS92662
 
-#define TPS92662_MAX_TX_SIZE (1 + 1 + 1 + 32 + 2)
-#define TPS92662_MAX_RX_SIZE (1 + 1 + 1 + 2 + 32 + 2)   // In the receip line we found the TX data and then the RX data
+#define TPS92662_MAX_TX_SIZE    (1 + 1 + 1 + 32 + 2)
+#define TPS92662_MAX_RX_SIZE    (1 + 1 + 1 + 2 + 32 + 2)   // In the receip line we found the TX data and then the RX data
 
 typedef enum
 {
@@ -313,14 +313,14 @@ typedef struct
     state_machine_t         state_machine;
 } TPS92662_PARAMS;
 
-#define TPS92662_INSTANCE(_uart_id, _io_port, _io_indice, _number_of_device, _p_transfer, _p_receip, _p_device_id, _p_registers, _p_flags) \
+#define TPS92662_INSTANCE(_uart_id, _io_port, _io_indice, _baudrate, _number_of_device, _p_transfer, _p_receip, _p_device_id, _p_registers, _p_flags) \
 {                                                                           \
     .is_init_done = 0,                                                      \
     .uart_id = _uart_id,                                                    \
     .dma_tx_id = DMA_NUMBER_OF_MODULES,                                     \
     .dma_rx_id = DMA_NUMBER_OF_MODULES,                                     \
     .chip_enable = { _io_port, _io_indice },                                \
-    .uart_baudrate = 500000,                                                \
+    .uart_baudrate = _baudrate,                                             \
     .dma_tx_params = {_p_transfer, NULL, 0, 1, 1, 0},                       \
     .dma_rx_params = {NULL, _p_receip, 1, 0, 1, 0},                         \
     .number_of_device = _number_of_device,                                  \
@@ -335,13 +335,13 @@ typedef struct
     .state_machine = {0}                                                    \
 }
 
-#define TPS92662_DEF(_name, _uart_id, _chip_enable_pin, ...)        \
+#define TPS92662_DEF(_name, _uart_id, _chip_enable_pin, _baudrate, ...)        \
 static uint8_t _name ## _device_id_ram_allocation[COUNT_ARGUMENTS( __VA_ARGS__ )] = { __VA_ARGS__ };        \
 static TPS92662_REGS _name ## _registers_ram_allocation[COUNT_ARGUMENTS( __VA_ARGS__ )] = {0};              \
 static uint8_t _name ## _transfer_ram_allocation[TPS92662_MAX_TX_SIZE] = {0};                               \
 static uint8_t _name ## _receip_ram_allocation[TPS92662_MAX_RX_SIZE] = {0};                                 \
 static uint32_t _name ## _flags[COUNT_ARGUMENTS( __VA_ARGS__ )] = {0};                                      \
-static TPS92662_PARAMS _name = TPS92662_INSTANCE(_uart_id, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin), COUNT_ARGUMENTS( __VA_ARGS__ ), _name ## _transfer_ram_allocation, _name ## _receip_ram_allocation, _name ## _device_id_ram_allocation, _name ## _registers_ram_allocation, _name ## _flags)
+static TPS92662_PARAMS _name = TPS92662_INSTANCE(_uart_id, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin), _baudrate, COUNT_ARGUMENTS( __VA_ARGS__ ), _name ## _transfer_ram_allocation, _name ## _receip_ram_allocation, _name ## _device_id_ram_allocation, _name ## _registers_ram_allocation, _name ## _flags)
 
 typedef void (*p_tps92662_function)(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer);
 
