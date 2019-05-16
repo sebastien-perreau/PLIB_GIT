@@ -1,25 +1,35 @@
 /*********************************************************************
-*	External TPS92662
-*	Author : Sébastien PERREAU
-*
-*	Revision history	:
-*		02/05/2019		- Initial release
-* 
-*   LED behavior function of current driver:
-*   ----------------------------------------
-* 
-*   - CINCO driver: When using a LOW duty cycle, the LED can blink. To
-*   reduce this blink/glitter, you can reduce the PWM frequency and/or 
-*   keep a LED always to 100% (the CINCO driver will not enter in a
-*   sleep mode - it enter in this mode when a short circuit is detected).
-* 
-*   - MOGNOT driver: No problem detected. 
-* 
-*   IMPORTANT: The UART RX line should have a PULL-UP resistor (10K).
-* 
-*   I2C features are not implemented.
-*   Always use a CAN transceiver and no acknowledge.
-*********************************************************************/
+ *	External TPS92662
+ *	Author : Sébastien PERREAU
+ *
+ *	Revision history	:
+ *		02/05/2019		- Initial release
+ * 
+ *  The TPS92662 LED matrix manager device enables fully dynamic adaptive 
+ *  lighting solutions by providing individual pixel-level LED control.
+ * 
+ *  The device includes four sub-strings of three series connected integrated 
+ *  switches for bypassing individual LEDs. The individual sub-strings allow the
+ *  device to accept either single or multiple current sources. It also allows 
+ *  paralleling up to four switches for bypassing high current LEDs.
+ * 
+ *  A master microcontroller is used to control and manage the TPS92662 devices 
+ *  via a multi-drop universal asynchronous receiver transmitter (UART) serial 
+ *  interface. The serial interface supports the use of CAN transceivers for a 
+ *  more robust physical layer. 
+ *  
+ *  An on-board 8-bit ADC with two multiplexed inputs can be used for system 
+ *  temperature compensation and used to measure a binning value which allows 
+ *  for LED binning and coding.
+ * 
+ *  NOTE 1: The UART RX line should have a PULL-UP resistor (10K).
+ *  NOTE 2: This driver is ONLY compatible with a CAN communication without acknowledgment.
+ *  NOTE 3: This driver does not implement the I2C features. 
+ *  NOTE 4: The CINCO driver can provide blinks on LEDs when using low duty cycle. 
+ *          To reduce this blink/glitter you can reduce the PWM frequency and/or 
+ *          keep a LED always at 100% (in order to prevent a sleep mode of the driver).
+ *          Prefer to use a MOGNOT driver.
+ *********************************************************************/
 
 #include "../PLIB.h"
 
@@ -43,43 +53,171 @@ static const uint8_t tps92662_device_id[] =
     0x78, 0x39, 0xba, 0xfb, 0x3c, 0x7d, 0xfe, 0xbf
 };
 
+/*******************************************************************************
+  Function:
+    static void _get_ic_identifier(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from reception buffer to TPS92662 register.
+    It is used to get IC identifier (always 0x92).
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _get_ic_identifier(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
     var->p_registers[device_index].ic_identification = buffer[0];
 }
 
+/*******************************************************************************
+  Function:
+    static void _get_errors(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from reception buffer to TPS92662 register.
+    It is used to get ERRORS (fault error & CRC error). 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _get_errors(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
     var->p_registers[device_index].fault_error = (buffer[0] << 0) + ((buffer[1] & 0x0f) << 8);
     var->p_registers[device_index].crc_error = buffer[2];
 }
 
+/*******************************************************************************
+  Function:
+    static void _get_adc(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from reception buffer to TPS92662 register.
+    It is used to get ADC values. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _get_adc(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
     var->p_registers[device_index].adc[0] = buffer[0];
     var->p_registers[device_index].adc[1] = buffer[1];
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_system_config(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the system configuration. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_system_config(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].system_config;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_slew_rate(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the slew rate parameter. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_slew_rate(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].slew_rate;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_overvoltage_limit(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the overvoltage limit. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_overvoltage_limit(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].over_voltage_limit;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_parallel_led_string(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the parallel led string. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_parallel_led_string(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].parallel_led_string;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_default_pulse_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the default pulse width. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_default_pulse_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = ((var->p_registers[device_index].default_pulse_width[0] & 0x0f) << 0) + ((var->p_registers[device_index].default_pulse_width[1] & 0x0f) << 4);
@@ -97,26 +235,106 @@ static void _set_default_pulse_width(TPS92662_PARAMS *var, uint8_t device_index,
     buffer[11] = 0;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_watchdog_timer(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer) 
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the watchdog timer. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_watchdog_timer(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer) 
 {
     buffer[0] = var->p_registers[device_index].watchdog_timer;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_pwm_tick_period(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the PWM frequency. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_pwm_tick_period(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].pwm_tick_period;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_adc_id(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the device ID. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_adc_id(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].adc_id;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_softsync(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to re-initialize the internal PWM counter (TCNT) to zero. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_softsync(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
 	buffer[0] = var->p_registers[device_index].softsync;
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_phase_and_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set both phases and widths. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_phase_and_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
     buffer[0] = (var->p_registers[device_index].phase[0] & 0xff);
@@ -160,6 +378,22 @@ static void _set_phase_and_width(TPS92662_PARAMS *var, uint8_t device_index, uin
     buffer[31] = (((var->p_registers[device_index].width[9] >> 8) & 0x03) << 0) | (((var->p_registers[device_index].width[10] >> 8) & 0x03) << 2) | (((var->p_registers[device_index].width[11] >> 8) & 0x03) << 4);
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_phase(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the phases. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_phase(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
     buffer[0] = (var->p_registers[device_index].phase[0] & 0xff);
@@ -183,6 +417,22 @@ static void _set_phase(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buff
     buffer[15] = (((var->p_registers[device_index].phase[9] >> 8) & 0x03) << 0) | (((var->p_registers[device_index].phase[10] >> 8) & 0x03) << 2) | (((var->p_registers[device_index].phase[11] >> 8) & 0x03) << 4);
 }
 
+/*******************************************************************************
+  Function:
+    static void _set_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
+
+  Description:
+    This routine is used by the driver to transfer data from to TPS92662 register to transmit buffer.
+    It is used to set the widths. 
+
+  Parameters:
+    *var            - The pointer on the TPS92662_PARAMS structure.
+    device_index    - The device you want to select. It is not the direct address of the device
+                    but the index of this address (for example, if you create a TPS92662_DEF
+                    with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    *buffer         - A uint8_t pointer use by the routine for either transfer data (read request) 
+                    or return data (write request).
+  *****************************************************************************/
 static void _set_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buffer)
 {
     buffer[0] = (var->p_registers[device_index].width[0] & 0xff);
@@ -206,6 +456,38 @@ static void _set_width(TPS92662_PARAMS *var, uint8_t device_index, uint8_t *buff
     buffer[15] = (((var->p_registers[device_index].width[9] >> 8) & 0x03) << 0) | (((var->p_registers[device_index].width[10] >> 8) & 0x03) << 2) | (((var->p_registers[device_index].width[11] >> 8) & 0x03) << 4);
 }
 
+/*******************************************************************************
+  Function:
+    static uint8_t e_tps92662_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_type, uint8_t device_index, uint8_t address_register, p_tps92662_function p_fct_read, p_tps92662_function p_fct_write)
+
+  Description:
+    This routine is used by the driver to send and read data over the UART module thanks to 
+    both DMA modules (one for transmission and one for reception).
+    It calls routines above to transfer and receive data in the good order.
+    The driver is ONLY compatible with a CAN communication without acknowledgment. It means that
+    when a data is transmitted on a UART Tx pin, there is a loop back with the CAN transceiver. 
+    So when a data is transmitted, this same data should be read back on the UART Rx pin (it is 
+    available on both write and read request).
+    The read operation has a protection for incorrect CRC and no response from TPS92662. If a timeout
+    occurs or the CRC is incorrect then a new transmission is requested. If there is more than 10 
+    fails in a row then we send a break character in order to restart the UART communication. The
+    state machine can be lock in this loop if the TPS92662 does not answer.
+
+  Parameters:
+    *var                - The pointer on the TPS92662_PARAMS structure.
+    cde_type            - The type of requested command. See TPS92662_INIT_PARAM for more details.
+    device_index        - The device you want to select. It is not the direct address of the device
+                        but the index of this address (for example, if you create a TPS92662_DEF
+                        with 3 addresses @1, @2 and @3 then @1 = index 0, @2 = index 1 and @3 = index 2.
+    address_register    - The start address register to read or write data.
+    p_fct_read          - The pointer of the function you want to read. NULL if not used.
+    p_fct_write         - The pointer of the function you want to write. NULL if not used.
+ 
+  Return:
+    This routine returns its status (index of its state machine)
+    0: Done / Finished
+    > 0: On going
+  *****************************************************************************/
 static uint8_t e_tps92662_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_type, uint8_t device_index, uint8_t address_register, p_tps92662_function p_fct_read, p_tps92662_function p_fct_write)
 {
     uint16_t crc_calc, crc_uart;
@@ -308,6 +590,26 @@ static uint8_t e_tps92662_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_
     return var->state_machine_for_read_write_request.index;
 }
 
+/*******************************************************************************
+  Function:
+    uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
+
+  Description:
+    This routine is the deamon for the TPS92662 controller(s). Because this 
+    controller use a UART module, we can ONLY have this type of component on the
+    bus. It means that the UART module is not share with something else.
+    We can still control more than one TPS92662 with this unique deamon (but all
+    these TPS92662 should be connected on the same UART module). 
+
+  Parameters:
+    *var    - The pointer on the TPS92662_PARAMS structure.
+ 
+  Return:
+    The deamon returns its status (index of its state machine)
+    0xff: Initialization done
+    SM_TPS92662_HOME: No task pending (all flags are clear)
+    SM_TPS92662_SEARCH & > 0: On going
+  *****************************************************************************/
 uint8_t e_tps92662_deamon(TPS92662_PARAMS *var)
 {
     uint8_t ret, i, device_index;

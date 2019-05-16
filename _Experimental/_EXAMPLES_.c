@@ -1435,3 +1435,80 @@ void _EXAMPLE_PINK_LADY()
             break;
     } 
 }
+
+void _EXAMPLE_TPS92662()
+{
+    TPS92662_DEF(tps_pix32_module1, UART5, __PE0, 500000, 0x00, 0x01, 0x02);
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:          
+                        
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            e_tps92662_set_width(tps_pix32_module1, 0, 0, 100);
+            e_tps92662_set_width(tps_pix32_module1, 0, 1, 200);
+            e_tps92662_set_width(tps_pix32_module1, 0, 2, 300);
+            e_tps92662_set_width(tps_pix32_module1, 0, 3, 400);
+            e_tps92662_set_width(tps_pix32_module1, 0, 4, 500);
+            e_tps92662_set_width(tps_pix32_module1, 0, 5, 600);
+            e_tps92662_set_width(tps_pix32_module1, 0, 6, 700);
+            e_tps92662_set_width(tps_pix32_module1, 0, 7, 800);
+            e_tps92662_set_width(tps_pix32_module1, 0, 8, 900);
+            e_tps92662_set_width(tps_pix32_module1, 0, 9, 1000);
+            e_tps92662_set_width(tps_pix32_module1, 0, 10, 0);
+            e_tps92662_set_width(tps_pix32_module1, 0, 11, 1023);
+            
+            e_tps92662_set_width(tps_pix32_module1, 1, 0, 10);
+            e_tps92662_set_width(tps_pix32_module1, 1, 1, 20);
+            e_tps92662_set_width(tps_pix32_module1, 1, 2, 30);
+            e_tps92662_set_width(tps_pix32_module1, 1, 3, 40);
+            e_tps92662_set_width(tps_pix32_module1, 1, 4, 50);
+            e_tps92662_set_width(tps_pix32_module1, 1, 5, 60);
+            e_tps92662_set_width(tps_pix32_module1, 1, 6, 70);
+            e_tps92662_set_width(tps_pix32_module1, 1, 7, 80);
+            e_tps92662_set_width(tps_pix32_module1, 1, 8, 90);
+            e_tps92662_set_width(tps_pix32_module1, 1, 9, 100);
+            e_tps92662_set_width(tps_pix32_module1, 1, 10, 110);
+            e_tps92662_set_width(tps_pix32_module1, 1, 11, 120);
+            
+            e_tps92662_set_width(tps_pix32_module1, 2, 0, 810);
+            e_tps92662_set_width(tps_pix32_module1, 2, 1, 820);
+            e_tps92662_set_width(tps_pix32_module1, 2, 2, 830);
+            e_tps92662_set_width(tps_pix32_module1, 2, 3, 840);
+            e_tps92662_set_width(tps_pix32_module1, 2, 4, 850);
+            e_tps92662_set_width(tps_pix32_module1, 2, 5, 860);
+            e_tps92662_set_width(tps_pix32_module1, 2, 6, 870);
+            e_tps92662_set_width(tps_pix32_module1, 2, 7, 880);
+            e_tps92662_set_width(tps_pix32_module1, 2, 8, 890);
+            e_tps92662_set_width(tps_pix32_module1, 2, 9, 900);
+            e_tps92662_set_width(tps_pix32_module1, 2, 10, 910);
+            e_tps92662_set_width(tps_pix32_module1, 2, 11, 920);
+            
+            if (!e_tps92662_deamon(&tps_pix32_module1))
+            {
+                e_tps92662_send_widths(tps_pix32_module1, 0);
+                e_tps92662_send_widths(tps_pix32_module1, 1);
+                e_tps92662_send_widths(tps_pix32_module1, 2);            
+            }
+            
+            if (mTickCompare(sm_example.tick) >= TICK_20MS)
+            {
+                sm_example.tick = mGetTick();
+
+                e_tps92662_get_errors(tps_pix32_module1, 0);
+                e_tps92662_get_errors(tps_pix32_module1, 1);
+                e_tps92662_get_errors(tps_pix32_module1, 2);
+
+                e_tps92662_get_adc(tps_pix32_module1, 0);
+                e_tps92662_get_adc(tps_pix32_module1, 1);
+                e_tps92662_get_adc(tps_pix32_module1, 2);
+            } 
+                        
+            break;
+    } 
+}
