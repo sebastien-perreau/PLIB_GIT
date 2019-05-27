@@ -566,7 +566,7 @@ bool fu_adc_average(AVERAGE_PARAMS *var)
 
 /*******************************************************************************
  * Function: 
- *      bool fu_ntc(NTC_VAR *var)
+ *      NTC_STATUS fu_adc_ntc(NTC_VAR *var)
  * 
  * Description:
  *      This routine is used to get the temperature of a NTC over an ADC.
@@ -576,20 +576,62 @@ bool fu_adc_average(AVERAGE_PARAMS *var)
  *      *var: The pointer of NTC_VAR.
  * 
  * Return:
- *      true: if new temperature is calculated.
- *      false: if no new temperature (no new acquisition).
+ *      It returns the status of the NTC acquisition (See. NTC_STATUS enumeration).
  * 
  * Example:
  *      See. _EXAMPLE_NTC()
  ******************************************************************************/
-bool fu_ntc(NTC_VAR *var)
+NTC_STATUS fu_adc_ntc(NTC_VAR *var)
 {
     bool ret = fu_adc_average(&var->average);
+    
     if (ret)
     {
-        var->temperature = (float) ((1.0/((1.0/(var->ntc_params.t0+273.15)) + ((1.0/var->ntc_params.b) * log(((float)(10000.0/((1024/(var->average.sum_of_buffer/var->average.buffer.size)) - 1.0)))/var->ntc_params.r0 )))) - 273.15); // °C
+        return fu_calc_ntc(var->ntc_params, var->pull_up_value, var->average.average, 10, &var->temperature);        
     }
-    return ret;
+    else
+    {
+        return NTC_WAIT;
+    }
+}
+
+/*******************************************************************************
+ * Function: 
+ *      NTC_STATUS fu_calc_ntc(NTC_PARAMS ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
+ * 
+ * Description:
+ *      This routine is used to get the temperature of a NTC from global parameters.
+ * 
+ * Parameters:
+ *      ntc_params:     The parameters of the NTC (R0, T0 & Beta).
+ *      ntc_pull_up:    The value of the NTC pull up resistor (in ohms).
+ *      v_adc:          The value of the acquisition made by an ADC.
+ *      adc_resolution: The ADC resolution (8 for 8-bits, 10 for 10-bits...).
+ *                      Because v_adc value is a 16 bits variable, the resolution
+ *                      cannot be greater than 16 (for 16-bits).
+ *      *p_temperature: A float pointer containing the temperature. 
+ * 
+ * Return:
+ *      It returns the status of the NTC acquisition (See. NTC_STATUS enumeration).
+ * 
+ * Example:
+ *      See. _EXAMPLE_NTC()
+ ******************************************************************************/
+NTC_STATUS fu_calc_ntc(NTC_PARAMS ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
+{
+    if (!v_adc)
+    {
+        return NTC_FAIL_SHORT_CIRCUIT_GND;
+    }
+    else if (v_adc == (pow(2, adc_resolution) - 1))
+    {
+        return NTC_FAIL_SHORT_CIRCUIT_VREF;
+    }
+    else
+    {
+        *p_temperature = (float) ((1.0/((1.0/(ntc_params.t0+273.15)) + ((1.0/ntc_params.b) * log(((float)(ntc_pull_up / ((pow(2, adc_resolution)/v_adc) - 1.0))) / ntc_params.r0)))) - 273.15); // °C
+        return NTC_SUCCESS;
+    }
 }
 
 /*******************************************************************************
@@ -797,7 +839,7 @@ void background_tasks(ACQUISITIONS_PARAMS *var)
     switch(mux_sel)
     {
         case 0:     // NTC
-            if (fu_ntc(&var->ntc))
+            if (fu_adc_ntc(&var->ntc) == NTC_SUCCESS)
             {
                 var->current.tick = mGetTick();
                 mux_sel = 1;

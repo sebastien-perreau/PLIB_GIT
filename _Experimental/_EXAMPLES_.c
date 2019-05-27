@@ -498,8 +498,8 @@ void _EXAMPLE_ENCODER()
 
 void _EXAMPLE_AVERAGE_AND_NTC()
 {
-    NTC_DEF(ntc_1, AN1, 25, 10000, 3380);
-    NTC_DEF(ntc_2, AN2, 25, 10000, 3380);
+    NTC_DEF(ntc_1, AN1, 25, 10000, 3380, 10000);
+    NTC_DEF(ntc_2, AN2, 25, 10000, 3380, 10000);
     AVERAGE_DEF(avg_1, AN3, 30, TICK_1MS);
     static state_machine_t sm_example = {0};
     
@@ -507,12 +507,41 @@ void _EXAMPLE_AVERAGE_AND_NTC()
     {
         case _SETUP:
             adc10_init(AN1|AN2|AN3|AN15, ADC10_VREFP_VREFN, NULL);
+            {
+                uint16_t i;
+                NTC_PARAMS ntc_params = {25, 33000, 3380};
+                for (i = 0 ; i <= 255 ; i++)
+                {
+                    float temperature;
+                    NTC_STATUS ret = fu_calc_ntc(ntc_params, 4700, i, 8, & temperature);
+                    if (ret == NTC_SUCCESS)
+                    {
+                        if (temperature > 0)
+                        {
+                            LOG("Temperature [%d] = %1f °C", i, p_float(temperature));
+                        }
+                        else
+                        {
+                            // Log function do not print negative values.
+                            LOG("Temperature [%d] = < 0,0 °C", i, p_float(temperature));
+                        }
+                    }
+                    else if (ret == NTC_FAIL_SHORT_CIRCUIT_GND)
+                    {
+                        LOG("Fail short circuit to GND.");
+                    }
+                    else if (ret == NTC_FAIL_SHORT_CIRCUIT_VREF)
+                    {
+                        LOG("Fail short circuit to Vref.");
+                    }
+                }
+            }
             sm_example.index = _MAIN;
             break;
             
         case _MAIN:
-            fu_ntc(&ntc_1);
-            fu_ntc(&ntc_2);
+            fu_adc_ntc(&ntc_1);
+            fu_adc_ntc(&ntc_2);
             fu_adc_average(&avg_1);
             
             if (ntc_1.temperature > 32.0)
@@ -699,7 +728,7 @@ void _EXAMPLE_LOG(ACQUISITIONS_PARAMS var)
     {
         case _SETUP:
             
-            log_init(UART1, UART_BAUDRATE_2M);
+            // Do not forget to enable LOG driver.
             sm_example.index = _MAIN;
             break;
             
@@ -1323,7 +1352,7 @@ void _EXAMPLE_LIN()
 
 void _EXAMPLE_PINK_LADY()
 {
-    PINK_LADY_DEF(smartled, SPI1, SK6812RGBW_MODEL, 50);
+    PINK_LADY_DEF(smartled, SPI2, SK6812RGBW_MODEL, 50);
     PINK_LADY_SEGMENT_DEF(smartled_seg_1, smartled);
     static state_machine_t sm_colors = {0};
     static state_machine_t sm_example = {0};
@@ -1337,7 +1366,7 @@ void _EXAMPLE_PINK_LADY()
             
         case _MAIN:
             
-            if (mTickCompare(sm_colors.tick) >= TICK_10S)
+            if (mTickCompare(sm_colors.tick) >= TICK_3S)
             {
                 sm_colors.tick = mGetTick();
                 sm_colors.index++;
@@ -1346,13 +1375,13 @@ void _EXAMPLE_PINK_LADY()
             switch (sm_colors.index)
             {
                 case 0:
-                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_WHITE, RGBW_COLOR_WHITE, LED_RESO_ALL, 0))
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 19, RGBW_COLOR_BLUE, RGBW_COLOR_WHITE, LED_RESO_ALL, 0))
                     {
                         sm_colors.index++;
                     }
                     break;
                 case 1:
-                    if (!pink_lady_set_segment_params(&smartled_seg_1, 20, 49, RGBW_COLOR_WHITE, RGBW_COLOR_RED, LED_RESO_1_2, 0))
+                    if (!pink_lady_set_segment_params(&smartled_seg_1, 20, 49, RGBW_COLOR_WHITE, RGBW_COLOR_RED, LED_RESO_ALL, 0))
                     {
                         sm_colors.index++;
                     }

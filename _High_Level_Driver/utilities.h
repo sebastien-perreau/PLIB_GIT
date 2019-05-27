@@ -199,27 +199,37 @@ static AVERAGE_PARAMS _name = AVERAGE_INSTANCE(_adc_module, _name ## _buffer_ram
 // ********** STRUCTURE FOR THE NTC ROUTINE **********
 typedef struct
 {
-    uint8_t     t0;
-    uint16_t    r0;
-    uint16_t    b;
+    uint8_t         t0;
+    uint32_t        r0;
+    uint16_t        b;
 } NTC_PARAMS;
 
 typedef struct
 {
-    AVERAGE_PARAMS average;
-    NTC_PARAMS  ntc_params;
-    float       temperature;
+    AVERAGE_PARAMS  average;
+    NTC_PARAMS      ntc_params;
+    uint32_t        pull_up_value;
+    float           temperature;
 } NTC_VAR;
 
-#define NTC_INSTANCE(_adc_module, _buffer, _t0, _r0, _b)            \
-{                                                                   \
-    .average = AVERAGE_INSTANCE(_adc_module, _buffer, TICK_10MS),   \
-    .ntc_params = { _t0, _r0, _b },                                 \
-    .temperature = 0.0,                                             \
+typedef enum
+{
+    NTC_SUCCESS                         = 0,
+    NTC_WAIT,
+    NTC_FAIL_SHORT_CIRCUIT_GND,
+    NTC_FAIL_SHORT_CIRCUIT_VREF
+} NTC_STATUS;
+
+#define NTC_INSTANCE(_adc_module, _buffer, _t0, _r0, _b, _r_pull_up)        \
+{                                                                           \
+    .average = AVERAGE_INSTANCE(_adc_module, _buffer, TICK_10MS),           \
+    .ntc_params = { _t0, _r0, _b },                                         \
+    .pull_up_value = _r_pull_up,                                            \
+    .temperature = 0.0,                                                     \
 }
-#define NTC_DEF(_name, _adc_module, _t0, _r0, _b)                   \
-static float _name ## _buffer_ram_allocation[20] = {0.0};           \
-static NTC_VAR _name = NTC_INSTANCE(_adc_module, _name ## _buffer_ram_allocation, _t0, _r0, _b)
+#define NTC_DEF(_name, _adc_module, _t0, _r0, _b, _r_pull_up)           \
+static float _name ## _buffer_ram_allocation[20] = {0.0};                   \
+static NTC_VAR _name = NTC_INSTANCE(_adc_module, _name ## _buffer_ram_allocation, _t0, _r0, _b, _r_pull_up)
 
 // ---------------------------------------------------
 // ***** STRUCTURE FOR THE DEAMON PARENT ROUTINE *****
@@ -258,7 +268,7 @@ typedef struct
 
 #define ACQUISITIONS_INSTANCE(_buffer_ntc, _buffer_current, _buffer_voltage, _buffer_an15)    \
 {                                                                               \
-    .ntc = NTC_INSTANCE(AN15, _buffer_ntc, 25, 10000, 3380),                    \
+    .ntc = NTC_INSTANCE(AN15, _buffer_ntc, 25, 10000, 3380, 10000),             \
     .current = AVERAGE_INSTANCE(AN15, _buffer_current, TICK_1MS),               \
     .voltage = AVERAGE_INSTANCE(AN15, _buffer_voltage, TICK_1MS),               \
     .an15 = AVERAGE_INSTANCE(AN15, _buffer_an15, TICK_1MS),                     \
@@ -287,7 +297,8 @@ HSV_COLOR   fu_rgb_to_hsv(RGB_COLOR rgb_color);
 RGB_COLOR   fu_hsv_to_rgb(HSV_COLOR hsv_color);
 
 bool        fu_adc_average(AVERAGE_PARAMS *var);
-bool        fu_ntc(NTC_VAR *var);
+NTC_STATUS  fu_adc_ntc(NTC_VAR *var);
+NTC_STATUS  fu_calc_ntc(NTC_PARAMS ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature);
 
 void        fu_bus_management_task(BUS_MANAGEMENT_VAR *dp);
 uint16_t    fu_crc_16_ibm(uint8_t *buffer, uint16_t length);
