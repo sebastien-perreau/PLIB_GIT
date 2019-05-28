@@ -146,26 +146,53 @@ typedef struct
 
 // ----------------------------------------------------
 // **** MACRO AND STRUCTURE FOR THE SLIDER ROUTINE ****
-//#define DIR_NONE        0
-//#define DIR_RIGHT       1   //  *------->
-//#define DIR_LEFT        2   //  <-------*
-//#define DIR_EXTERNAL    3   //  <-- * -->
-//#define DIR_CENTER      4   //  *--> <--*
-//#define INIT_SLIDER(ptr, modeOn, modeOff, tOn, tOff)      {OFF, 0, modeOn, modeOff, 0, ptr, sizeof(ptr)/sizeof(LED_CONFIG), tOn, tOff, TICK_INIT}
-//
-//typedef struct
-//{
-//    BOOL enable;
-//    BOOL previousState;
-//    BYTE modeSlidingOn;
-//    BYTE modeSlidingOff;
-//    BYTE currentIndice;
-//    LED_CONFIG *ptrLed;
-//    BYTE sizeTab;
-//    QWORD tSliderOn;
-//    QWORD tSliderOff;
-//    QWORD tickSlider;
-//}LED_SLIDER_CONFIG;
+
+typedef enum
+{
+    SLIDER_START_TO_END     = 1,    // |------->
+    SLIDER_END_TO_START     = 2,    // <-------|
+    SLIDER_CENTER_TO_ENDS   = 4,    // <---|--->
+    SLIDER_ENDS_TO_CENTER   = 8     // |--> <--|
+} SLIDER_MODES;
+
+typedef enum
+{
+    SLIDER_SUCCESS = 0,
+    SLIDER_TRANSITION_WAIT,
+    SLIDER_TRANSITION_UPDATE
+} SLIDER_STATUS;
+
+typedef struct
+{
+    bool                    enable;
+    uint8_t                 mode_on;
+    uint8_t                 mode_off;
+    uint32_t                time_on;
+    uint32_t                time_off;
+    DYNAMIC_TAB_BYTE        p_output;
+    uint8_t                 _mode;
+    uint32_t                _time;
+    uint8_t                 save_state;
+    state_machine_t         state_machine;
+} SLIDER_PARAMS;
+
+#define SLIDER_INSTANCE(_p_output, _size, _mode_on, _mode_off, _time_on, _time_off)         \
+{                                                                                           \
+    .enable = false,                                                                        \
+    .mode_on = _mode_on,                                                                    \
+    .mode_off = _mode_off,                                                                  \
+    .time_on = (_time_on),                                                                  \
+    .time_off = (_time_off),                                                                \
+    .p_output = {_p_output, _size, 0},                                                      \
+    ._mode = 0,                                                                             \
+    ._time = 0,                                                                             \
+    .save_state = 2,                                                                        \
+    .state_machine = {0}                                                                    \
+}
+
+#define SLIDER_DEF(_name, _size, _mode_on, _mode_off, _time_on, _time_off)                  \
+static uint8_t _name ## _ram_allocation[_size] = {0};                                       \
+static SLIDER_PARAMS _name = SLIDER_INSTANCE(_name ## _ram_allocation, _size, _mode_on, _mode_off, _time_on, _time_off)
 
 // ---------------------------------------------------
 // ******** STRUCTURE FOR THE AVERAGE ROUTINE ********
@@ -287,6 +314,7 @@ static ACQUISITIONS_PARAMS _name = ACQUISITIONS_INSTANCE(_name ## _buffer_ntc_ra
 // ************** PROTOTYPES OF FUNCTIONS *************
 
 //void        fUtilitiesSlider(LED_SLIDER_CONFIG *config);
+SLIDER_STATUS   fu_slider(SLIDER_PARAMS *var);
 
 void        fu_switch(SWITCH_PARAMS *var);
 void        fu_encoder(ENCODER_PARAMS *config);

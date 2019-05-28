@@ -329,6 +329,75 @@ RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
 }
 
 /*******************************************************************************
+ * Function: 
+ *      SLIDER_STATUS fu_slider(SLIDER_PARAMS *var)
+ * 
+ * Description:
+ *      This routine is used to manage a slider object. 
+ *      No LED objects are attach to its parameters in order to keep the function
+ *      as most "generic" as possible. Thus you can use it anywhere.
+ * 
+ * Parameters:
+ *      *var: The pointer of SLIDER_PARAMS.
+ * 
+ * Return:
+ *      It returns the status of the slider routine (See. SLIDER_STATUS enumeration).
+ ******************************************************************************/
+SLIDER_STATUS fu_slider(SLIDER_PARAMS *var)
+{    
+    SLIDER_STATUS ret;
+    
+    if (var->save_state != var->enable)
+    {
+        var->save_state = var->enable;
+        var->p_output.index = 0;
+        var->_time = (var->enable ? var->time_on : var->time_off) / var->p_output.size;
+        var->_mode = (var->enable ? var->mode_on : var->mode_off);
+    }
+    
+    if (var->p_output.index < var->p_output.size)
+    {
+        ret = SLIDER_TRANSITION_WAIT;
+        if ((var->_mode & 0x0f) == 0)
+        {
+            var->p_output.p[var->p_output.index++] = var->enable;
+            ret = SLIDER_TRANSITION_UPDATE;
+        }
+        else if (mTickCompare(var->state_machine.tick) >= var->_time)
+        {
+            var->state_machine.tick = mGetTick();
+
+            if (GET_BIT(var->_mode, 0))
+            {
+                var->p_output.p[var->p_output.index] = var->enable;
+            }
+            else if (GET_BIT(var->_mode, 1))
+            {
+                var->p_output.p[var->p_output.size - 1 - var->p_output.index] = var->enable;
+            }
+            else if (GET_BIT(var->_mode, 2))
+            {                
+                var->p_output.p[var->p_output.size/2 + var->p_output.index/2] = var->enable;
+                var->p_output.p[var->p_output.size/2 - var->p_output.index/2 - ((var->p_output.size - 1) % 2)] = var->enable;
+            }
+            else if (GET_BIT(var->_mode, 3))
+            {
+                var->p_output.p[var->p_output.index/2] = var->enable;
+                var->p_output.p[var->p_output.size - 1 - var->p_output.index/2] = var->enable;
+            }
+            var->p_output.index++;
+            ret = SLIDER_TRANSITION_UPDATE;
+        }
+    }
+    else
+    {
+        ret = SLIDER_SUCCESS;
+    }
+    
+    return ret;
+}
+
+/*******************************************************************************
   Function:
     void fUtilitiesSlider(LED_SLIDER_CONFIG *config)
 
