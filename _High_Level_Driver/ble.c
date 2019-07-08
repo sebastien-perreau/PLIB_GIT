@@ -16,19 +16,36 @@ static DMA_CHANNEL_TRANSFER dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
 static const char _ack[] = "ACK";
 static const char _nack[] = "NACK";
 
+static void __boot_sequence();
+
 static void _pa_lna(uint8_t *buffer);
 static void _led_status(uint8_t *buffer);
 static void _name(uint8_t *buffer);
 static void _version(uint8_t *buffer);
 static void _adv_interval(uint8_t *buffer);
 static void _adv_timeout(uint8_t *buffer);
-static void _reset(uint8_t *buffer);
+static void _reset_ble_pickit(uint8_t *buffer);
+static void _reset_all(uint8_t *buffer);
 static void _conn_params(uint8_t *buffer);
 static void _phy_params(uint8_t *buffer);
 static void _att_size_params(uint8_t *buffer);
 static void _buffer(uint8_t *buffer);
 
 static uint8_t vsd_outgoing_message_uart(p_ble_function ptr);
+
+static void __boot_sequence()
+{
+    p_ble->status.flags.pa_lna = 1;
+    p_ble->status.flags.led_status = 1;
+    p_ble->status.flags.set_name = 1;
+    p_ble->status.flags.get_version = 1;
+    p_ble->status.flags.adv_interval = 1;
+    p_ble->status.flags.adv_timeout = 1;
+    
+    p_ble->status.flags.set_conn_params = 1;
+    p_ble->status.flags.set_phy_params = 1;
+    p_ble->status.flags.set_att_size_params = 1;
+}
 
 static void ble_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
 {
@@ -67,18 +84,9 @@ void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_para
                 DMA_INT_NONE, 
                 DMA_EVT_START_TRANSFER_ON_IRQ, 
                 uart_get_tx_irq(uart_id), 
-                0xff);       
+                0xff);   
     
-    p_ble->status.flags.pa_lna = 1;
-    p_ble->status.flags.led_status = 1;
-    p_ble->status.flags.set_name = 1;
-    p_ble->status.flags.get_version = 1;
-    p_ble->status.flags.adv_interval = 1;
-    p_ble->status.flags.adv_timeout = 1;
-    
-    p_ble->status.flags.set_conn_params = 1;
-    p_ble->status.flags.set_phy_params = 1;
-    p_ble->status.flags.set_att_size_params = 1;
+    __boot_sequence();
 }
 
 void ble_stack_tasks()
@@ -197,9 +205,13 @@ void ble_stack_tasks()
                 break;
                 
             case ID_SOFTWARE_RESET:
-                if ((p_ble->incoming_message_uart.length == 1) && ((p_ble->incoming_message_uart.data[0] == RESET_ALL) || (p_ble->incoming_message_uart.data[0] == RESET_PIC32)))
+                if ((p_ble->incoming_message_uart.length == 1) && (p_ble->incoming_message_uart.data[0] == RESET_ALL))
 				{
 					p_ble->status.flags.exec_reset = true;
+				}
+                else if ((p_ble->incoming_message_uart.length == 1) && (p_ble->incoming_message_uart.data[0] == RESET_BLE_PICKIT))
+				{
+					__boot_sequence();
 				}
                 break;
 
@@ -253,14 +265,20 @@ void ble_stack_tasks()
                 p_ble->status.flags.adv_timeout = 0;
             }
         }
-        else if (p_ble->status.flags.send_reset)
+        else if (p_ble->status.flags.send_reset_ble_pickit)
         {
-            if (!vsd_outgoing_message_uart(_reset))
+            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
             {
-                if ((p_ble->params.reset_type == RESET_ALL) || (p_ble->params.reset_type == RESET_PIC32))
-                {
-                    SoftReset();
-                }
+                p_ble->status.flags.send_reset_ble_pickit = 0;
+                
+                __boot_sequence();
+            }
+        }
+        else if (p_ble->status.flags.send_reset_all)
+        {
+            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
+            {
+                SoftReset();
             }
         }
         else if (p_ble->status.flags.exec_reset)
@@ -394,7 +412,20 @@ static void _adv_timeout(uint8_t *buffer)
 	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
 }
 
-static void _reset(uint8_t *buffer)
+static void _reset_ble_pickit(uint8_t *buffer)
+{
+	uint16_t crc = 0;
+
+	buffer[0] = ID_SOFTWARE_RESET;
+	buffer[1] = 'W';
+    buffer[2] = 1;
+    buffer[3] = RESET_BLE_PICKIT;
+	crc = fu_crc_16_ibm(buffer, buffer[2]+3);
+	buffer[buffer[2]+3] = (crc >> 8) & 0xff;
+	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
+}
+
+static void _reset_all(uint8_t *buffer)
 {
 	uint16_t crc = 0;
 

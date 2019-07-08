@@ -29,8 +29,7 @@
 #define BLE_GAP_PHY_2MBPS           0x02
 
 #define RESET_BLE_PICKIT            0x01
-#define RESET_PIC32                 0x02
-#define RESET_ALL                   0x03
+#define RESET_ALL                   0x02
 
 
 typedef enum
@@ -69,7 +68,8 @@ typedef union
         unsigned                    get_version:1;
         unsigned                    adv_interval:1;
         unsigned                    adv_timeout:1;
-        unsigned                    send_reset:1;
+        unsigned                    send_reset_ble_pickit:1;
+        unsigned                    send_reset_all:1;
         unsigned                    exec_reset:1;
         
         unsigned                    send_buffer:1;
@@ -112,7 +112,6 @@ typedef struct
     ble_pickit_gap_params           preferred_gap_params;
     bool                            pa_lna_enable;
     bool                            led_status_enable;
-    uint8_t                         reset_type;
 } ble_pickit_params;
 
 typedef struct
@@ -215,7 +214,6 @@ typedef struct
 	.preferred_gap_params = BLE_PICKIT_GAP_PARAMS_INSTANCE(),   \
 	.pa_lna_enable = false,										\
 	.led_status_enable = true,									\
-    .reset_type = 0x00,                                         \
 }
 
 #define BLE_PARAMS_INSTANCE(_name)                              \
