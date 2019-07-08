@@ -3,6 +3,7 @@
 
 #define _VSD_VERSIONS               "x.xx.xx"
 
+#define ID_BOOT_MODE                0x00
 #define ID_PA_LNA					0x01
 #define ID_LED_STATUS				0x02
 #define ID_SET_NAME					0x03

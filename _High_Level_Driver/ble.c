@@ -86,7 +86,7 @@ void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_para
                 uart_get_tx_irq(uart_id), 
                 0xff);   
     
-    __boot_sequence();
+    p_ble->status.flags.send_reset_ble_pickit = 1;
 }
 
 void ble_stack_tasks()
@@ -164,6 +164,13 @@ void ble_stack_tasks()
        
         switch (p_ble->incoming_message_uart.id)
         {
+            case ID_BOOT_MODE:
+                if ((p_ble->incoming_message_uart.type == 'N') && (p_ble->incoming_message_uart.length == 1) && (p_ble->incoming_message_uart.data[0] == 0x23))
+				{
+                    __boot_sequence();
+                }                
+                break;
+                
             case ID_GET_VERSION:
                 for (i = 0 ; i < p_ble->incoming_message_uart.length ; i++)
                 {
@@ -209,10 +216,6 @@ void ble_stack_tasks()
 				{
 					p_ble->status.flags.exec_reset = true;
 				}
-                else if ((p_ble->incoming_message_uart.length == 1) && (p_ble->incoming_message_uart.data[0] == RESET_BLE_PICKIT))
-				{
-					__boot_sequence();
-				}
                 break;
 
             default:
@@ -223,7 +226,14 @@ void ble_stack_tasks()
     
     if (p_ble->status.flags.w > 0)
     {
-        if (p_ble->status.flags.pa_lna)
+        if (p_ble->status.flags.exec_reset)
+        {
+            if (uart_transmission_has_completed(m_uart_id))
+            {
+                SoftReset();
+            }
+        }
+        else if (p_ble->status.flags.pa_lna)
         {
             if (!vsd_outgoing_message_uart(_pa_lna))
             {
@@ -270,8 +280,6 @@ void ble_stack_tasks()
             if (!vsd_outgoing_message_uart(_reset_ble_pickit))
             {
                 p_ble->status.flags.send_reset_ble_pickit = 0;
-                
-                __boot_sequence();
             }
         }
         else if (p_ble->status.flags.send_reset_all)
@@ -280,14 +288,7 @@ void ble_stack_tasks()
             {
                 SoftReset();
             }
-        }
-        else if (p_ble->status.flags.exec_reset)
-        {
-            if (uart_transmission_has_completed(m_uart_id))
-            {
-                SoftReset();
-            }
-        }
+        }        
         else if (p_ble->status.flags.set_conn_params)
         {
             if (!vsd_outgoing_message_uart(_conn_params))
