@@ -16,8 +16,6 @@ static DMA_CHANNEL_TRANSFER dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
 static const char _ack[] = "ACK";
 static const char _nack[] = "NACK";
 
-static void __boot_sequence();
-
 static void _pa_lna(uint8_t *buffer);
 static void _led_status(uint8_t *buffer);
 static void _name(uint8_t *buffer);
@@ -167,7 +165,10 @@ void ble_stack_tasks()
             case ID_BOOT_MODE:
                 if ((p_ble->incoming_message_uart.type == 'N') && (p_ble->incoming_message_uart.length == 1) && (p_ble->incoming_message_uart.data[0] == 0x23))
 				{
-                    __boot_sequence();
+                    if (!p_ble->status.flags.send_reset_ble_pickit)
+                    {
+                        __boot_sequence();
+                    }
                 }                
                 break;
                 
@@ -233,6 +234,20 @@ void ble_stack_tasks()
                 SoftReset();
             }
         }
+        else if (p_ble->status.flags.send_reset_ble_pickit)
+        {
+            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
+            {
+                p_ble->status.flags.send_reset_ble_pickit = 0;
+            }
+        }
+        else if (p_ble->status.flags.send_reset_all)
+        {
+            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
+            {
+                SoftReset();
+            }
+        } 
         else if (p_ble->status.flags.pa_lna)
         {
             if (!vsd_outgoing_message_uart(_pa_lna))
@@ -274,21 +289,7 @@ void ble_stack_tasks()
             {
                 p_ble->status.flags.adv_timeout = 0;
             }
-        }
-        else if (p_ble->status.flags.send_reset_ble_pickit)
-        {
-            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
-            {
-                p_ble->status.flags.send_reset_ble_pickit = 0;
-            }
-        }
-        else if (p_ble->status.flags.send_reset_all)
-        {
-            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
-            {
-                SoftReset();
-            }
-        }        
+        }               
         else if (p_ble->status.flags.set_conn_params)
         {
             if (!vsd_outgoing_message_uart(_conn_params))

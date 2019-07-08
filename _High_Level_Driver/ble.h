@@ -11,14 +11,14 @@
 #define ID_ADV_INTERVAL				0x05
 #define ID_ADV_TIMEOUT				0x06
 #define ID_GET_CONN_STATUS          0x07
-#define ID_GET_BLE_PARAMS			0x10
+#define ID_GET_BLE_PARAMS			0x08
 #define ID_SOFTWARE_RESET			0xff
 
 #define ID_CHAR_BUFFER              0x30
 
-#define ID_SET_BLE_CONN_PARAMS      0x11
-#define ID_SET_BLE_PHY_PARAMS       0x12
-#define ID_SET_BLE_ATT_SIZE_PARAMS  0x13
+#define ID_SET_BLE_CONN_PARAMS      0x20
+#define ID_SET_BLE_PHY_PARAMS       0x21
+#define ID_SET_BLE_ATT_SIZE_PARAMS  0x22
 
 
 #define MSEC_TO_UNITS(TIME, RESOLUTION) (((TIME) * 1000) / (RESOLUTION))
