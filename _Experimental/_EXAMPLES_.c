@@ -552,6 +552,40 @@ void _EXAMPLE_AVERAGE_AND_NTC()
     }   
 }
 
+void _EXAMPLE_SLIDER()
+{
+    SLIDER_DEF(slider_w, 132, SLIDER_START_TO_END, SLIDER_CENTER_TO_ENDS, TICK_400MS, TICK_200MS);
+    SLIDER_DEF(slider_r, 132, SLIDER_CENTER_TO_ENDS, SLIDER_START_TO_END, TICK_200MS, TICK_400MS);
+    PINK_LADY_DEF(smartled, SPI1, SK6812RGBW_MODEL, 132);
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            slider_w.enable = fu_turn_indicator(ON, TICK_500MS, TICK_500MS);
+            slider_r.enable = !fu_turn_indicator(ON, TICK_500MS, TICK_500MS);
+
+            {
+                uint8_t i;
+                for (i = 0 ; i < slider_w.p_output.size ; i++)
+                {
+                    pink_lady_set_led_rgbw(smartled, i, (slider_r.p_output.p[i] > 0) ? 255 : 0, 0, 0, (slider_w.p_output.p[i] > 0) ? 255 : 0);
+                }
+            }
+
+            fu_slider(&slider_w);
+            fu_slider(&slider_r);
+            pink_lady_deamon(&smartled);
+            break;
+    }   
+}
+
 void _EXAMPLE_25LC512()
 {
     _25LC512_DEF(e_25lc512, SPI2, __PD3, TICK_20MS, 150, 150);
@@ -1258,26 +1292,20 @@ void _EXAMPLE_BLE(ble_params_t * p_ble)
             break;
             
         case _MAIN:
-            // CENTRAL write a scenario to the PERIPHERAL
-            mUpdateLedStatusD3(p_ble->service.scenario.in_index);
-            if (p_ble->service.scenario.in_is_updated)
+            // CENTRAL write a buffer to the PERIPHERAL
+            mUpdateLedStatusD3(p_ble->service.buffer.in_data[0]);
+            if (p_ble->service.buffer.in_is_updated)
             {
-                p_ble->service.scenario.in_is_updated = false;
-                if (mGetIO(LED2))
-                {
-                    mUpdateLedStatusD2(OFF);
-                }
-                else
-                {
-                    mUpdateLedStatusD2(ON);
-                }
+                p_ble->service.buffer.in_is_updated = false;
+                mToggleLedStatusD2();
             }
-            // Notify the CENTRAL by using a "scenario object"
+            // Notify the CENTRAL by using a "buffer object"
             if (mTickCompare(sm_example.tick) >= TICK_1S)
             {
                 sm_example.tick = mGetTick();
-                p_ble->service.scenario.out_index++;
-                p_ble->flags.send_scenario = true;
+                p_ble->service.buffer.out_data[0]++;
+                p_ble->service.buffer.out_length = 1;
+                p_ble->status.flags.send_buffer = true;
             }
             break;
     } 

@@ -9,10 +9,16 @@
 #define ID_GET_VERSION				0x04
 #define ID_ADV_INTERVAL				0x05
 #define ID_ADV_TIMEOUT				0x06
+#define ID_GET_CONN_STATUS          0x07
+#define ID_GET_BLE_PARAMS			0x10
 #define ID_SOFTWARE_RESET			0xff
 
 #define ID_CHAR_BUFFER              0x30
-#define ID_CHAR_SCENARIO            0x40
+
+#define ID_SET_BLE_CONN_PARAMS      0x11
+#define ID_SET_BLE_PHY_PARAMS       0x12
+#define ID_SET_BLE_ATT_SIZE_PARAMS  0x13
+
 
 #define MSEC_TO_UNITS(TIME, RESOLUTION) (((TIME) * 1000) / (RESOLUTION))
 #define UNIT_0_625_MS               625
@@ -67,19 +73,16 @@ typedef union
         unsigned                    exec_reset:1;
         
         unsigned                    send_buffer:1;
-        unsigned                    send_scenario:1;
+        
+        unsigned                    set_conn_params:1;
+        unsigned                    set_phy_params:1;
+        unsigned                    set_att_size_params:1;
     };
     struct
     {
         uint32_t                    w;
     };
 } ble_flags_t;
-
-typedef struct
-{
-    char                            vsd_version[8];
-    char                            device_name[20];
-} ble_device_infos_t;
 
 typedef struct
 {
@@ -107,11 +110,44 @@ typedef struct
 typedef struct
 {
     ble_pickit_gap_params           preferred_gap_params;
-    ble_pickit_gap_params			current_gap_params;
     bool                            pa_lna_enable;
     bool                            led_status_enable;
     uint8_t                         reset_type;
 } ble_pickit_params;
+
+typedef struct
+{
+    char                            vsd_version[8];
+    char                            device_name[20];
+} ble_device_infos_t;
+
+typedef struct
+{
+    bool                            is_pa_lna_enabled;
+    bool                            is_led_status_enabled;
+} ble_hardware_status_t;
+
+typedef struct
+{
+    bool                            is_conn_status_updated;
+    bool                            is_connected_to_a_central;
+    bool                            is_in_advertising_mode;
+} ble_conn_status_t;
+
+typedef struct
+{
+    bool                            is_gap_params_updated;
+    ble_pickit_gap_params			current_gap_params;  
+} ble_gap_status_t;
+
+typedef struct
+{
+    ble_device_infos_t              infos;
+    ble_flags_t                     flags;
+    ble_hardware_status_t           hardware;
+    ble_conn_status_t               connection;
+    ble_gap_status_t                gap;    
+} ble_status_t;
 
 typedef struct
 {
@@ -124,23 +160,14 @@ typedef struct
 
 typedef struct
 {
-    uint8_t                         in_index;
-    bool                            in_is_updated;
-    uint8_t                         out_index;
-} ble_char_scenario_t;
-
-typedef struct
-{
     ble_char_buffer_t               buffer;
-    ble_char_scenario_t             scenario;
 } ble_characteristics_t;
 
 typedef struct
 {
 	ble_uart_t                      uart;
-	ble_serial_message_t            incoming_message_uart;
-	ble_flags_t                     flags;
-    ble_device_infos_t              infos;   
+	ble_serial_message_t            incoming_message_uart; 
+    ble_status_t                    status;
     ble_pickit_params               params;
     ble_characteristics_t           service;
 } ble_params_t;
@@ -174,10 +201,18 @@ typedef struct
 	.adv_timeout = 18000,										\
 }
 
+#define BLE_PICKIT_STATUS_INSTANCE(_name)                       \
+{                                                               \
+    .infos = BLE_DEVICE_INFOS_INSTANCE(_name),                  \
+    .flags = {{0}},                                             \
+    .hardware = {0},                                            \
+    .connection = {0},                                          \
+    .gap = {0, {{0}, 0, {0}, 0, 0}},                            \
+}
+
 #define BLE_PICKIT_PARAMS_INSTANCE()							\
 {																\
 	.preferred_gap_params = BLE_PICKIT_GAP_PARAMS_INSTANCE(),   \
-	.current_gap_params = {{0}, 0, {0}, 0, 0},                  \
 	.pa_lna_enable = false,										\
 	.led_status_enable = true,									\
     .reset_type = 0x00,                                         \
@@ -187,8 +222,7 @@ typedef struct
 {                                                               \
 	.uart = {0},                                                \
 	.incoming_message_uart = {0},                               \
-	.flags = {{0}},                                             \
-	.infos = BLE_DEVICE_INFOS_INSTANCE(_name),                  \
+	.status = BLE_PICKIT_STATUS_INSTANCE(_name),                \
     .params = BLE_PICKIT_PARAMS_INSTANCE(),                     \
     .service = {0},                                             \
 }

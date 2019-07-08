@@ -23,8 +23,10 @@ static void _version(uint8_t *buffer);
 static void _adv_interval(uint8_t *buffer);
 static void _adv_timeout(uint8_t *buffer);
 static void _reset(uint8_t *buffer);
+static void _conn_params(uint8_t *buffer);
+static void _phy_params(uint8_t *buffer);
+static void _att_size_params(uint8_t *buffer);
 static void _buffer(uint8_t *buffer);
-static void _scenario(uint8_t *buffer);
 
 static uint8_t vsd_outgoing_message_uart(p_ble_function ptr);
 
@@ -67,12 +69,16 @@ void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_para
                 uart_get_tx_irq(uart_id), 
                 0xff);       
     
-    p_ble->flags.pa_lna = 1;
-    p_ble->flags.led_status = 1;
-    p_ble->flags.set_name = 1;
-    p_ble->flags.get_version = 1;
-    p_ble->flags.adv_interval = 1;
-    p_ble->flags.adv_timeout = 1;
+    p_ble->status.flags.pa_lna = 1;
+    p_ble->status.flags.led_status = 1;
+    p_ble->status.flags.set_name = 1;
+    p_ble->status.flags.get_version = 1;
+    p_ble->status.flags.adv_interval = 1;
+    p_ble->status.flags.adv_timeout = 1;
+    
+    p_ble->status.flags.set_conn_params = 1;
+    p_ble->status.flags.set_phy_params = 1;
+    p_ble->status.flags.set_att_size_params = 1;
 }
 
 void ble_stack_tasks()
@@ -153,9 +159,35 @@ void ble_stack_tasks()
             case ID_GET_VERSION:
                 for (i = 0 ; i < p_ble->incoming_message_uart.length ; i++)
                 {
-                    p_ble->infos.vsd_version[i] = p_ble->incoming_message_uart.data[i];
+                    p_ble->status.infos.vsd_version[i] = p_ble->incoming_message_uart.data[i];
                 }
-                p_ble->infos.vsd_version[i] = '\0';
+                p_ble->status.infos.vsd_version[i] = '\0';
+                break;
+                
+            case ID_GET_CONN_STATUS:
+                p_ble->status.connection.is_conn_status_updated = true;
+                p_ble->status.connection.is_connected_to_a_central = ((p_ble->incoming_message_uart.data[0] >> 1) & 0x01);
+                p_ble->status.connection.is_in_advertising_mode = ((p_ble->incoming_message_uart.data[0] >> 0) & 0x01);
+                break;
+                
+            case ID_GET_BLE_PARAMS:
+                p_ble->status.gap.is_gap_params_updated = true;
+                
+                p_ble->status.gap.current_gap_params.conn_params.min_conn_interval = (p_ble->incoming_message_uart.data[0] << 8) | (p_ble->incoming_message_uart.data[1] << 0);
+                p_ble->status.gap.current_gap_params.conn_params.max_conn_interval = (p_ble->incoming_message_uart.data[2] << 8) | (p_ble->incoming_message_uart.data[3] << 0);
+                p_ble->status.gap.current_gap_params.conn_params.slave_latency = (p_ble->incoming_message_uart.data[4] << 8) | (p_ble->incoming_message_uart.data[5] << 0);
+                p_ble->status.gap.current_gap_params.conn_params.conn_sup_timeout = (p_ble->incoming_message_uart.data[6] << 8) | (p_ble->incoming_message_uart.data[7] << 0);
+                
+                p_ble->status.gap.current_gap_params.phys_params = p_ble->incoming_message_uart.data[8];
+                
+                p_ble->status.gap.current_gap_params.mtu_size_params.max_tx_octets = p_ble->incoming_message_uart.data[9];
+                p_ble->status.gap.current_gap_params.mtu_size_params.max_rx_octets = p_ble->incoming_message_uart.data[10];
+                
+                p_ble->status.gap.current_gap_params.adv_timeout = p_ble->params.preferred_gap_params.adv_timeout;
+                p_ble->status.gap.current_gap_params.adv_interval = p_ble->params.preferred_gap_params.adv_interval;
+                
+                p_ble->status.hardware.is_pa_lna_enabled = p_ble->incoming_message_uart.data[11];
+                p_ble->status.hardware.is_led_status_enabled = p_ble->incoming_message_uart.data[12];
                 break;
                 
             case ID_CHAR_BUFFER:
@@ -164,15 +196,10 @@ void ble_stack_tasks()
                 p_ble->service.buffer.in_is_updated = true;
                 break;
                 
-            case ID_CHAR_SCENARIO:
-                p_ble->service.scenario.in_index = p_ble->incoming_message_uart.data[0];
-                p_ble->service.scenario.in_is_updated = true;
-                break;
-                
             case ID_SOFTWARE_RESET:
                 if ((p_ble->incoming_message_uart.length == 1) && ((p_ble->incoming_message_uart.data[0] == RESET_ALL) || (p_ble->incoming_message_uart.data[0] == RESET_PIC32)))
 				{
-					p_ble->flags.exec_reset = true;
+					p_ble->status.flags.exec_reset = true;
 				}
                 break;
 
@@ -182,51 +209,51 @@ void ble_stack_tasks()
         }
     }
     
-    if (p_ble->flags.w > 0)
+    if (p_ble->status.flags.w > 0)
     {
-        if (p_ble->flags.pa_lna)
+        if (p_ble->status.flags.pa_lna)
         {
             if (!vsd_outgoing_message_uart(_pa_lna))
             {
-                p_ble->flags.pa_lna = 0;
+                p_ble->status.flags.pa_lna = 0;
             }
         }
-        else if (p_ble->flags.led_status)
+        else if (p_ble->status.flags.led_status)
         {
             if (!vsd_outgoing_message_uart(_led_status))
             {
-                p_ble->flags.led_status = 0;
+                p_ble->status.flags.led_status = 0;
             }
         }
-        else if (p_ble->flags.set_name)
+        else if (p_ble->status.flags.set_name)
         {
             if (!vsd_outgoing_message_uart(_name))
             {
-                p_ble->flags.set_name = 0;
+                p_ble->status.flags.set_name = 0;
             }
         }
-        else if (p_ble->flags.get_version)
+        else if (p_ble->status.flags.get_version)
         {
             if (!vsd_outgoing_message_uart(_version))
             {
-                p_ble->flags.get_version = 0;
+                p_ble->status.flags.get_version = 0;
             }
         }
-        else if (p_ble->flags.adv_interval)
+        else if (p_ble->status.flags.adv_interval)
         {
             if (!vsd_outgoing_message_uart(_adv_interval))
             {
-                p_ble->flags.adv_interval = 0;
+                p_ble->status.flags.adv_interval = 0;
             }
         }
-        else if (p_ble->flags.adv_timeout)
+        else if (p_ble->status.flags.adv_timeout)
         {
             if (!vsd_outgoing_message_uart(_adv_timeout))
             {
-                p_ble->flags.adv_timeout = 0;
+                p_ble->status.flags.adv_timeout = 0;
             }
         }
-        else if (p_ble->flags.send_reset)
+        else if (p_ble->status.flags.send_reset)
         {
             if (!vsd_outgoing_message_uart(_reset))
             {
@@ -236,25 +263,39 @@ void ble_stack_tasks()
                 }
             }
         }
-        else if (p_ble->flags.exec_reset)
+        else if (p_ble->status.flags.exec_reset)
         {
             if (uart_transmission_has_completed(m_uart_id))
             {
                 SoftReset();
             }
         }
-        else if (p_ble->flags.send_buffer)
+        else if (p_ble->status.flags.set_conn_params)
+        {
+            if (!vsd_outgoing_message_uart(_conn_params))
+            {
+                p_ble->status.flags.set_conn_params = 0;
+            }
+        }
+        else if (p_ble->status.flags.set_phy_params)
+        {
+            if (!vsd_outgoing_message_uart(_phy_params))
+            {
+                p_ble->status.flags.set_phy_params = 0;
+            }
+        }
+        else if (p_ble->status.flags.set_att_size_params)
+        {
+            if (!vsd_outgoing_message_uart(_att_size_params))
+            {
+                p_ble->status.flags.set_att_size_params = 0;
+            }
+        }
+        else if (p_ble->status.flags.send_buffer)
         {
             if (!vsd_outgoing_message_uart(_buffer))
             {
-                p_ble->flags.send_buffer = 0;
-            }
-        }
-        else if (p_ble->flags.send_scenario)
-        {
-            if (!vsd_outgoing_message_uart(_scenario))
-            {
-                p_ble->flags.send_scenario = 0;
+                p_ble->status.flags.send_buffer = 0;
             }
         }
     }
@@ -299,11 +340,11 @@ static void _name(uint8_t *buffer)
 	
 	for (i = 0 ; i < 20 ; i++)
     {
-        if (p_ble->infos.device_name[i] == '\0')
+        if (p_ble->status.infos.device_name[i] == '\0')
         {
             break;
         }
-        buffer[3+i] = p_ble->infos.device_name[i];
+        buffer[3+i] = p_ble->status.infos.device_name[i];
     }
     buffer[2] = i;
     
@@ -366,6 +407,53 @@ static void _reset(uint8_t *buffer)
 	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
 }
 
+static void _conn_params(uint8_t *buffer)
+{
+	uint16_t crc = 0;
+
+	buffer[0] = ID_SET_BLE_CONN_PARAMS;
+	buffer[1] = 'W';
+    buffer[2] = 8;
+    buffer[3] = (p_ble->params.preferred_gap_params.conn_params.min_conn_interval >> 8) & 0xff;
+    buffer[4] = (p_ble->params.preferred_gap_params.conn_params.min_conn_interval >> 0) & 0xff;
+    buffer[5] = (p_ble->params.preferred_gap_params.conn_params.max_conn_interval >> 8) & 0xff;
+    buffer[6] = (p_ble->params.preferred_gap_params.conn_params.max_conn_interval >> 0) & 0xff;
+    buffer[7] = (p_ble->params.preferred_gap_params.conn_params.slave_latency >> 8) & 0xff;
+    buffer[8] = (p_ble->params.preferred_gap_params.conn_params.slave_latency >> 0) & 0xff;
+    buffer[9] = (p_ble->params.preferred_gap_params.conn_params.conn_sup_timeout >> 8) & 0xff;
+    buffer[10] = (p_ble->params.preferred_gap_params.conn_params.conn_sup_timeout >> 0) & 0xff;
+	crc = fu_crc_16_ibm(buffer, buffer[2]+3);
+	buffer[buffer[2]+3] = (crc >> 8) & 0xff;
+	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
+}
+
+static void _phy_params(uint8_t *buffer)
+{
+	uint16_t crc = 0;
+
+	buffer[0] = ID_SET_BLE_PHY_PARAMS;
+	buffer[1] = 'W';
+    buffer[2] = 1;
+    buffer[3] = p_ble->params.preferred_gap_params.phys_params;
+	crc = fu_crc_16_ibm(buffer, buffer[2]+3);
+	buffer[buffer[2]+3] = (crc >> 8) & 0xff;
+	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
+}
+
+static void _att_size_params(uint8_t *buffer)
+{
+	uint16_t crc = 0;
+
+	buffer[0] = ID_SET_BLE_ATT_SIZE_PARAMS;
+	buffer[1] = 'W';
+    buffer[2] = 2;
+    buffer[3] = p_ble->params.preferred_gap_params.mtu_size_params.max_tx_octets;
+    buffer[4] = p_ble->params.preferred_gap_params.mtu_size_params.max_rx_octets;
+	crc = fu_crc_16_ibm(buffer, buffer[2]+3);
+	buffer[buffer[2]+3] = (crc >> 8) & 0xff;
+	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
+}
+
 static void _buffer(uint8_t *buffer)
 {
 	uint16_t crc = 0;
@@ -374,19 +462,6 @@ static void _buffer(uint8_t *buffer)
 	buffer[1] = 'W';
 	buffer[2] = p_ble->service.buffer.out_length;
     memcpy(&buffer[3], p_ble->service.buffer.out_data, p_ble->service.buffer.out_length);
-	crc = fu_crc_16_ibm(buffer, buffer[2]+3);
-	buffer[buffer[2]+3] = (crc >> 8) & 0xff;
-	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
-}
-
-static void _scenario(uint8_t *buffer)
-{
-	uint16_t crc = 0;
-
-	buffer[0] = ID_CHAR_SCENARIO;
-	buffer[1] = 'W';
-	buffer[2] = 1;
-    buffer[3] = p_ble->service.scenario.out_index;
 	crc = fu_crc_16_ibm(buffer, buffer[2]+3);
 	buffer[buffer[2]+3] = (crc >> 8) & 0xff;
 	buffer[buffer[2]+4] = (crc >> 0) & 0xff;
@@ -407,6 +482,7 @@ static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
             
             if (uart_transmission_has_completed(m_uart_id) && !p_ble->uart.receive_in_progress)
             {
+                memset(buffer, 0, sizeof(buffer));
                 sm.index++;
                 sm.tick = mGetTick();
             }
@@ -443,10 +519,10 @@ static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
 			break;
 
 		case 4:
-
+        
             if (uart_transmission_has_completed(m_uart_id))
             {
-                memset(buffer, 0, sizeof(buffer));
+//                memset(buffer, 0, sizeof(buffer));
                 sm.index++;
                 sm.tick = mGetTick();
             }
