@@ -206,6 +206,14 @@ void ble_stack_tasks()
                 p_ble->status.hardware.is_led_status_enabled = p_ble->incoming_message_uart.data[12];
                 break;
                 
+            case ID_PA_LNA:
+                if ((p_ble->incoming_message_uart.data[0] & 1) != p_ble->params.pa_lna_enable)
+                {
+                    p_ble->params.pa_lna_enable = p_ble->incoming_message_uart.data[0];
+                    p_ble->status.flags.send_reset_ble_pickit = 1;
+                }
+                break;
+                
             case ID_CHAR_BUFFER:
                 memcpy(p_ble->service.buffer.in_data, p_ble->incoming_message_uart.data, p_ble->incoming_message_uart.length);
                 p_ble->service.buffer.in_length = p_ble->incoming_message_uart.length;
