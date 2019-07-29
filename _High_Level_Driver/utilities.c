@@ -907,22 +907,22 @@ void background_tasks(ACQUISITIONS_PARAMS *var)
      */
     switch(mux_sel)
     {
-        case 0:     // NTC
+        case 0:     // NTC (°C)
             if (fu_adc_ntc(&var->ntc) == NTC_SUCCESS)
             {
                 var->current.tick = mGetTick();
                 mux_sel = 1;
             }
             break;
-        case 1:     // CURRENT
+        case 1:     // CURRENT (A)
             if (fu_adc_average(&var->current))
             {
-                var->current.average = (float) (var->current.average * 5.04 / 10000.0);    // ((((_ucAcquisitions.tabSumCurrent / 10) * 3.3) / 1023.0) / 6.4);
+                var->current.average = (float) (var->current.average * 5.04 / 10000.0);    // ((((tabSumCurrent / 10) * 3.3) / 1023.0) / 6.4);
                 var->voltage.tick = mGetTick();
                 mux_sel = 2;
             }
             break;
-        case 2:     // VOLTAGE
+        case 2:     // VOLTAGE (V) & POWER (W)
             if (fu_adc_average(&var->voltage))
             {
                 var->voltage.average = (float) (var->voltage.average * 18.391 / 1000.0);    // ((((tabSumVoltage / 10) * 3.3) / 1023.0) / 0.1754);
