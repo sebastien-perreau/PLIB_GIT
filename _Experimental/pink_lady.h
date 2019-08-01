@@ -3,6 +3,7 @@
 
 #define WS2812B_TIMING          3200000
 #define SK6812RGBW_TIMING       3500000
+#define SK6812RGB_TIMING        3500000
 
 typedef enum
 {
@@ -10,9 +11,11 @@ typedef enum
     // xxx_MODEL = 0x00 aaaaaa bbb ccccc with a = reset size in byte (6 bits) / b = indice LED model (3 bits) / c = number_of_color_chip x number_of_spi_byte_per_color_chip (5 bits)
     WS2812B_MODEL               = 0x1a2c,     // Reset = 26 bytes @ 3,200000 MHz SPI for Reset Time at least 60 us, Indice = 1, Size = 3 x 4 = 12
     SK6812RGBW_MODEL            = 0x2450,     // Reset = 36 bytes @ 3,500000 MHz SPI for Reset Time at least 80 us, Indice = 2, Size = 4 x 4 = 16
+    SK6812RGB_MODEL             = 0x248c,     // Reset = 36 bytes @ 3,500000 MHz SPI for Reset Time at least 80 us, Indice = 4, Size = 3 x 4 = 12
     
     WS2812B_INDICE_MASK         = 0x0020,
     SK6812RGBW_INDICE_MASK      = 0x0040,
+    SK6812RGB_INDICE_MASK       = 0x0080,
     LED_INDICE_MASK             = 0x00e0
 } PINK_LADY_MODELS;
 
@@ -37,6 +40,7 @@ typedef struct
     uint8_t                     intensity;
     uint16_t                    ind_pos;
     uint16_t                    ind_neg;
+    uint16_t                    ind_;
     uint32_t                    time_between_increment;
     state_machine_t             sm;
     
@@ -61,6 +65,7 @@ typedef struct
     .intensity = 0,                                                                     \
     .ind_pos = 0,                                                                       \
     .ind_neg = 0,                                                                       \
+    .ind_ = 0,                                                                          \
     .time_between_increment = 0,                                                        \
     .sm = { 0, 0 },                                                                     \
     .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \

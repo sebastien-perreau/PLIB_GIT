@@ -95,6 +95,13 @@
     
     typedef struct
     {
+        bool        *p;
+        uint16_t    size;
+        uint16_t    index;
+    } DYNAMIC_TAB_BOOL;
+    
+    typedef struct
+    {
         uint8_t     *p;
         uint16_t    size;
         uint16_t    index;

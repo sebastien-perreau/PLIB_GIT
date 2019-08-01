@@ -169,7 +169,7 @@ typedef struct
     uint8_t                 mode_off;
     uint32_t                time_on;
     uint32_t                time_off;
-    DYNAMIC_TAB_BYTE        p_output;
+    DYNAMIC_TAB_BOOL        p_output;
     uint8_t                 _mode;
     uint32_t                _time;
     uint8_t                 save_state;
@@ -191,7 +191,7 @@ typedef struct
 }
 
 #define SLIDER_DEF(_name, _size, _mode_on, _mode_off, _time_on, _time_off)                  \
-static uint8_t _name ## _ram_allocation[_size] = {0};                                       \
+static bool _name ## _ram_allocation[_size] = {0};                                       \
 static SLIDER_PARAMS _name = SLIDER_INSTANCE(_name ## _ram_allocation, _size, _mode_on, _mode_off, _time_on, _time_off)
 
 // ---------------------------------------------------

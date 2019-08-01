@@ -46,7 +46,7 @@ void fu_switch(SWITCH_PARAMS *var)
                 var->is_debounce_protection_active = true;
                 var->tick_longpush = mGetTick();
             }
-            if (mTickCompare(var->tick_longpush) >= TICK_1S)
+            else if (mTickCompare(var->tick_longpush) >= TICK_1S)
             {
                 var->type_of_push = LONG_PUSH;
             }

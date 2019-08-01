@@ -554,9 +554,9 @@ void _EXAMPLE_AVERAGE_AND_NTC()
 
 void _EXAMPLE_SLIDER()
 {
-    SLIDER_DEF(slider_w, 132, SLIDER_START_TO_END, SLIDER_CENTER_TO_ENDS, TICK_400MS, TICK_200MS);
-    SLIDER_DEF(slider_r, 132, SLIDER_CENTER_TO_ENDS, SLIDER_START_TO_END, TICK_200MS, TICK_400MS);
-    PINK_LADY_DEF(smartled, SPI1, SK6812RGBW_MODEL, 132);
+    SLIDER_DEF(slider_w, 198, SLIDER_START_TO_END, SLIDER_CENTER_TO_ENDS, TICK_800MS, TICK_400MS);
+    SLIDER_DEF(slider_r, 198, SLIDER_CENTER_TO_ENDS, SLIDER_START_TO_END, TICK_400MS, TICK_800MS);
+    PINK_LADY_DEF(smartled, SPI3, SK6812RGBW_MODEL, 198);
     static state_machine_t sm_example = {0};
     
     switch (sm_example.index)
@@ -568,14 +568,14 @@ void _EXAMPLE_SLIDER()
             
         case _MAIN:
             
-            slider_w.enable = fu_turn_indicator(ON, TICK_500MS, TICK_500MS);
-            slider_r.enable = !fu_turn_indicator(ON, TICK_500MS, TICK_500MS);
+            slider_w.enable = fu_turn_indicator(ON, TICK_1S, TICK_1S);
+            slider_r.enable = !fu_turn_indicator(ON, TICK_1S, TICK_1S);
 
             {
                 uint8_t i;
                 for (i = 0 ; i < slider_w.p_output.size ; i++)
                 {
-                    pink_lady_set_led_rgbw(smartled, i, (slider_r.p_output.p[i] > 0) ? 255 : 0, 0, 0, (slider_w.p_output.p[i] > 0) ? 255 : 0);
+                    pink_lady_set_led_rgbw(smartled, i, slider_r.p_output.p[i] ? 255 : 0, 0, 0, slider_w.p_output.p[i] ? 255 : 0);
                 }
             }
 
