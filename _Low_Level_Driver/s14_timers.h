@@ -3,7 +3,6 @@
 
 volatile uint64_t getTick;
 
-#define TMR1_GET_INT_FLAG           (IFS0bits.T1IF)
 #define mGetTick()                  (getTick += TMR1, (TMR1 = 1), getTick)
 #define mTickCompare(var)           (mGetTick() - var)
 #define TICK_INIT                   (0ul)
