@@ -1,11 +1,10 @@
 #ifndef __DEF_TIMERS
 #define __DEF_TIMERS
 
-volatile QWORD getTick;
-volatile QWORD temporary_tmr1_value;
+volatile uint64_t getTick;
 
 #define TMR1_GET_INT_FLAG           (IFS0bits.T1IF)
-#define mGetTick()                  ((!(temporary_tmr1_value = TMR1) | TMR1_GET_INT_FLAG)?(temporary_tmr1_value + (getTick += (TMR1_GET_INT_FLAG << 16)) + (TMR1_GET_INT_FLAG = 0)):(temporary_tmr1_value + getTick))
+#define mGetTick()                  (getTick += TMR1, (TMR1 = 1), getTick)
 #define mTickCompare(var)           (mGetTick() - var)
 #define TICK_INIT                   (0ul)
 #define TICK_0                      (0ul)

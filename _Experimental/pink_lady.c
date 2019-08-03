@@ -4,8 +4,7 @@
 *	Revision history	:
 *		21/03/2019		- Initial release
 * 
-    WS2812B:    RGB colors
-        65 FPS for 512 LEDs on ONE SPI bus.
+ Electrical characteristics:
         DC Voltage = 5V (led in IDLE mode = 400uA)
         I_red = 12mA / I_green = 12mA / I_blue = 12mA
         I_cyan = 24mA / I_orange = 24mA / I_purple = 24mA
@@ -15,9 +14,30 @@
         5V 1A (5W)	: 27 leds
         5V 5A (25W)	: 135 leds
         5V 8A (40W)	: 220 leds
+
+    WS2812B:    RGB colors
+        65 FPS for 512 LEDs on ONE SPI bus.
+        30 FPS for 1188 LEDs on ONE SPI bus.
+        1 LEDs = 91,5 us (28 us data time + 63,5 us reset time).    
+        10 LEDs = 351 us (287,5 us data time + 63,5 us reset time).   
+        100 LEDs = 2,94 ms (2876,5 us data time + 63,5 us reset time).  
+        1000 LEDs = 28,9 ms (28836,5 us data time + 63,5 us reset time).
     
     SK6812RGBW: RGB+W colors
         53 FPS for 512 LEDs on ONE SPI bus.
+        30 FPS for 964 LEDs on ONE SPI bus.
+        1 LEDs = 114,5 us (34,5 us data time + 80 us reset time).     
+        10 LEDs = 432 us (352 us data time + 80 us reset time).    
+        100 LEDs = 3,6 ms (3520 us data time + 80 us reset time).  
+        1000 LEDs = 35,3 ms (35220 us data time + 80 us reset time).
+ 
+    SK6812RGB: RGB colors
+        73 FPS for 512 LEDs on ONE SPI bus.
+        30 FPS for 1279 LEDs on ONE SPI bus.
+        1 LEDs = 106 us (26 us data time + 80 us reset time).     
+        10 LEDs = 343 us (263 us data time + 80 us reset time).
+        100 LEDs = 2,7 ms (2620 us data time + 80 us reset time).  
+        1000 LEDs = 26,5 ms (26420 us data time + 80 us reset time).
 *********************************************************************/
 
 #include "../PLIB.h"
