@@ -11,6 +11,65 @@
 
 #include "../PLIB.h"
 
+void _EXAMPLE_TICK_FUNCTIONS()
+{
+    static uint8_t count;
+    static uint64_t tick = 0;
+    static uint64_t get_time;
+    static bool switch_update_tick = false;
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:
+            count = 0;
+            mUpdateTick(tick);
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            if (mTickCompare(tick) >= TICK_1MS)
+            {
+                if (!switch_update_tick)
+                {
+                    mUpdateTick(tick);
+                }
+                else
+                {
+                    mUpdateTick_withCathingUpTime(tick, TICK_1MS);
+                }
+                
+                if (count == 0)
+                {
+                    get_time = mGetTick();
+                }
+                else if (count == 50)
+                {
+                    Delay_ms(20);
+                }
+                else if (count == 100)
+                {
+                    get_time = (mGetTick() - get_time) / TICK_1US;
+                    if (!switch_update_tick)
+                    {
+                        LOG("Time Update Tick: %d", get_time);    
+                    }
+                    else
+                    {
+                        LOG("Time Update Tick with Catching Up Time: %d", get_time);    
+                    }
+                }
+                
+                if (++count > 100)
+                {
+                    count = 0;
+                    switch_update_tick = !switch_update_tick;
+                }
+            }
+            break;
+    } 
+}
+
 static void _example_timer_event_handler(uint8_t id)
 {
     if (mGetIO(LED2))
