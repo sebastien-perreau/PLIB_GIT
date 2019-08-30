@@ -3,6 +3,7 @@
 
 #define _VSD_VERSIONS               "x.xx.xx"
 
+#define ID_NONE                     0xfe
 #define ID_BOOT_MODE                0x00
 #define ID_PA_LNA					0x01
 #define ID_LED_STATUS				0x02
@@ -15,6 +16,7 @@
 #define ID_SOFTWARE_RESET			0xff
 
 #define ID_CHAR_BUFFER              0x30
+#define ID_CHAR_EXTENDED_BUFFER     0x40
 
 #define ID_SET_BLE_CONN_PARAMS      0x20
 #define ID_SET_BLE_PHY_PARAMS       0x21
@@ -32,6 +34,7 @@
 #define RESET_BLE_PICKIT            0x01
 #define RESET_ALL                   0x02
 
+#define MAXIMUM_SIZE_EXTENDED_BUFFER        4800
 
 typedef enum
 {
@@ -46,8 +49,8 @@ typedef struct
 {
     BLE_UART_MESSAGE_TYPE           message_type;
 	bool                            receive_in_progress;
-	uint8_t                         buffer[256];
-	uint8_t                         index;
+	uint8_t                         buffer[MAXIMUM_SIZE_EXTENDED_BUFFER + 4];
+	uint16_t                        index;
 	uint64_t                        tick;
 } ble_uart_t;
 
@@ -56,7 +59,7 @@ typedef struct
 	uint8_t                         id;
 	uint8_t                         type;
 	uint8_t                         length;
-	uint8_t                         data[251];
+	uint8_t                         data[242];
 } ble_serial_message_t;
 
 typedef union
@@ -151,16 +154,24 @@ typedef struct
 
 typedef struct
 {
-    uint8_t                         in_data[247];
+    uint8_t                         in_data[242];
     uint8_t                         in_length;
     bool                            in_is_updated;
-    uint8_t                         out_data[247];
+    uint8_t                         out_data[242];
     uint8_t                         out_length;
 } ble_char_buffer_t;
 
 typedef struct
 {
+    uint8_t                         in_data[MAXIMUM_SIZE_EXTENDED_BUFFER];
+    uint16_t                        in_length;
+    bool                            in_is_updated;
+} ble_char_extended_buffer_t;
+
+typedef struct
+{
     ble_char_buffer_t               buffer;
+    ble_char_extended_buffer_t      extended_buffer;
 } ble_characteristics_t;
 
 typedef struct

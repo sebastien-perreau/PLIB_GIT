@@ -129,34 +129,44 @@ void ble_stack_tasks()
     
         p_ble->uart.message_type = UART_NO_MESSAGE;
         
-        crc_calc = fu_crc_16_ibm(p_ble->uart.buffer, p_ble->uart.buffer[2]+3);
-        crc_uart = (p_ble->uart.buffer[p_ble->uart.buffer[2]+3] << 8) + (p_ble->uart.buffer[p_ble->uart.buffer[2]+4] << 0);
-
-        if (crc_calc == crc_uart)
-        {
-            p_ble->incoming_message_uart.id = p_ble->uart.buffer[0];
-            p_ble->incoming_message_uart.type = p_ble->uart.buffer[1];
-            p_ble->incoming_message_uart.length = p_ble->uart.buffer[2];
-            for (i = 0 ; i < p_ble->incoming_message_uart.length ; i++)
-            {
-                p_ble->incoming_message_uart.data[i] = p_ble->uart.buffer[3+i];
-            }
-            dma_tx.src_start_addr = (void *)_ack;
-            dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
-            dma_tx.src_size = 3;
-            dma_tx.dst_size = 1;
-            dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true, true);
+        if (p_ble->uart.buffer[0] == ID_CHAR_EXTENDED_BUFFER)
+        {            
+            p_ble->incoming_message_uart.id = ID_NONE;
+            p_ble->service.extended_buffer.in_length = (p_ble->uart.buffer[2] << 0) | (p_ble->uart.buffer[3] << 8);
+            memcpy(p_ble->service.extended_buffer.in_data, &p_ble->uart.buffer[4], p_ble->service.extended_buffer.in_length);
+            p_ble->service.extended_buffer.in_is_updated = true;
         }
         else
         {
-            p_ble->incoming_message_uart.id = 0x00;
-            dma_tx.src_start_addr = (void *)_nack;
-            dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
-            dma_tx.src_size = 4;
-            dma_tx.dst_size = 1;
-            dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true, true);
+            crc_calc = fu_crc_16_ibm(p_ble->uart.buffer, p_ble->uart.buffer[2]+3);
+            crc_uart = (p_ble->uart.buffer[p_ble->uart.buffer[2]+3] << 8) + (p_ble->uart.buffer[p_ble->uart.buffer[2]+4] << 0);
+
+            if (crc_calc == crc_uart)
+            {
+                p_ble->incoming_message_uart.id = p_ble->uart.buffer[0];
+                p_ble->incoming_message_uart.type = p_ble->uart.buffer[1];
+                p_ble->incoming_message_uart.length = p_ble->uart.buffer[2];
+                for (i = 0 ; i < p_ble->incoming_message_uart.length ; i++)
+                {
+                    p_ble->incoming_message_uart.data[i] = p_ble->uart.buffer[3+i];
+                }
+                dma_tx.src_start_addr = (void *)_ack;
+                dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+                dma_tx.src_size = 3;
+                dma_tx.dst_size = 1;
+                dma_tx.cell_size = 1;
+                dma_set_transfer(m_dma_id, &dma_tx, true, true);
+            }
+            else
+            {
+                p_ble->incoming_message_uart.id = ID_NONE;
+                dma_tx.src_start_addr = (void *)_nack;
+                dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+                dma_tx.src_size = 4;
+                dma_tx.dst_size = 1;
+                dma_tx.cell_size = 1;
+                dma_set_transfer(m_dma_id, &dma_tx, true, true);
+            }
         }
         memset(p_ble->uart.buffer, 0, sizeof(p_ble->uart.buffer));
        

@@ -11,7 +11,7 @@
 
 /*******************************************************************************
   Function:
-    void transform_uint8_t_tab_to_string(char *p_buffer, uint16_t buffer_length, uint8_t *data, uint8_t length, STR_BASE_t _base)
+    void transform_uint8_t_tab_to_string(char *p_buffer, uint16_t buffer_length, uint8_t *data, uint16_t length, STR_BASE_t _base)
 
   Description:
     This routine allows you to create a string from an uint8_t array. You can 
@@ -27,7 +27,7 @@
     _base:          It is the 'base_x' transformation (see. STR_BASE_t for more details) you want
                     to apply.
   *****************************************************************************/
-void transform_uint8_t_tab_to_string(char *p_buffer, uint16_t buffer_length, uint8_t *data, uint8_t length, STR_BASE_t _base)
+void transform_uint8_t_tab_to_string(char *p_buffer, uint16_t buffer_length, uint8_t *data, uint16_t length, STR_BASE_t _base)
 {
     uint16_t index_p_buffer = 0;
     uint16_t index_data = 0;
@@ -35,21 +35,53 @@ void transform_uint8_t_tab_to_string(char *p_buffer, uint16_t buffer_length, uin
 	static char buffer[20] = {0}; 
 	char *ptr = &buffer[19];
     uint8_t val;
+    uint16_t val_16;
+    
+    p_buffer[index_p_buffer++] = '(';
+    if (_base == BASE_2)
+    {
+        p_buffer[index_p_buffer++] = 'b';
+        p_buffer[index_p_buffer++] = '2';
+    }
+    else if (_base == BASE_8)
+    {
+        p_buffer[index_p_buffer++] = 'b';
+        p_buffer[index_p_buffer++] = '8';
+    }
+    else if (_base == BASE_10)
+    {
+        p_buffer[index_p_buffer++] = 'b';
+        p_buffer[index_p_buffer++] = '1';
+        p_buffer[index_p_buffer++] = '0';
+    }
+    else if (_base == BASE_16)
+    {
+        p_buffer[index_p_buffer++] = 'b';
+        p_buffer[index_p_buffer++] = '1';
+        p_buffer[index_p_buffer++] = '6';
+    }
+    p_buffer[index_p_buffer++] = ')';
+    p_buffer[index_p_buffer++] = ' ';
     
     p_buffer[index_p_buffer++] = 't';
     p_buffer[index_p_buffer++] = 'a';
     p_buffer[index_p_buffer++] = 'b';
     p_buffer[index_p_buffer++] = '[';
     
-    if (_base == BASE_2)
-    {
-        p_buffer[index_p_buffer++] = 'b';
+    
+    val_16 = length;
+    do 
+    { 
+        *--ptr = dictionary_char[val_16%BASE_10]; 
+        val_16 /= BASE_10; 
     }
-    else if (_base == BASE_16)
+    while (val_16 != 0); 
+    do
     {
-        p_buffer[index_p_buffer++] = '0';
-        p_buffer[index_p_buffer++] = 'x';
+        p_buffer[index_p_buffer++] = *ptr++;
     }
+    while (*ptr != '\0');
+    
     
     p_buffer[index_p_buffer++] = ']';
     p_buffer[index_p_buffer++] = ' ';
