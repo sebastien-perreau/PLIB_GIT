@@ -3,14 +3,6 @@
 
 typedef enum
 {
-    BASE_2  = 2,
-    BASE_8  = 8,
-    BASE_10 = 10,
-    BASE_16 = 16
-} LOG_BASE_t;
-
-typedef enum
-{
     LEVEL_0     = 0,        // LOG(...)         -> 0:00:00:00:000:000: your_str
     LEVEL_1     = 1,        // LOG_SHORT(...)   -> 0:000: your_str
     LEVEL_2     = 2,        // LOG_BLANCK(...)  -> your_str

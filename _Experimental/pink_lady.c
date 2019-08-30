@@ -76,7 +76,7 @@ static const uint32_t sk6812rgbw_ws2812b_mapping[] =
  * Return:
  *      none
  ******************************************************************************/
-void pink_lady_deamon(PINK_LADY_PARAMS *var)
+void pink_lady_deamon(pink_lady_params_t *var)
 {
     if (!var->is_init_done)
     {
@@ -166,7 +166,7 @@ void pink_lady_deamon(PINK_LADY_PARAMS *var)
  *      0:      Home (finish)
  *      >0:     On going
  ******************************************************************************/
-uint8_t pink_lady_set_segment_params(PINK_LADY_SEGMENT_PARAMS *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
+uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
 {
     
     switch (p_seg_params->sm.index)
@@ -270,4 +270,41 @@ uint8_t pink_lady_set_segment_params(PINK_LADY_SEGMENT_PARAMS *p_seg_params, uin
     }
     
     return p_seg_params->sm.index;
+}
+
+/*
+ * Timings _shift when executing the memcpy:
+ * For 10 bytes (0..9): 1,48 us
+ * For 100 bytes (0..99): 12,16 us
+ * For 1000 bytes (0..999): 119 us
+ */
+bool pink_lady_shift_pattern(pink_lady_shift_params_t *var)
+{
+    if (var->enable)
+    {
+        if (mTickCompare(var->tick) >= var->refresh_time)
+        {
+            mUpdateTick_withCathingUpTime(var->tick, var->refresh_time);
+            
+            if (var->direction == PL_SHIFT_FROM_TO_TO)
+            {
+                RGBW_COLOR t_rgbw = var->p_led[var->to];        
+                memcpy(&var->p_led_copy[var->from], &var->p_led[var->from], (var->to - var->from + 1)*4);
+                memcpy(&var->p_led[var->from + 1], &var->p_led_copy[var->from], (var->to - var->from)*4);
+                var->p_led[var->from] = t_rgbw;
+            }
+            else
+            {
+                RGBW_COLOR t_rgbw = var->p_led[var->from];        
+                memcpy(&var->p_led_copy[var->from], &var->p_led[var->from], (var->to - var->from + 1)*4);
+                memcpy(&var->p_led[var->from], &var->p_led_copy[var->from + 1], (var->to - var->from)*4);
+                var->p_led[var->to] = t_rgbw;
+            }
+            
+            var->iteration++;
+            
+            return false;
+        }
+    }
+    return true;
 }

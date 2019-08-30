@@ -15,7 +15,6 @@ void _EXAMPLE_TICK_FUNCTIONS()
 {
     static uint8_t count;
     static uint64_t tick = 0;
-    static uint64_t get_time;
     static bool switch_update_tick = false;
     static state_machine_t sm_example = {0};
     
@@ -41,22 +40,21 @@ void _EXAMPLE_TICK_FUNCTIONS()
                 
                 if (count == 0)
                 {
-                    get_time = mGetTick();
+                    mResetTime();
                 }
                 else if (count == 50)
                 {
                     Delay_ms(20);
                 }
                 else if (count == 100)
-                {
-                    get_time = (mGetTick() - get_time) / TICK_1US;
+                {                    
                     if (!switch_update_tick)
                     {
-                        LOG("Time Update Tick: %d", get_time);    
+                        LOG("Time Update Tick: %d", mGetTime());    
                     }
                     else
                     {
-                        LOG("Time Update Tick with Catching Up Time: %d", get_time);    
+                        LOG("Time Update Tick with Catching Up Time: %d", mGetTime());    
                     }
                 }
                 
@@ -815,7 +813,7 @@ void _EXAMPLE_LOG(ACQUISITIONS_PARAMS var)
     static char *str2 = "String 2";
     static uint32_t val = 0x546389;
     static float val_f = 346.946;
-        
+    static uint8_t tab[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22};
     
     switch (sm_example.index)
     {
@@ -904,6 +902,17 @@ void _EXAMPLE_LOG(ACQUISITIONS_PARAMS var)
                     if (mTickCompare(sm_log.tick) >= TICK_200MS)
                     {
                         LOG_BLANCK("%s", p_string(VALEO));
+                        sm_log.index++;
+                        sm_log.tick = mGetTick();
+                    }
+                    break;
+                    
+                case 9:
+                    if (mTickCompare(sm_log.tick) >= TICK_200MS)
+                    {
+                        char s[50];
+                        transform_uint8_t_tab_to_string(s, sizeof(s), tab, sizeof(tab), BASE_16);
+                        LOG("%s", p_string(s));
                         sm_log.index++;
                         sm_log.tick = mGetTick();
                     }
@@ -1440,7 +1449,7 @@ void _EXAMPLE_LIN()
 void _EXAMPLE_PINK_LADY()
 {
     PINK_LADY_DEF(smartled, SPI2, SK6812RGBW_MODEL, 50);
-    PINK_LADY_SEGMENT_DEF(smartled_seg_1, smartled);
+    PINK_LADY_MANAGER_DEF(smartled_seg_1, smartled);
     static state_machine_t sm_colors = {0};
     static state_machine_t sm_example = {0};
     

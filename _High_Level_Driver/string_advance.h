@@ -16,6 +16,15 @@
 #define str_pbrk    strpbrk
 #define str_tok     strtok
 
+typedef enum
+{
+    BASE_2  = 2,
+    BASE_8  = 8,
+    BASE_10 = 10,
+    BASE_16 = 16
+} STR_BASE_t;
+
+void transform_uint8_t_tab_to_string(char *p_buffer, uint16_t buffer_length, uint8_t *data, uint8_t length, STR_BASE_t _base);
 char *str_tolower (const char *ct);
 char *str_toupper (const char *ct);
 int str_istr (const char *cs, const char *ct);

@@ -3,6 +3,7 @@
 
 volatile uint64_t getTick;
 volatile uint64_t getLastCompare;
+volatile uint64_t getTime;
 
 #define mGetTick()                  (getTick += TMR1, (TMR1 = 1), getTick)
 #define mTickCompare(var)           (getLastCompare = (mGetTick() - var))
@@ -12,6 +13,8 @@ volatile uint64_t getLastCompare;
                                         uint64_t vDelay = mGetTick();                       \
                                         do {} while(mTickCompare(vDelay) < (v*TICK_1MS));   \
                                     }
+#define mResetTime()                mUpdateTick(getTime)
+#define mGetTime()                  ((mGetTick() - getTime) / TICK_1US)
 #define TICK_INIT                   (0ul)
 #define TICK_0                      (0ul)
 

@@ -29,7 +29,7 @@ void log_init(UART_MODULE id_uart, uint32_t data_rate)
                 0xff);
 }
 
-static uint16_t _transform_integer_to_string(char *p_buffer, uint16_t index_p_buffer, uint32_t value, LOG_BASE_t _base, uint8_t number_of_char)
+static uint16_t _transform_integer_to_string(char *p_buffer, uint16_t index_p_buffer, uint32_t value, STR_BASE_t _base, uint8_t number_of_char)
 {
     static char dictionary_char[]= "0123456789ABCDEF";
 	static char buffer[20] = {0}; 
