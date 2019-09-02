@@ -16,7 +16,7 @@
 #define ID_SOFTWARE_RESET			0xff
 
 #define ID_CHAR_BUFFER              0x30
-#define ID_CHAR_EXTENDED_BUFFER     0x40
+#define ID_CHAR_EXT_BUFFER_NO_CRC   0x41
 
 #define ID_SET_BLE_CONN_PARAMS      0x20
 #define ID_SET_BLE_PHY_PARAMS       0x21
@@ -51,6 +51,7 @@ typedef struct
 	bool                            receive_in_progress;
 	uint8_t                         buffer[MAXIMUM_SIZE_EXTENDED_BUFFER + 4];
 	uint16_t                        index;
+    uint16_t                        old_index;
 	uint64_t                        tick;
 } ble_uart_t;
 

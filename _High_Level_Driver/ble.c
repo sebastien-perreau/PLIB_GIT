@@ -56,7 +56,6 @@ static void ble_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t
         case IRQ_UART_RX:
             
             p_ble->uart.receive_in_progress = true;
-            p_ble->uart.tick = mGetTick();
             p_ble->uart.buffer[p_ble->uart.index] = (uint8_t) (data);
             p_ble->uart.index++;
             break;
@@ -88,9 +87,14 @@ void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_para
 }
 
 void ble_stack_tasks()
-{    
+{         
     
-    if (p_ble->uart.index > 0)
+    if (p_ble->uart.index != p_ble->uart.old_index)
+    {                
+        mUpdateTick(p_ble->uart.tick);                        
+        p_ble->uart.old_index = p_ble->uart.index;
+    }
+    else if (p_ble->uart.index > 0)
     {
         if (mTickCompare(p_ble->uart.tick) >= TICK_300US)
         {
@@ -117,19 +121,21 @@ void ble_stack_tasks()
             {
                 p_ble->uart.message_type = UART_OTHER_MESSAGE;
             }
+
             p_ble->uart.index = 0;
             p_ble->uart.receive_in_progress = false;
+            p_ble->uart.old_index = p_ble->uart.index;
         }
     }
     
     if (p_ble->uart.message_type == UART_NEW_MESSAGE)
     {
-        uint8_t i;
+        uint16_t i;
         uint16_t crc_calc, crc_uart;
     
         p_ble->uart.message_type = UART_NO_MESSAGE;
         
-        if (p_ble->uart.buffer[0] == ID_CHAR_EXTENDED_BUFFER)
+        if (p_ble->uart.buffer[0] == ID_CHAR_EXT_BUFFER_NO_CRC)
         {            
             p_ble->incoming_message_uart.id = ID_NONE;
             p_ble->service.extended_buffer.in_length = (p_ble->uart.buffer[2] << 0) | (p_ble->uart.buffer[3] << 8);
@@ -138,18 +144,12 @@ void ble_stack_tasks()
         }
         else
         {
-            crc_calc = fu_crc_16_ibm(p_ble->uart.buffer, p_ble->uart.buffer[2]+3);
-            crc_uart = (p_ble->uart.buffer[p_ble->uart.buffer[2]+3] << 8) + (p_ble->uart.buffer[p_ble->uart.buffer[2]+4] << 0);
+            crc_calc = fu_crc_16_ibm(p_ble->uart.buffer, p_ble->uart.buffer[2] + 3);
+            crc_uart = (p_ble->uart.buffer[p_ble->uart.buffer[2] + 3] << 8) + (p_ble->uart.buffer[p_ble->uart.buffer[2] + 4] << 0);
 
             if (crc_calc == crc_uart)
             {
-                p_ble->incoming_message_uart.id = p_ble->uart.buffer[0];
-                p_ble->incoming_message_uart.type = p_ble->uart.buffer[1];
-                p_ble->incoming_message_uart.length = p_ble->uart.buffer[2];
-                for (i = 0 ; i < p_ble->incoming_message_uart.length ; i++)
-                {
-                    p_ble->incoming_message_uart.data[i] = p_ble->uart.buffer[3+i];
-                }
+                memcpy(&p_ble->incoming_message_uart, p_ble->uart.buffer, p_ble->uart.buffer[2] + 3);
                 dma_tx.src_start_addr = (void *)_ack;
                 dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
                 dma_tx.src_size = 3;
@@ -166,8 +166,8 @@ void ble_stack_tasks()
                 dma_tx.dst_size = 1;
                 dma_tx.cell_size = 1;
                 dma_set_transfer(m_dma_id, &dma_tx, true, true);
-            }
-        }
+            }            
+        }    
         memset(p_ble->uart.buffer, 0, sizeof(p_ble->uart.buffer));
        
         switch (p_ble->incoming_message_uart.id)
@@ -183,10 +183,7 @@ void ble_stack_tasks()
                 break;
                 
             case ID_GET_VERSION:
-                for (i = 0 ; i < p_ble->incoming_message_uart.length ; i++)
-                {
-                    p_ble->status.infos.vsd_version[i] = p_ble->incoming_message_uart.data[i];
-                }
+                memcpy(p_ble->status.infos.vsd_version, p_ble->incoming_message_uart.data, p_ble->incoming_message_uart.length);
                 p_ble->status.infos.vsd_version[i] = '\0';
                 break;
                 
@@ -573,7 +570,6 @@ static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
         
             if (uart_transmission_has_completed(m_uart_id))
             {
-//                memset(buffer, 0, sizeof(buffer));
                 sm.index++;
                 sm.tick = mGetTick();
             }
