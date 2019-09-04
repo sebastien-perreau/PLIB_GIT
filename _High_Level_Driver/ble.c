@@ -135,7 +135,7 @@ void ble_stack_tasks()
     
         p_ble->uart.message_type = UART_NO_MESSAGE;
         
-        if (p_ble->uart.buffer[0] == ID_CHAR_EXT_BUFFER_NO_CRC)
+        if (p_ble->uart.buffer[0] == ID_CHAR_EXTENDED_BUFFER_NO_CRC)
         {            
             p_ble->incoming_message_uart.id = ID_NONE;
             p_ble->service.extended_buffer.in_length = (p_ble->uart.buffer[2] << 0) | (p_ble->uart.buffer[3] << 8);

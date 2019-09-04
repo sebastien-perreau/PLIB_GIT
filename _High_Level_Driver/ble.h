@@ -1,38 +1,38 @@
 #ifndef __BLE_H
 #define __BLE_H
 
-#define _VSD_VERSIONS               "x.xx.xx"
+#define _VSD_VERSIONS                       "x.xx.xx"
 
-#define ID_NONE                     0xfe
-#define ID_BOOT_MODE                0x00
-#define ID_PA_LNA					0x01
-#define ID_LED_STATUS				0x02
-#define ID_SET_NAME					0x03
-#define ID_GET_VERSION				0x04
-#define ID_ADV_INTERVAL				0x05
-#define ID_ADV_TIMEOUT				0x06
-#define ID_GET_CONN_STATUS          0x07
-#define ID_GET_BLE_PARAMS			0x08
-#define ID_SOFTWARE_RESET			0xff
+#define ID_NONE                             0xfe
+#define ID_BOOT_MODE                        0x00
+#define ID_PA_LNA                           0x01
+#define ID_LED_STATUS                       0x02
+#define ID_SET_NAME                         0x03
+#define ID_GET_VERSION                      0x04
+#define ID_ADV_INTERVAL                     0x05
+#define ID_ADV_TIMEOUT                      0x06
+#define ID_GET_CONN_STATUS                  0x07
+#define ID_GET_BLE_PARAMS                   0x08
+#define ID_SOFTWARE_RESET                   0xff
 
-#define ID_CHAR_BUFFER              0x30
-#define ID_CHAR_EXT_BUFFER_NO_CRC   0x41
+#define ID_CHAR_BUFFER                      0x30
+#define ID_CHAR_EXTENDED_BUFFER_NO_CRC      0x41
 
-#define ID_SET_BLE_CONN_PARAMS      0x20
-#define ID_SET_BLE_PHY_PARAMS       0x21
-#define ID_SET_BLE_ATT_SIZE_PARAMS  0x22
+#define ID_SET_BLE_CONN_PARAMS              0x20
+#define ID_SET_BLE_PHY_PARAMS               0x21
+#define ID_SET_BLE_ATT_SIZE_PARAMS          0x22
 
 
-#define MSEC_TO_UNITS(TIME, RESOLUTION) (((TIME) * 1000) / (RESOLUTION))
-#define UNIT_0_625_MS               625
-#define UNIT_1_25_MS                1250
-#define UNIT_10_MS                  10000
+#define MSEC_TO_UNITS(TIME, RESOLUTION)     (((TIME) * 1000) / (RESOLUTION))
+#define UNIT_0_625_MS                       625
+#define UNIT_1_25_MS                        1250
+#define UNIT_10_MS                          10000
 
-#define BLE_GAP_PHY_1MBPS           0x01
-#define BLE_GAP_PHY_2MBPS           0x02
+#define BLE_GAP_PHY_1MBPS                   0x01
+#define BLE_GAP_PHY_2MBPS                   0x02
 
-#define RESET_BLE_PICKIT            0x01
-#define RESET_ALL                   0x02
+#define RESET_BLE_PICKIT                    0x01
+#define RESET_ALL                           0x02
 
 #define MAXIMUM_SIZE_EXTENDED_BUFFER        4800
 
