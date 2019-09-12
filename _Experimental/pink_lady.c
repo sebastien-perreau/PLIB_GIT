@@ -280,6 +280,13 @@ uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, u
  */
 uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var)
 {
+    if (var->reset_requested)
+    {
+        var->reset_requested = false;
+        var->current_iteration = 0;
+        mUpdateTick(var->tick);
+    }
+    
     if (var->enable)
     {
         if (mTickCompare(var->tick) >= var->refresh_time)

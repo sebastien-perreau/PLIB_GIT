@@ -50,27 +50,29 @@ typedef struct
     RGBW_COLOR                  * p_led;
     RGBW_COLOR                  * p_led_copy;
     
+    bool                        reset_requested;
     uint32_t                    current_iteration;
     uint32_t                    number_of_iterations;
     uint64_t                    tick;
 } pink_lady_shift_params_t;
 
-#define PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _enable, _direction, _from, _to, _number_of_cycles, _period)    \
+#define PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _direction, _from, _to, _number_of_cycles, _period)    \
 {                                                                                       \
-    .enable = _enable,                                                                  \
+    .enable = ON,                                                                       \
     .direction = _direction,                                                            \
     .from = _from,                                                                      \
     .to = _to,                                                                          \
     .refresh_time = _period,                                                            \
     .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \
     .p_led_copy = (RGBW_COLOR*) _p_pink_lady_params ## _copy_led_ram_allocation,        \
+    .reset_requested = true,                                                            \
     .current_iteration = 0,                                                             \
     .number_of_iterations = ((_to - _from + 1) * _number_of_cycles),                    \
     .tick = TICK_INIT                                                                   \
 }
 
-#define PICK_LADY_SHIFT_DEF(_name, _p_pink_lady_params, _enable, _direction, _from, _to, _number_of_cycles, _period)            \
-static pink_lady_shift_params_t _name = PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _enable, _direction, _from, _to, _number_of_cycles, _period)
+#define PICK_LADY_SHIFT_DEF(_name, _p_pink_lady_params, _direction, _from, _to, _number_of_cycles, _period)            \
+static pink_lady_shift_params_t _name = PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _direction, _from, _to, _number_of_cycles, _period)
 
 typedef struct
 {
@@ -167,8 +169,8 @@ uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, u
 uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var);
 #define pink_lady_shift_pattern_stop(var)                       (var.enable = OFF)
 #define pink_lady_shift_pattern_start(var)                      (var.enable = ON)
-#define pink_lady_shift_pattern_reset_and_start(var)            (var.enable = ON, var.current_iteration = 0, mUpdateTick(var.tick))
-#define pink_lady_shift_pattern_reset_and_stop(var)             (var.enable = OFF, var.current_iteration = 0, mUpdateTick(var.tick))
+#define pink_lady_shift_pattern_reset_and_start(var)            (var.enable = ON, var.reset_requested = true)
+#define pink_lady_shift_pattern_reset_and_stop(var)             (var.enable = OFF, var.reset_requested = true)
 #define pink_lady_shift_pattern_set_refresh_time(var, time)     (var.refresh_time = time)
 #define pink_lady_shift_pattern_set_cycles(var, cycles)         ((var.number_of_iterations = ((var.to - var.from + 1) * cycles)), pink_lady_shift_pattern_reset_and_stop(var))
 #define pink_lady_shift_pattern_toggle_direction(var)           ((var.direction = !var.direction), pink_lady_shift_pattern_reset_and_stop(var))
