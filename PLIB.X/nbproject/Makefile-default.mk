@@ -70,6 +70,7 @@ OBJECTFILES=${OBJECTDIR}/_ext/1717005096/_EXAMPLES_.o ${OBJECTDIR}/_ext/17170050
 SOURCEFILES=../_Experimental/_EXAMPLES_.c ../_Experimental/_LOG.c ../_Experimental/pink_lady.c ../_Experimental/e_tps92662.c ../_External_Components/e_mcp23s17.c ../_External_Components/e_amis30621.c ../_External_Components/e_tmc429.c ../_External_Components/e_25lc512.c ../_External_Components/e_at42qt2120.c ../_External_Components/e_pca9685.c ../_External_Components/e_veml7700.c ../_High_Level_Driver/ble.c ../_High_Level_Driver/one_wire_communication.c ../_High_Level_Driver/utilities.c ../_High_Level_Driver/string_advance.c ../_High_Level_Driver/lin.c ../_High_Level_Driver/software_pwm.c ../_Low_Level_Driver/s14_timers.c ../_Low_Level_Driver/s08_interrupt_mapping.c ../_Low_Level_Driver/s23_spi.c ../_Low_Level_Driver/s17_adc.c ../_Low_Level_Driver/s16_output_compare.c ../_Low_Level_Driver/s24_i2c.c ../_Low_Level_Driver/s34_can.c ../_Low_Level_Driver/s35_ethernet_Applications.c ../_Low_Level_Driver/s35_ethernet_OSI-2_DataLinkLayer.c ../_Low_Level_Driver/s35_ethernet_OSI-3_NetworkLayer.c ../_Low_Level_Driver/s35_ethernet_OSI-4_TransportLayer.c ../_Low_Level_Driver/s35_ethernet_OSI-5_ApplicationLayer.c ../_Low_Level_Driver/s35_ethernet_TCPIP.c ../_Low_Level_Driver/s12_ports.c ../_Low_Level_Driver/s21_uart.c ../_Low_Level_Driver/s31_dma.c
 
 
+
 CFLAGS=
 ASFLAGS=
 LDLIBSOPTIONS=

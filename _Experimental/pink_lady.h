@@ -41,14 +41,6 @@ typedef enum
 
 typedef struct
 {
-    uint32_t                    size;
-    uint16_t                    from;
-    uint16_t                    to;
-    RGBW_COLOR                  * p_pattern;
-} pink_lady_pattern_params_t;
-
-typedef struct
-{
     bool                        enable;
     PINK_LADY_DIRECTION         direction;
     uint16_t                    from;
@@ -58,11 +50,12 @@ typedef struct
     RGBW_COLOR                  * p_led;
     RGBW_COLOR                  * p_led_copy;
     
-    uint32_t                    iteration;
+    uint32_t                    current_iteration;
+    uint32_t                    number_of_iterations;
     uint64_t                    tick;
 } pink_lady_shift_params_t;
 
-#define PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _enable, _direction, _from, _to, _period)    \
+#define PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _enable, _direction, _from, _to, _number_of_cycles, _period)    \
 {                                                                                       \
     .enable = _enable,                                                                  \
     .direction = _direction,                                                            \
@@ -71,12 +64,13 @@ typedef struct
     .refresh_time = _period,                                                            \
     .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \
     .p_led_copy = (RGBW_COLOR*) _p_pink_lady_params ## _copy_led_ram_allocation,        \
-    .iteration = 0,                                                                     \
+    .current_iteration = 0,                                                             \
+    .number_of_iterations = ((_to - _from + 1) * _number_of_cycles),                    \
     .tick = TICK_INIT                                                                   \
 }
 
-#define PICK_LADY_SHIFT_DEF(_name, _p_pink_lady_params, _enable, _direction, _from, _to, _period)            \
-static pink_lady_shift_params_t _name = PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _enable, _direction, _from, _to, _period)
+#define PICK_LADY_SHIFT_DEF(_name, _p_pink_lady_params, _enable, _direction, _from, _to, _number_of_cycles, _period)            \
+static pink_lady_shift_params_t _name = PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _enable, _direction, _from, _to, _number_of_cycles, _period)
 
 typedef struct
 {
@@ -165,15 +159,27 @@ static RGBW_COLOR _name ## _copy_led_ram_allocation[_number_total_of_leds] = {0}
 static pink_lady_params_t _name = PINK_LADY_INSTANCE(_spi_id, _led_model, _name ## _led_ram_allocation, _name ## _copy_led_ram_allocation, _name ## _tx_buffer_ram_allocation, _number_total_of_leds)	
 
 void pink_lady_deamon(pink_lady_params_t *var);
+
 uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
+#define pink_lady_reset_segment_params(seg_params)              (seg_params.sm.index = 0)
+#define pink_lady_is_segment_busy(seg_params)                   ((seg_params.sm.index > 0) ? true : false)
 
-void pink_lady_put_pattern(pink_lady_pattern_params_t *var);
-bool pink_lady_shift_pattern(pink_lady_shift_params_t *var);
+uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var);
+#define pink_lady_shift_pattern_stop(var)                       (var.enable = OFF)
+#define pink_lady_shift_pattern_start(var)                      (var.enable = ON)
+#define pink_lady_shift_pattern_reset_and_start(var)            (var.enable = ON, var.current_iteration = 0, mUpdateTick(var.tick))
+#define pink_lady_shift_pattern_reset_and_stop(var)             (var.enable = OFF, var.current_iteration = 0, mUpdateTick(var.tick))
+#define pink_lady_shift_pattern_set_refresh_time(var, time)     (var.refresh_time = time)
+#define pink_lady_shift_pattern_set_cycles(var, cycles)         ((var.number_of_iterations = ((var.to - var.from + 1) * cycles)), pink_lady_shift_pattern_reset_and_stop(var))
+#define pink_lady_shift_pattern_toggle_direction(var)           ((var.direction = !var.direction), pink_lady_shift_pattern_reset_and_stop(var))
+#define pink_lady_shift_pattern_set_direction_from_to_to(var)   ((var.direction = PL_SHIFT_FROM_TO_TO), pink_lady_shift_pattern_reset_and_stop(var))
+#define pink_lady_shift_pattern_set_direction_to_to_from(var)   ((var.direction = PL_SHIFT_TO_TO_FROM), pink_lady_shift_pattern_reset_and_stop(var))
 
-#define pink_lady_reset_segment_params(seg_params)      (seg_params.sm.index = 0)
-#define pink_lady_is_segment_busy(seg_params)           ((seg_params.sm.index > 0) ? true : false)
+#define pink_lady_put_pattern(var, pattern, from, to)           memcpy(&var.p_led[from], pattern, (sizeof(pattern) >= ((to - from + 1) * 4)) ? ((to - from + 1) * 4) : (sizeof(pattern) * 4))
+#define pink_lady_set_led_rgb(var, ind, r, g, b)                (var.p_led[ind].red = r, var.p_led[ind].green = g, var.p_led[ind].blue = b)
+#define pink_lady_set_led_rgbw(var, ind, r, g, b, w)            (var.p_led[ind].red = r, var.p_led[ind].green = g, var.p_led[ind].blue = b, var.p_led[ind].white = w)
 
-#define pink_lady_set_led_rgb(var, ind, r, g, b)        (var.p_led[ind].red = r, var.p_led[ind].green = g, var.p_led[ind].blue = b)
-#define pink_lady_set_led_rgbw(var, ind, r, g, b, w)    (var.p_led[ind].red = r, var.p_led[ind].green = g, var.p_led[ind].blue = b, var.p_led[ind].white = w)
+#define pink_lady_set_all_led_off(var)                          (memset(var.p_led, 0, var.number_of_leds * 4))
+#define pink_lady_set_all_led_on(var)                           (memset(var.p_led, 255, var.number_of_leds * 4))
 
 #endif

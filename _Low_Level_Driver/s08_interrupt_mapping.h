@@ -178,6 +178,7 @@ typedef struct
 typedef enum
 {
     IRQ_NONE                = 0x00,
+    IRQ_ALL                 = 0x07,
     IRQ_SPI_FAULT           = 0x01,
     IRQ_SPI_TX              = 0x02,
     IRQ_SPI_RX              = 0x04,

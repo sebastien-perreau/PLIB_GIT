@@ -278,12 +278,12 @@ uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, u
  * For 100 bytes (0..99): 12,16 us
  * For 1000 bytes (0..999): 119 us
  */
-bool pink_lady_shift_pattern(pink_lady_shift_params_t *var)
+uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var)
 {
     if (var->enable)
     {
         if (mTickCompare(var->tick) >= var->refresh_time)
-        {
+        {            
             mUpdateTick_withCathingUpTime(var->tick, var->refresh_time);
             
             if (var->direction == PL_SHIFT_FROM_TO_TO)
@@ -301,10 +301,21 @@ bool pink_lady_shift_pattern(pink_lady_shift_params_t *var)
                 var->p_led[var->to] = t_rgbw;
             }
             
-            var->iteration++;
-            
-            return false;
+            if (var->number_of_iterations > 0)
+            {
+                var->current_iteration++;
+                if (var->current_iteration >= var->number_of_iterations)
+                {
+                    var->current_iteration = 0;
+                    var->enable = OFF;
+                    return 0;
+                }
+            }
         }
     }
-    return true;
+    else
+    {
+        return 2;
+    }
+    return 1;
 }
