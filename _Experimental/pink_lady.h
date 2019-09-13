@@ -30,7 +30,10 @@ typedef enum
     LED_RESO_1_7,
     LED_RESO_1_8,
     LED_RESO_1_9,
-    LED_RESO_1_255              = 0xff
+    LED_RESO_1_255              = 0xff,
+            
+    LED_RESO_CLEAR              = 0x000,    // Turn off the LEDs if resolution is equal or greater then LED_RESO_1_2
+    LED_RESO_JUMP               = 0x100     // Keep the existing color if resolution is equal or greater then LED_RESO_1_2
 } PINK_LADY_RESOLUTIONS;
 
 typedef enum
@@ -132,31 +135,6 @@ typedef struct
     uint8_t                     * p_lowest_value_blue;
     uint8_t                     * p_lowest_value_white;
 } pink_lady_manager_params_t;
-
-//#define PINK_LADY_MANAGER_INSTANCE(_p_pink_lady_params)                                 \
-//{                                                                                       \
-//    .delta_color = { 0, 0, 0, 0 },                                                      \
-//    .number_of_led = 0,                                                                 \
-//    .intensity = 0,                                                                     \
-//    .ind_pos = 0,                                                                       \
-//    .ind_neg = 0,                                                                       \
-//    .ind_ = 0,                                                                          \
-//    .time_between_increment = 0,                                                        \
-//    .sm = { 0, 0 },                                                                     \
-//    .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \
-//    .p_led_copy = (RGBW_COLOR*) _p_pink_lady_params ## _copy_led_ram_allocation,        \
-//    .p_ind_red = NULL,                                                                  \
-//    .p_ind_green = NULL,                                                                \
-//    .p_ind_blue = NULL,                                                                 \
-//    .p_ind_white = NULL,                                                                \
-//    .p_lowest_value_red = NULL,                                                         \
-//    .p_lowest_value_green = NULL,                                                       \
-//    .p_lowest_value_blue = NULL,                                                        \
-//    .p_lowest_value_white = NULL                                                        \
-//}
-//
-//#define PINK_LADY_MANAGER_DEF(_name, _p_pink_lady_params)                               \
-//static pink_lady_manager_params_t _name = PINK_LADY_MANAGER_INSTANCE(_p_pink_lady_params)
 
 typedef struct
 {
