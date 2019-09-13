@@ -62,6 +62,8 @@ static const uint32_t sk6812rgbw_ws2812b_mapping[] =
     0x8888eeee, 0x8e88eeee, 0xe888eeee, 0xee88eeee, 0x888eeeee, 0x8e8eeeee, 0xe88eeeee, 0xee8eeeee, 0x88e8eeee, 0x8ee8eeee, 0xe8e8eeee, 0xeee8eeee, 0x88eeeeee, 0x8eeeeeee, 0xe8eeeeee, 0xeeeeeeee
 };
 
+static pink_lady_manager_params_t pink_lady_manager_tab[SPI_NUMBER_OF_MODULES][PL_ID_MAX];
+
 /*******************************************************************************
  * Function: 
  *      void pink_lady_deamon(PINK_LADY_PARAMS *var)
@@ -80,6 +82,20 @@ void pink_lady_deamon(pink_lady_params_t *var)
 {
     if (!var->is_init_done)
     {
+        
+        
+        PINK_LADY_MANAGER_IDENTIFIERS i;
+        for (i = 0 ; i < PL_ID_MAX ; i++)
+        {
+//            memset(&pink_lady_manager_tab[var->spi_id][i], 0, sizeof(pink_lady_manager_params_t));
+            
+            pink_lady_manager_tab[var->spi_id][i].status = PL_SEGMENT_FREE;
+            pink_lady_manager_tab[var->spi_id][i].sm.index = 0;
+            pink_lady_manager_tab[var->spi_id][i].p_led = var->p_led;
+            pink_lady_manager_tab[var->spi_id][i].p_led_copy = var->p_led_copy;
+        }
+        
+        
         var->dma_id = dma_get_free_channel();
         
         spi_init(   var->spi_id, 
@@ -130,6 +146,131 @@ void pink_lady_deamon(pink_lady_params_t *var)
     }
 }
 
+uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
+{
+    
+    if (pink_lady_manager_tab[var->spi_id][id].status != PL_SEGMENT_FINISHED)
+    {
+    
+        switch (pink_lady_manager_tab[var->spi_id][id].sm.index)
+        {
+            case 0: // Home            
+
+                //0. Get delta colors between color1 and color2
+                pink_lady_manager_tab[var->spi_id][id].delta_color.red = (uint8_t) ((color1.red <= color2.red) ? (color2.red - color1.red) : (color1.red - color2.red));
+                pink_lady_manager_tab[var->spi_id][id].delta_color.green = (uint8_t) ((color1.green <= color2.green) ? (color2.green - color1.green) : (color1.green - color2.green));
+                pink_lady_manager_tab[var->spi_id][id].delta_color.blue = (uint8_t) ((color1.blue <= color2.blue) ? (color2.blue - color1.blue) : (color1.blue - color2.blue));
+                pink_lady_manager_tab[var->spi_id][id].delta_color.white = (uint8_t) ((color1.white <= color2.white) ? (color2.white - color1.white) : (color1.white - color2.white));
+
+                //1. Set color pointers on appropriate indices type (positive or negative)
+                pink_lady_manager_tab[var->spi_id][id].p_ind_red = (uint16_t *) ((color1.red <= color2.red) ? &pink_lady_manager_tab[var->spi_id][id].ind_pos : &pink_lady_manager_tab[var->spi_id][id].ind_neg);
+                pink_lady_manager_tab[var->spi_id][id].p_ind_green = (uint16_t *) ((color1.green <= color2.green) ? &pink_lady_manager_tab[var->spi_id][id].ind_pos : &pink_lady_manager_tab[var->spi_id][id].ind_neg);
+                pink_lady_manager_tab[var->spi_id][id].p_ind_blue = (uint16_t *) ((color1.blue <= color2.blue) ? &pink_lady_manager_tab[var->spi_id][id].ind_pos : &pink_lady_manager_tab[var->spi_id][id].ind_neg);
+                pink_lady_manager_tab[var->spi_id][id].p_ind_white = (uint16_t *) ((color1.white <= color2.white) ? &pink_lady_manager_tab[var->spi_id][id].ind_pos : &pink_lady_manager_tab[var->spi_id][id].ind_neg);            
+
+                //2. Get the number of LED to lit
+                pink_lady_manager_tab[var->spi_id][id].number_of_led = (uint16_t) (to - from + 1);
+
+                //3. Set the indices
+                pink_lady_manager_tab[var->spi_id][id].ind_pos = from;     
+                pink_lady_manager_tab[var->spi_id][id].ind_neg = to;   
+
+                pink_lady_manager_tab[var->spi_id][id].sm.index = (deadline_to_appear > 0) ? 3 : 1;
+                pink_lady_manager_tab[var->spi_id][id].sm.tick = mGetTick();
+                
+                pink_lady_manager_tab[var->spi_id][id].status = PL_SEGMENT_BUSY;
+                break;
+
+            case 1:// Deadline_to_appear == 0 (part 0: initialization)
+
+                pink_lady_manager_tab[var->spi_id][id].p_lowest_value_red = (uint8_t *) ((color1.red <= color2.red) ? &color1.red : &color2.red);
+                pink_lady_manager_tab[var->spi_id][id].p_lowest_value_green = (uint8_t *) ((color1.green <= color2.green) ? &color1.green : &color2.green);
+                pink_lady_manager_tab[var->spi_id][id].p_lowest_value_blue = (uint8_t *) ((color1.blue <= color2.blue) ? &color1.blue : &color2.blue);
+                pink_lady_manager_tab[var->spi_id][id].p_lowest_value_white = (uint8_t *) ((color1.white <= color2.white) ? &color1.white : &color2.white);
+
+                pink_lady_manager_tab[var->spi_id][id].sm.index = 2;
+
+            case 2: // Deadline_to_appear == 0 (part 1: led update)
+
+                pink_lady_manager_tab[var->spi_id][id].ind_ = pink_lady_manager_tab[var->spi_id][id].ind_pos - from;
+
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_red].red       = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_red % resolution) > 0) ? 0 : (uint32_t)(*pink_lady_manager_tab[var->spi_id][id].p_lowest_value_red + pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.red / pink_lady_manager_tab[var->spi_id][id].number_of_led));
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_green].green   = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_green % resolution) > 0) ? 0 : (uint32_t)(*pink_lady_manager_tab[var->spi_id][id].p_lowest_value_green + pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.green / pink_lady_manager_tab[var->spi_id][id].number_of_led));
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_blue].blue     = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(*pink_lady_manager_tab[var->spi_id][id].p_lowest_value_blue + pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.blue / pink_lady_manager_tab[var->spi_id][id].number_of_led));
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_white].white   = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_white % resolution) > 0) ? 0 : (uint32_t)(*pink_lady_manager_tab[var->spi_id][id].p_lowest_value_white + pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.white / pink_lady_manager_tab[var->spi_id][id].number_of_led));
+
+                --pink_lady_manager_tab[var->spi_id][id].ind_neg;
+                if (++pink_lady_manager_tab[var->spi_id][id].ind_pos > to)
+                {
+                    pink_lady_manager_tab[var->spi_id][id].sm.index = 0;
+                    pink_lady_manager_tab[var->spi_id][id].status = PL_SEGMENT_FINISHED;
+                }
+                break;
+
+            case 3:// Deadline_to_appear > 0 (part 0: initialization)
+
+                //1. Save current LEDs segment
+                memcpy(&pink_lady_manager_tab[var->spi_id][id].p_led_copy[from], &pink_lady_manager_tab[var->spi_id][id].p_led[from], pink_lady_manager_tab[var->spi_id][id].number_of_led * sizeof(RGBW_COLOR));            
+                //2. Set time for intensity
+                pink_lady_manager_tab[var->spi_id][id].time_between_increment = (uint32_t) (deadline_to_appear / 100);            
+                //3. Reset intensity value
+                pink_lady_manager_tab[var->spi_id][id].intensity = 0;            
+                pink_lady_manager_tab[var->spi_id][id].sm.index = 4;
+
+            case 4: // Deadline_to_appear > 0 (part 1: led update)
+
+                pink_lady_manager_tab[var->spi_id][id].ind_ = pink_lady_manager_tab[var->spi_id][id].ind_pos - from;
+
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_red].red    = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_red % resolution) > 0) ? 0 : (uint32_t)(pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_red].red + ((pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.red / pink_lady_manager_tab[var->spi_id][id].number_of_led) - pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_red].red) * pink_lady_manager_tab[var->spi_id][id].intensity / 100));
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_green].green  = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_green % resolution) > 0) ? 0 : (uint32_t)(pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_green].green + ((pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.green / pink_lady_manager_tab[var->spi_id][id].number_of_led) - pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_green].green) * pink_lady_manager_tab[var->spi_id][id].intensity / 100));
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_blue].blue   = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_blue].blue + ((pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.blue / pink_lady_manager_tab[var->spi_id][id].number_of_led) - pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_blue].blue) * pink_lady_manager_tab[var->spi_id][id].intensity / 100));
+                pink_lady_manager_tab[var->spi_id][id].p_led[*pink_lady_manager_tab[var->spi_id][id].p_ind_white].white  = (uint8_t) (((*pink_lady_manager_tab[var->spi_id][id].p_ind_white % resolution) > 0) ? 0 : (uint32_t)(pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_white].white + ((pink_lady_manager_tab[var->spi_id][id].ind_ * pink_lady_manager_tab[var->spi_id][id].delta_color.white / pink_lady_manager_tab[var->spi_id][id].number_of_led) - pink_lady_manager_tab[var->spi_id][id].p_led_copy[*pink_lady_manager_tab[var->spi_id][id].p_ind_white].white) * pink_lady_manager_tab[var->spi_id][id].intensity / 100));
+
+                --pink_lady_manager_tab[var->spi_id][id].ind_neg;
+                if (++pink_lady_manager_tab[var->spi_id][id].ind_pos > to)
+                {
+                    pink_lady_manager_tab[var->spi_id][id].sm.index = (pink_lady_manager_tab[var->spi_id][id].intensity == 100) ? 0 : 5;
+                    if (pink_lady_manager_tab[var->spi_id][id].sm.index == 0)
+                    {
+                        pink_lady_manager_tab[var->spi_id][id].sm.index = 0;
+                        pink_lady_manager_tab[var->spi_id][id].status = PL_SEGMENT_FINISHED;
+                    }
+                }
+                break;
+
+            case 5: // Deadline_to_appear > 0 (part 2: intensity update)
+
+                if (mTickCompare(pink_lady_manager_tab[var->spi_id][id].sm.tick) > pink_lady_manager_tab[var->spi_id][id].time_between_increment)
+                {
+                    mUpdateTick_withCathingUpTime(pink_lady_manager_tab[var->spi_id][id].sm.tick, pink_lady_manager_tab[var->spi_id][id].time_between_increment);
+                    pink_lady_manager_tab[var->spi_id][id].intensity++;
+                    pink_lady_manager_tab[var->spi_id][id].sm.index = 4;
+                    pink_lady_manager_tab[var->spi_id][id].ind_pos = from; 
+                    pink_lady_manager_tab[var->spi_id][id].ind_neg = to;                       
+                }
+                break;
+
+            default:
+                break;
+        }
+        
+    }
+    
+    return pink_lady_manager_tab[var->spi_id][id].sm.index;
+}
+
+PINK_LADY_MANAGER_STATUS pink_lady_get_segment_status(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id)
+{
+    return pink_lady_manager_tab[var.spi_id][id].status;
+}
+
+void pink_lady_reset_segment(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id)
+{
+    pink_lady_manager_tab[var.spi_id][id].status = PL_SEGMENT_FREE;
+    pink_lady_manager_tab[var.spi_id][id].sm.index = 0;
+}
+
+
 /*******************************************************************************
  * Function: 
  *      uint8_t pink_lady_set_segment_params(
@@ -166,111 +307,111 @@ void pink_lady_deamon(pink_lady_params_t *var)
  *      0:      Home (finish)
  *      >0:     On going
  ******************************************************************************/
-uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
-{
-    
-    switch (p_seg_params->sm.index)
-    {
-        case 0: // Home            
-            
-            //0. Get delta colors between color1 and color2
-            p_seg_params->delta_color.red = (uint8_t) ((color1.red <= color2.red) ? (color2.red - color1.red) : (color1.red - color2.red));
-            p_seg_params->delta_color.green = (uint8_t) ((color1.green <= color2.green) ? (color2.green - color1.green) : (color1.green - color2.green));
-            p_seg_params->delta_color.blue = (uint8_t) ((color1.blue <= color2.blue) ? (color2.blue - color1.blue) : (color1.blue - color2.blue));
-            p_seg_params->delta_color.white = (uint8_t) ((color1.white <= color2.white) ? (color2.white - color1.white) : (color1.white - color2.white));
-            
-            //1. Set color pointers on appropriate indices type (positive or negative)
-            p_seg_params->p_ind_red = (uint16_t *) ((color1.red <= color2.red) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
-            p_seg_params->p_ind_green = (uint16_t *) ((color1.green <= color2.green) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
-            p_seg_params->p_ind_blue = (uint16_t *) ((color1.blue <= color2.blue) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
-            p_seg_params->p_ind_white = (uint16_t *) ((color1.white <= color2.white) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);            
-            
-            //2. Get the number of LED to lit
-            p_seg_params->number_of_led = (uint16_t) (to - from + 1);
-                
-            //3. Set the indices
-            p_seg_params->ind_pos = from;     
-            p_seg_params->ind_neg = to;   
-            
-            p_seg_params->sm.index = (deadline_to_appear > 0) ? 3 : 1;
-            p_seg_params->sm.tick = mGetTick();
-            break;
-            
-        case 1:// Deadline_to_appear == 0 (part 0: initialization)
-            
-            p_seg_params->p_lowest_value_red = (uint8_t *) ((color1.red <= color2.red) ? &color1.red : &color2.red);
-            p_seg_params->p_lowest_value_green = (uint8_t *) ((color1.green <= color2.green) ? &color1.green : &color2.green);
-            p_seg_params->p_lowest_value_blue = (uint8_t *) ((color1.blue <= color2.blue) ? &color1.blue : &color2.blue);
-            p_seg_params->p_lowest_value_white = (uint8_t *) ((color1.white <= color2.white) ? &color1.white : &color2.white);
-            
-            p_seg_params->sm.index = 2;
-            
-        case 2: // Deadline_to_appear == 0 (part 1: led update)
-            
-            p_seg_params->ind_ = p_seg_params->ind_pos - from;
-            
-            p_seg_params->p_led[*p_seg_params->p_ind_red].red       = (uint8_t) (((*p_seg_params->p_ind_red % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_red + p_seg_params->ind_ * p_seg_params->delta_color.red / p_seg_params->number_of_led));
-            p_seg_params->p_led[*p_seg_params->p_ind_green].green   = (uint8_t) (((*p_seg_params->p_ind_green % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_green + p_seg_params->ind_ * p_seg_params->delta_color.green / p_seg_params->number_of_led));
-            p_seg_params->p_led[*p_seg_params->p_ind_blue].blue     = (uint8_t) (((*p_seg_params->p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_blue + p_seg_params->ind_ * p_seg_params->delta_color.blue / p_seg_params->number_of_led));
-            p_seg_params->p_led[*p_seg_params->p_ind_white].white   = (uint8_t) (((*p_seg_params->p_ind_white % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_white + p_seg_params->ind_ * p_seg_params->delta_color.white / p_seg_params->number_of_led));
-
-            --p_seg_params->ind_neg;
-            if (++p_seg_params->ind_pos > to)
-            {
-                p_seg_params->sm.index = 0;
-            }
-            break;
-           
-        case 3:// Deadline_to_appear > 0 (part 0: initialization)
-            
-            //1. Save current LEDs segment
-            memcpy(&p_seg_params->p_led_copy[from], &p_seg_params->p_led[from], p_seg_params->number_of_led * sizeof(RGBW_COLOR));            
-            //2. Set time for intensity
-            p_seg_params->time_between_increment = (uint32_t) (deadline_to_appear / 100);            
-            //3. Reset intensity value
-            p_seg_params->intensity = 0;            
-            p_seg_params->sm.index = 4;
-            
-        case 4: // Deadline_to_appear > 0 (part 1: led update)
-            
-            p_seg_params->ind_ = p_seg_params->ind_pos - from;
-            
-            p_seg_params->p_led[*p_seg_params->p_ind_red].red    = (uint8_t) (((*p_seg_params->p_ind_red % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_red].red + ((p_seg_params->ind_ * p_seg_params->delta_color.red / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_red].red) * p_seg_params->intensity / 100));
-            p_seg_params->p_led[*p_seg_params->p_ind_green].green  = (uint8_t) (((*p_seg_params->p_ind_green % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_green].green + ((p_seg_params->ind_ * p_seg_params->delta_color.green / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_green].green) * p_seg_params->intensity / 100));
-            p_seg_params->p_led[*p_seg_params->p_ind_blue].blue   = (uint8_t) (((*p_seg_params->p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_blue].blue + ((p_seg_params->ind_ * p_seg_params->delta_color.blue / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_blue].blue) * p_seg_params->intensity / 100));
-            p_seg_params->p_led[*p_seg_params->p_ind_white].white  = (uint8_t) (((*p_seg_params->p_ind_white % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_white].white + ((p_seg_params->ind_ * p_seg_params->delta_color.white / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_white].white) * p_seg_params->intensity / 100));
-      
-            --p_seg_params->ind_neg;
-            if (++p_seg_params->ind_pos > to)
-            {
-                p_seg_params->sm.index = (p_seg_params->intensity == 100) ? 0 : 5;
-            }
-            break;
-            
-        case 5: // Deadline_to_appear > 0 (part 2: intensity update)
-            
-            if (mTickCompare(p_seg_params->sm.tick) > p_seg_params->time_between_increment)
-            {
-                p_seg_params->sm.tick += p_seg_params->time_between_increment;
-                if (++p_seg_params->intensity > 100)
-                {
-                    p_seg_params->sm.index = 0;
-                }
-                else
-                {
-                    p_seg_params->sm.index = 4;
-                    p_seg_params->ind_pos = from; 
-                    p_seg_params->ind_neg = to;   
-                }
-            }
-            break;
-            
-        default:
-            break;
-    }
-    
-    return p_seg_params->sm.index;
-}
+//uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
+//{
+//    
+//    switch (p_seg_params->sm.index)
+//    {
+//        case 0: // Home            
+//            
+//            //0. Get delta colors between color1 and color2
+//            p_seg_params->delta_color.red = (uint8_t) ((color1.red <= color2.red) ? (color2.red - color1.red) : (color1.red - color2.red));
+//            p_seg_params->delta_color.green = (uint8_t) ((color1.green <= color2.green) ? (color2.green - color1.green) : (color1.green - color2.green));
+//            p_seg_params->delta_color.blue = (uint8_t) ((color1.blue <= color2.blue) ? (color2.blue - color1.blue) : (color1.blue - color2.blue));
+//            p_seg_params->delta_color.white = (uint8_t) ((color1.white <= color2.white) ? (color2.white - color1.white) : (color1.white - color2.white));
+//            
+//            //1. Set color pointers on appropriate indices type (positive or negative)
+//            p_seg_params->p_ind_red = (uint16_t *) ((color1.red <= color2.red) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
+//            p_seg_params->p_ind_green = (uint16_t *) ((color1.green <= color2.green) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
+//            p_seg_params->p_ind_blue = (uint16_t *) ((color1.blue <= color2.blue) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
+//            p_seg_params->p_ind_white = (uint16_t *) ((color1.white <= color2.white) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);            
+//            
+//            //2. Get the number of LED to lit
+//            p_seg_params->number_of_led = (uint16_t) (to - from + 1);
+//                
+//            //3. Set the indices
+//            p_seg_params->ind_pos = from;     
+//            p_seg_params->ind_neg = to;   
+//            
+//            p_seg_params->sm.index = (deadline_to_appear > 0) ? 3 : 1;
+//            p_seg_params->sm.tick = mGetTick();
+//            break;
+//            
+//        case 1:// Deadline_to_appear == 0 (part 0: initialization)
+//            
+//            p_seg_params->p_lowest_value_red = (uint8_t *) ((color1.red <= color2.red) ? &color1.red : &color2.red);
+//            p_seg_params->p_lowest_value_green = (uint8_t *) ((color1.green <= color2.green) ? &color1.green : &color2.green);
+//            p_seg_params->p_lowest_value_blue = (uint8_t *) ((color1.blue <= color2.blue) ? &color1.blue : &color2.blue);
+//            p_seg_params->p_lowest_value_white = (uint8_t *) ((color1.white <= color2.white) ? &color1.white : &color2.white);
+//            
+//            p_seg_params->sm.index = 2;
+//            
+//        case 2: // Deadline_to_appear == 0 (part 1: led update)
+//            
+//            p_seg_params->ind_ = p_seg_params->ind_pos - from;
+//            
+//            p_seg_params->p_led[*p_seg_params->p_ind_red].red       = (uint8_t) (((*p_seg_params->p_ind_red % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_red + p_seg_params->ind_ * p_seg_params->delta_color.red / p_seg_params->number_of_led));
+//            p_seg_params->p_led[*p_seg_params->p_ind_green].green   = (uint8_t) (((*p_seg_params->p_ind_green % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_green + p_seg_params->ind_ * p_seg_params->delta_color.green / p_seg_params->number_of_led));
+//            p_seg_params->p_led[*p_seg_params->p_ind_blue].blue     = (uint8_t) (((*p_seg_params->p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_blue + p_seg_params->ind_ * p_seg_params->delta_color.blue / p_seg_params->number_of_led));
+//            p_seg_params->p_led[*p_seg_params->p_ind_white].white   = (uint8_t) (((*p_seg_params->p_ind_white % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_white + p_seg_params->ind_ * p_seg_params->delta_color.white / p_seg_params->number_of_led));
+//
+//            --p_seg_params->ind_neg;
+//            if (++p_seg_params->ind_pos > to)
+//            {
+//                p_seg_params->sm.index = 0;
+//            }
+//            break;
+//           
+//        case 3:// Deadline_to_appear > 0 (part 0: initialization)
+//            
+//            //1. Save current LEDs segment
+//            memcpy(&p_seg_params->p_led_copy[from], &p_seg_params->p_led[from], p_seg_params->number_of_led * sizeof(RGBW_COLOR));            
+//            //2. Set time for intensity
+//            p_seg_params->time_between_increment = (uint32_t) (deadline_to_appear / 100);            
+//            //3. Reset intensity value
+//            p_seg_params->intensity = 0;            
+//            p_seg_params->sm.index = 4;
+//            
+//        case 4: // Deadline_to_appear > 0 (part 1: led update)
+//            
+//            p_seg_params->ind_ = p_seg_params->ind_pos - from;
+//            
+//            p_seg_params->p_led[*p_seg_params->p_ind_red].red    = (uint8_t) (((*p_seg_params->p_ind_red % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_red].red + ((p_seg_params->ind_ * p_seg_params->delta_color.red / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_red].red) * p_seg_params->intensity / 100));
+//            p_seg_params->p_led[*p_seg_params->p_ind_green].green  = (uint8_t) (((*p_seg_params->p_ind_green % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_green].green + ((p_seg_params->ind_ * p_seg_params->delta_color.green / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_green].green) * p_seg_params->intensity / 100));
+//            p_seg_params->p_led[*p_seg_params->p_ind_blue].blue   = (uint8_t) (((*p_seg_params->p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_blue].blue + ((p_seg_params->ind_ * p_seg_params->delta_color.blue / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_blue].blue) * p_seg_params->intensity / 100));
+//            p_seg_params->p_led[*p_seg_params->p_ind_white].white  = (uint8_t) (((*p_seg_params->p_ind_white % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_white].white + ((p_seg_params->ind_ * p_seg_params->delta_color.white / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_white].white) * p_seg_params->intensity / 100));
+//      
+//            --p_seg_params->ind_neg;
+//            if (++p_seg_params->ind_pos > to)
+//            {
+//                p_seg_params->sm.index = (p_seg_params->intensity == 100) ? 0 : 5;
+//            }
+//            break;
+//            
+//        case 5: // Deadline_to_appear > 0 (part 2: intensity update)
+//            
+//            if (mTickCompare(p_seg_params->sm.tick) > p_seg_params->time_between_increment)
+//            {
+//                p_seg_params->sm.tick += p_seg_params->time_between_increment;
+//                if (++p_seg_params->intensity > 100)
+//                {
+//                    p_seg_params->sm.index = 0;
+//                }
+//                else
+//                {
+//                    p_seg_params->sm.index = 4;
+//                    p_seg_params->ind_pos = from; 
+//                    p_seg_params->ind_neg = to;   
+//                }
+//            }
+//            break;
+//            
+//        default:
+//            break;
+//    }
+//    
+//    return p_seg_params->sm.index;
+//}
 
 /*
  * Timings _shift when executing the memcpy:

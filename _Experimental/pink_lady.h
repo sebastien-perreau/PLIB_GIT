@@ -58,7 +58,7 @@ typedef struct
 
 #define PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _direction, _from, _to, _number_of_cycles, _period)    \
 {                                                                                       \
-    .enable = ON,                                                                       \
+    .enable = OFF,                                                                      \
     .direction = _direction,                                                            \
     .from = _from,                                                                      \
     .to = _to,                                                                          \
@@ -74,6 +74,39 @@ typedef struct
 #define PICK_LADY_SHIFT_DEF(_name, _p_pink_lady_params, _direction, _from, _to, _number_of_cycles, _period)            \
 static pink_lady_shift_params_t _name = PINK_LADY_SHIFT_INSTANCE(_p_pink_lady_params, _direction, _from, _to, _number_of_cycles, _period)
 
+typedef enum
+{
+    PL_SEGMENT_FREE             = 0,
+    PL_SEGMENT_BUSY,
+    PL_SEGMENT_FINISHED
+} PINK_LADY_MANAGER_STATUS;
+
+typedef enum
+{
+    PL_ID_0                     = 0,
+    PL_ID_1,
+    PL_ID_2,
+    PL_ID_3,
+    PL_ID_4,
+    PL_ID_5,
+    PL_ID_6,
+    PL_ID_7,
+    PL_ID_8,
+    PL_ID_9,
+    PL_ID_10,
+    PL_ID_11,
+    PL_ID_12,
+    PL_ID_13,
+    PL_ID_14,
+    PL_ID_15,
+    PL_ID_16,
+    PL_ID_17,
+    PL_ID_18,
+    PL_ID_19,
+    
+    PL_ID_MAX
+} PINK_LADY_MANAGER_IDENTIFIERS;
+
 typedef struct
 {
     RGBW_COLOR                  delta_color;
@@ -83,6 +116,7 @@ typedef struct
     uint16_t                    ind_neg;
     uint16_t                    ind_;
     uint32_t                    time_between_increment;
+    PINK_LADY_MANAGER_STATUS    status;
     state_machine_t             sm;
     
     RGBW_COLOR                  * p_led;
@@ -99,30 +133,30 @@ typedef struct
     uint8_t                     * p_lowest_value_white;
 } pink_lady_manager_params_t;
 
-#define PINK_LADY_MANAGER_INSTANCE(_p_pink_lady_params)                                 \
-{                                                                                       \
-    .delta_color = { 0, 0, 0, 0 },                                                      \
-    .number_of_led = 0,                                                                 \
-    .intensity = 0,                                                                     \
-    .ind_pos = 0,                                                                       \
-    .ind_neg = 0,                                                                       \
-    .ind_ = 0,                                                                          \
-    .time_between_increment = 0,                                                        \
-    .sm = { 0, 0 },                                                                     \
-    .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \
-    .p_led_copy = (RGBW_COLOR*) _p_pink_lady_params ## _copy_led_ram_allocation,        \
-    .p_ind_red = NULL,                                                                  \
-    .p_ind_green = NULL,                                                                \
-    .p_ind_blue = NULL,                                                                 \
-    .p_ind_white = NULL,                                                                \
-    .p_lowest_value_red = NULL,                                                         \
-    .p_lowest_value_green = NULL,                                                       \
-    .p_lowest_value_blue = NULL,                                                        \
-    .p_lowest_value_white = NULL                                                        \
-}
-
-#define PINK_LADY_MANAGER_DEF(_name, _p_pink_lady_params)                               \
-static pink_lady_manager_params_t _name = PINK_LADY_MANAGER_INSTANCE(_p_pink_lady_params)
+//#define PINK_LADY_MANAGER_INSTANCE(_p_pink_lady_params)                                 \
+//{                                                                                       \
+//    .delta_color = { 0, 0, 0, 0 },                                                      \
+//    .number_of_led = 0,                                                                 \
+//    .intensity = 0,                                                                     \
+//    .ind_pos = 0,                                                                       \
+//    .ind_neg = 0,                                                                       \
+//    .ind_ = 0,                                                                          \
+//    .time_between_increment = 0,                                                        \
+//    .sm = { 0, 0 },                                                                     \
+//    .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \
+//    .p_led_copy = (RGBW_COLOR*) _p_pink_lady_params ## _copy_led_ram_allocation,        \
+//    .p_ind_red = NULL,                                                                  \
+//    .p_ind_green = NULL,                                                                \
+//    .p_ind_blue = NULL,                                                                 \
+//    .p_ind_white = NULL,                                                                \
+//    .p_lowest_value_red = NULL,                                                         \
+//    .p_lowest_value_green = NULL,                                                       \
+//    .p_lowest_value_blue = NULL,                                                        \
+//    .p_lowest_value_white = NULL                                                        \
+//}
+//
+//#define PINK_LADY_MANAGER_DEF(_name, _p_pink_lady_params)                               \
+//static pink_lady_manager_params_t _name = PINK_LADY_MANAGER_INSTANCE(_p_pink_lady_params)
 
 typedef struct
 {
@@ -162,9 +196,15 @@ static pink_lady_params_t _name = PINK_LADY_INSTANCE(_spi_id, _led_model, _name 
 
 void pink_lady_deamon(pink_lady_params_t *var);
 
-uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
-#define pink_lady_reset_segment_params(seg_params)              (seg_params.sm.index = 0)
-#define pink_lady_is_segment_busy(seg_params)                   ((seg_params.sm.index > 0) ? true : false)
+uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
+PINK_LADY_MANAGER_STATUS pink_lady_get_segment_status(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
+void pink_lady_reset_segment(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
+#define pink_lady_release_segment(var, id)                      pink_lady_reset_segment(var, id)
+
+
+//uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
+//#define pink_lady_reset_segment_params(seg_params)              (seg_params.sm.index = 0)
+//#define pink_lady_is_segment_busy(seg_params)                   ((seg_params.sm.index > 0) ? true : false)
 
 uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var);
 #define pink_lady_shift_pattern_stop(var)                       (var.enable = OFF)
