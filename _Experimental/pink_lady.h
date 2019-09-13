@@ -21,7 +21,7 @@ typedef enum
 
 typedef enum
 {
-    LED_RESO_ALL                = 1,
+    LED_RESO_ALL                = 0x01,
     LED_RESO_1_2,
     LED_RESO_1_3,
     LED_RESO_1_4,
@@ -30,7 +30,7 @@ typedef enum
     LED_RESO_1_7,
     LED_RESO_1_8,
     LED_RESO_1_9,
-    LED_RESO_1_255              = 255
+    LED_RESO_1_255              = 0xff
 } PINK_LADY_RESOLUTIONS;
 
 typedef enum
@@ -194,17 +194,15 @@ static RGBW_COLOR _name ## _led_ram_allocation[_number_total_of_leds] = {0};    
 static RGBW_COLOR _name ## _copy_led_ram_allocation[_number_total_of_leds] = {0};                                                       \
 static pink_lady_params_t _name = PINK_LADY_INSTANCE(_spi_id, _led_model, _name ## _led_ram_allocation, _name ## _copy_led_ram_allocation, _name ## _tx_buffer_ram_allocation, _number_total_of_leds)	
 
+
+
+
 void pink_lady_deamon(pink_lady_params_t *var);
 
 uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
 PINK_LADY_MANAGER_STATUS pink_lady_get_segment_status(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
 void pink_lady_reset_segment(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
 #define pink_lady_release_segment(var, id)                      pink_lady_reset_segment(var, id)
-
-
-//uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
-//#define pink_lady_reset_segment_params(seg_params)              (seg_params.sm.index = 0)
-//#define pink_lady_is_segment_busy(seg_params)                   ((seg_params.sm.index > 0) ? true : false)
 
 uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var);
 #define pink_lady_shift_pattern_stop(var)                       (var.enable = OFF)
