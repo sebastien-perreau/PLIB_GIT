@@ -146,6 +146,20 @@ void pink_lady_deamon(pink_lady_params_t *var)
     }
 }
 
+/*
+ * Case delay = 0:
+ * LED.red = LowestValue.red + (i x delta.red / N)
+ * 
+ * Case delay > 0:
+ * LED.red = LED_CPY.red + ((LowestValue.red + (i x delta.red / N) - LED_CPY.red) x I / 100)
+ * 
+ * with:
+ *   - LowestValue.red: The lowest red value between color1 red and color2 red
+ *   - delta.red: The absolute difference red value between color1 red and color2 red
+ *   - N: The number of concerned LED
+ *   - i: The LED index (from 1 to N)
+ *   - I: The intensity (only for delay > 0) (from 0 to 100)
+ */
 uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
 {
     
