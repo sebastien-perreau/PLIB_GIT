@@ -446,6 +446,7 @@ void _EXAMPLE_SOFTWARE_PWM()
 {
     static state_machine_t sm_example = {0};
     SOFTWARE_PWM_DEF(spwm, TIMER5, SOFTWARE_PWM_FREQ_200HZ, SOFTWARE_PWM_RESO_1, __PE0, __PE1, __PE2, __PE3, __PE4, __PE5, __PE6, __PG6, __PG7, __PG12, __PG13, __PG14, __PA6, __PA7, __PB11, __PB12, __PB13, __PB14, __PB4, __PB2, __PA0, __PA1, __PA4, __PA5, __PB0, __PB1, __PB3, __PB5, __PB8, __PB9);
+    LED_DEF(led, &spwm.pwm[0], OFF, 140, TICK_1MS, TICK_5MS);
     
     switch (sm_example.index)
     {
@@ -457,17 +458,20 @@ void _EXAMPLE_SOFTWARE_PWM()
             
         case _MAIN:
             
-            spwm.pwm[0] = 20;
+            led.enable = fu_turn_indicator(ON, TICK_1S, TICK_1S);
+            
             spwm.pwm[1] = 50;
             spwm.pwm[2] = 100;
             spwm.pwm[3] = 180;
-            spwm.pwm[4] = 210;
-            spwm.pwm[5] = 250;
+            spwm.pwm[4] = 253;
+            spwm.pwm[5] = 254;
             
             spwm.pwm[6] = 0;
-            spwm.pwm[7] = 255;  // Not reachable: 99,61% of duty cycle
+            spwm.pwm[7] = 255;
             break;
     } 
+    
+    fu_led(&led);
 }
 
 void _EXAMPLE_SWITCH()
@@ -605,40 +609,6 @@ void _EXAMPLE_AVERAGE_AND_NTC()
             {
                 // ...
             }
-            break;
-    }   
-}
-
-void _EXAMPLE_SLIDER()
-{
-    SLIDER_DEF(slider_w, 198, SLIDER_START_TO_END, SLIDER_CENTER_TO_ENDS, TICK_800MS, TICK_400MS);
-    SLIDER_DEF(slider_r, 198, SLIDER_CENTER_TO_ENDS, SLIDER_START_TO_END, TICK_400MS, TICK_800MS);
-    PINK_LADY_DEF(smartled, SPI3, SK6812RGBW_MODEL, 198);
-    static state_machine_t sm_example = {0};
-    
-    switch (sm_example.index)
-    {
-        case _SETUP:
-            
-            sm_example.index = _MAIN;
-            break;
-            
-        case _MAIN:
-            
-            slider_w.enable = fu_turn_indicator(ON, TICK_1S, TICK_1S);
-            slider_r.enable = !fu_turn_indicator(ON, TICK_1S, TICK_1S);
-
-            {
-                uint8_t i;
-                for (i = 0 ; i < slider_w.p_output.size ; i++)
-                {
-                    pink_lady_set_led_rgbw(smartled, i, slider_r.p_output.p[i] ? 255 : 0, 0, 0, slider_w.p_output.p[i] ? 255 : 0);
-                }
-            }
-
-            fu_slider(&slider_w);
-            fu_slider(&slider_r);
-            pink_lady_deamon(&smartled);
             break;
     }   
 }
@@ -1448,117 +1418,158 @@ void _EXAMPLE_LIN()
 
 void _EXAMPLE_PINK_LADY()
 {
-//    PINK_LADY_DEF(smartled, SPI2, SK6812RGBW_MODEL, 50);
-//    PINK_LADY_MANAGER_DEF(smartled_seg_1, smartled);
-//    static state_machine_t sm_colors = {0};
-//    static state_machine_t sm_example = {0};
-//    
-//    switch (sm_example.index)
-//    {
-//        case _SETUP:          
-//            
-//            sm_example.index = _MAIN;
-//            break;
-//            
-//        case _MAIN:
-//            
-//            if (mTickCompare(sm_colors.tick) >= TICK_3S)
-//            {
-//                sm_colors.tick = mGetTick();
-//                sm_colors.index++;
-//            }
+    PINK_LADY_DEF(smartled, SPI2, SK6812RGBW_MODEL, 50);
+    PICK_LADY_SHIFT_DEF(shift1, smartled, PL_SHIFT_FROM_TO_TO, 0, 49, 5, TICK_20MS);
+    SLIDER_DEF(slider_w, 50, SLIDER_START_TO_END, SLIDER_CENTER_TO_ENDS, TICK_800MS, TICK_400MS);
+    SLIDER_DEF(slider_r, 50, SLIDER_CENTER_TO_ENDS, SLIDER_START_TO_END, TICK_400MS, TICK_800MS);
+    static RGBW_COLOR pattern[] = {
+        {255, 0, 0, 0}, {255, 10, 0, 0}, {255, 20, 0, 0}, {255, 30, 0, 0}, {255, 40, 0, 0}, {255, 50, 0, 0}, {255, 60, 0, 0}, {255, 70, 0, 0}, {255, 80, 0, 0}, {255, 90, 0, 0}, 
+        {255, 100, 0, 0}, {255, 110, 0, 0}, {255, 120, 0, 0}, {255, 130, 0, 0}, {255, 140, 0, 0}, {255, 150, 0, 0}, {255, 160, 0, 0}, {255, 170, 0, 0}, {255, 180, 0, 0}, {255, 190, 0, 0}, 
+        {255, 200, 0, 0}, {255, 210, 0, 0}, {255, 220, 0, 0}, {255, 230, 0, 0}, {255, 240, 0, 0}, {255, 250, 0, 0}, {250, 255, 0, 0}, {240, 255, 0, 0}, {230, 255, 0, 0}, {220, 255, 0, 0}, 
+        {210, 255, 0, 0}, {200, 255, 0, 0}, {190, 255, 0, 0}, {180, 255, 0, 0}, {170, 255, 0, 0}, {160, 255, 0, 0}, {150, 255, 0, 0}, {140, 255, 0, 0}, {130, 255, 0, 0}, {120, 255, 0, 0}, 
+        {110, 255, 0, 0}, {100, 255, 0, 0}, {90, 255, 0, 0}, {80, 255, 0, 0}, {70, 255, 0, 0}, {60, 255, 0, 0}, {50, 255, 0, 0}, {40, 255, 0, 0}, {30, 255, 0, 0}, {20, 255, 0, 0}, 
+        {10, 255, 0, 0}, {0, 255, 0, 0}, {0, 255, 10, 0}, {0, 255, 20, 0}, {0, 255, 30, 0}, {0, 255, 40, 0}, {0, 255, 50, 0}, {0, 255, 60, 0}, {0, 255, 70, 0}, {0, 255, 80, 0}, 
+        {0, 255, 90, 0}, {0, 255, 100, 0}, {0, 255, 110, 0}, {0, 255, 120, 0}, {0, 255, 130, 0}, {0, 255, 140, 0}, {0, 255, 150, 0}, {0, 255, 160, 0}, {0, 255, 170, 0}, {0, 255, 180, 0}, 
+        {0, 255, 190, 0}, {0, 255, 200, 0}, {0, 255, 210, 0}, {0, 255, 220, 0}, {0, 255, 230, 0}, {0, 255, 240, 0}, {0, 255, 250, 0}, {0, 250, 255, 0}, {0, 240, 255, 0}, {0, 230, 255, 0}, 
+        {0, 220, 255, 0}, {0, 210, 255, 0}, {0, 200, 255, 0}, {0, 190, 255, 0}, {0, 180, 255, 0}, {0, 170, 255, 0}, {0, 160, 255, 0}, {0, 150, 255, 0}, {0, 140, 255, 0}, {0, 130, 255, 0}, 
+        {0, 120, 255, 0}, {0, 110, 255, 0}, {0, 100, 255, 0}, {0, 90, 255, 0}, {0, 80, 255, 0}, {0, 70, 255, 0}, {0, 60, 255, 0}, {0, 50, 255, 0}, {0, 40, 255, 0}, {0, 30, 255, 0}, 
+        {0, 20, 255, 0}, {0, 10, 255, 0}, {0, 0, 255, 0}, {10, 0, 255, 0}, {20, 0, 255, 0}, {30, 0, 255, 0}, {40, 0, 255, 0}, {50, 0, 255, 0}, {60, 0, 255, 0}, {70, 0, 255, 0}, 
+        {80, 0, 255, 0}, {90, 0, 255, 0}, {100, 0, 255, 0}, {110, 0, 255, 0}, {120, 0, 255, 0}, {130, 0, 255, 0}, {140, 0, 255, 0}, {150, 0, 255, 0}, {160, 0, 255, 0}, {170, 0, 255, 0}, 
+        {180, 0, 255, 0}, {190, 0, 255, 0}, {200, 0, 255, 0}, {210, 0, 255, 0}, {220, 0, 255, 0}, {230, 0, 255, 0}, {240, 0, 255, 0}, {250, 0, 255, 0}, {255, 0, 250, 0}, {255, 0, 240, 0}, 
+        {255, 0, 230, 0}, {255, 0, 220, 0}, {255, 0, 210, 0}, {255, 0, 200, 0}, {255, 0, 190, 0}, {255, 0, 180, 0}, {255, 0, 170, 0}, {255, 0, 160, 0}, {255, 0, 150, 0}, {255, 0, 140, 0}, 
+        {255, 0, 130, 0}, {255, 0, 120, 0}, {255, 0, 110, 0}, {255, 0, 100, 0}};
+    static state_machine_t sm_colors = {0};
+    static state_machine_t sm_example = {0};
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:          
+            
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            if (mTickCompare(sm_colors.tick) >= TICK_3S)
+            {
+                sm_colors.tick = mGetTick();
+                sm_colors.index++;
+                
+                pink_lady_release_segment(smartled, PL_ID_0);
+                pink_lady_release_segment(smartled, PL_ID_1);
+                
+                pink_lady_shift_pattern_reset_and_start(shift1);
+                
+                slider_w.enable = OFF;
+                slider_r.enable = OFF;
+            }
 
-//            switch (sm_colors.index)
-//            {
-//                case 0:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 19, RGBW_COLOR_BLUE, RGBW_COLOR_WHITE, LED_RESO_ALL, 0))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 1:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 20, 49, RGBW_COLOR_WHITE, RGBW_COLOR_RED, LED_RESO_ALL, 0))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 2:
-//                    break;
-//                    
-//                case 3:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_GREEN, LED_RESO_ALL, TICK_200MS))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 4:
-//                    break;
-//                    
-//                case 5:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_GREEN, RGBW_COLOR_BLUE, LED_RESO_1_3, TICK_500MS))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 6:
-//                    break;
-//                    
-//                case 7:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_WHITE, RGBW_COLOR_WHITE_MIX, LED_RESO_1_5, TICK_500MS))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 8:
-//                    break;
-//                    
-//                case 9:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_CYAN, RGBW_COLOR_OFF, LED_RESO_ALL, TICK_500MS))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 10:
-//                    break;
-//                    
-//                case 11:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_RED, RGBW_COLOR_RED, LED_RESO_1_3, 0))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 12:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 10, 39, RGBW_COLOR_BLUE, RGBW_COLOR_OFF, LED_RESO_1_4, 0))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 13:
-//                    break;
-//                    
-//                case 14:
-//                    if (!pink_lady_set_segment_params(&smartled_seg_1, 0, 49, RGBW_COLOR_OFF, RGBW_COLOR_OFF, LED_RESO_ALL, 0))
-//                    {
-//                        sm_colors.index++;
-//                    }
-//                    break;
-//                case 15:
-//                    pink_lady_set_led_rgbw(smartled, 0, 255, 0, 0, 0);
-//                    pink_lady_set_led_rgbw(smartled, 9, 0, 255, 0, 0);
-//                    pink_lady_set_led_rgbw(smartled, 19, 0, 0, 255, 0);
-//                    pink_lady_set_led_rgbw(smartled, 29, 0, 0, 0, 255);
-//                    pink_lady_set_led_rgbw(smartled, 39, 255, 255, 0, 0);
-//                    pink_lady_set_led_rgbw(smartled, 49, 0, 255, 255, 0);
-//                    break;
-//                    
-//                default:
-//                    sm_colors.index = 0;
-//                    break;
-//            }
+            switch (sm_colors.index)
+            {
+                case 0:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 49, RGBW_COLOR_WHITE, RGBW_COLOR_WHITE_MIX, LED_RESO_JUMP | LED_RESO_1_5, TICK_1S);
+                    break;
+                    
+                case 1:
+                    pink_lady_set_all_led_off(smartled);
+                    break;
+                    
+                case 2:
+                    pink_lady_set_all_led_on(smartled);
+                    break;
+                
+                case 3:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 24, RGBW_COLOR_RED, RGBW_COLOR_RED, LED_RESO_ALL, 0);
+                    pink_lady_set_segment_params(&smartled, PL_ID_1, 25, 49, RGBW_COLOR_RED, RGBW_COLOR_BLUE, LED_RESO_ALL, TICK_1S);
+                    break;
+                
+                case 4:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 25, 49, RGBW_COLOR_GREEN, RGBW_COLOR_WHITE, LED_RESO_ALL, TICK_1S);
+                    break;
+                     
+                case 5:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 24, RGBW_COLOR_BLUE, RGBW_COLOR_BLUE, LED_RESO_JUMP | LED_RESO_1_2, TICK_1S);
+                    pink_lady_set_segment_params(&smartled, PL_ID_1, 25, 49, RGBW_COLOR_BLUE, RGBW_COLOR_BLUE, LED_RESO_CLEAR | LED_RESO_1_2, 0);
+                    break;
+                    
+                case 6:
+                    pink_lady_shift_pattern(&shift1);
+                    break;
+                    
+                case 7:
+                    pink_lady_shift_pattern_toggle_direction(shift1);
+                    pink_lady_shift_pattern_start(shift1);
+                    sm_colors.index++;
+                    break;
+                    
+                case 8:
+                    pink_lady_shift_pattern(&shift1);
+                    break;
+                    
+                case 9:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 24, RGBW_COLOR_BLUE, RGBW_COLOR_BLUE, LED_RESO_ALL, 0);
+                    pink_lady_set_segment_params(&smartled, PL_ID_1, 25, 49, RGBW_COLOR_BLUE, RGBW_COLOR_BLUE, LED_RESO_ALL, TICK_1S);
+                    break;
+                    
+                case 10:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 49, RGBW_COLOR_OFF, RGBW_COLOR_OFF, LED_RESO_ALL, TICK_500MS);
+                    if (pink_lady_get_segment_status(smartled, PL_ID_0) == PL_SEGMENT_FINISHED)
+                    {
+                        sm_colors.index++;
+                        mUpdateTick(sm_colors.tick);
+                    }
+                    break;
+                    
+                case 11:
+                    pink_lady_put_pattern(smartled, pattern, 5, 45);
+                    pink_lady_shift_pattern_toggle_direction(shift1);
+                    break;
+                    
+                case 12:
+                    pink_lady_shift_pattern(&shift1);
+                    break;
+                    
+                case 13:
+                    pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 49, RGBW_COLOR_OFF, RGBW_COLOR_OFF, LED_RESO_ALL, TICK_500MS);
+                    if (pink_lady_get_segment_status(smartled, PL_ID_0) == PL_SEGMENT_FINISHED)
+                    {
+                        sm_colors.index++;
+                        mUpdateTick(sm_colors.tick);
+                    }
+                    break;
+                    
+                case 14:
+                    pink_lady_set_led_rgbw(smartled, 0, 255, 0, 0, 0);
+                    pink_lady_set_led_rgbw(smartled, 9, 0, 255, 0, 0);
+                    pink_lady_set_led_rgbw(smartled, 19, 0, 0, 255, 0);
+                    pink_lady_set_led_rgbw(smartled, 29, 0, 0, 0, 255);
+                    pink_lady_set_led_rgbw(smartled, 39, 255, 255, 0, 0);
+                    pink_lady_set_led_rgbw(smartled, 49, 0, 255, 255, 0);
+                    break;
+                    
+                case 15:
+                    slider_w.enable = fu_turn_indicator(ON, TICK_1S, TICK_1S);
+                    slider_r.enable = !fu_turn_indicator(ON, TICK_1S, TICK_1S);
 
-//            pink_lady_deamon(&smartled);
-//            break;
-//    } 
+                    {
+                        uint8_t i;
+                        for (i = 0 ; i < slider_w.p_output.size ; i++)
+                        {
+                            pink_lady_set_led_rgbw(smartled, i, slider_r.p_output.p[i] ? 255 : 0, 0, 0, slider_w.p_output.p[i] ? 255 : 0);
+                        }
+                    }
+                    break;
+                    
+                default:
+                    sm_colors.index = 0;
+                    break;
+            }
+
+            fu_slider(&slider_w);
+            fu_slider(&slider_r);
+            pink_lady_deamon(&smartled);
+            break;
+    } 
 }
 
 void _EXAMPLE_TPS92662()

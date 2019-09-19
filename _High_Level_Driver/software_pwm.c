@@ -51,7 +51,11 @@ static void software_pwm_event_handler(uint8_t id)
     {
         PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) p_ports_registers_array[p_software_pwm->io[i]._port - 1];
         
-        if (p_software_pwm->pwm[i] > p_software_pwm->counter)
+        if (p_software_pwm->pwm[i] == 255)
+        {
+            pPorts->LATSET = (uint32_t) (1 << p_software_pwm->io[i]._indice);
+        }
+        else if (p_software_pwm->pwm[i] > p_software_pwm->counter)
         {
             pPorts->LATSET = (uint32_t) (1 << p_software_pwm->io[i]._indice);
         }
