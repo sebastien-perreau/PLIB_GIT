@@ -54,6 +54,7 @@
 #include "_Experimental/_LOG.h"
 #include "_Experimental/pink_lady.h"
 #include "_Experimental/e_tps92662.h"
+#include "_Experimental/sd_card.h"
 
 uint8_t _ledStatus;
 

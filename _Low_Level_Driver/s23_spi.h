@@ -36,6 +36,13 @@ typedef enum
     SPI_NUMBER_OF_MODULES
 } SPI_MODULE;
 
+typedef enum
+{
+    SPI_CS_SET = 0,
+    SPI_CS_CLR,
+    SPI_CS_DO_NOTHING
+} SPI_CS_CDE;
+
 // Getting a valid SPI channel definition.
 #undef  _SPI_DEF_CHN_
 #if defined(_SPI1)
