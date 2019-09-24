@@ -25,6 +25,18 @@ const DMA_CHANNEL_REGISTERS * DmaChannels[] =
 static dma_event_handler_t dma_event_handler[DMA_NUMBER_OF_MODULES] = {NULL};
 static bool dma_channel_is_using[DMA_NUMBER_OF_MODULES] = {0};
 
+const uint8_t dma_irq[] = 
+{
+    _DMA0_IRQ,
+    _DMA1_IRQ,
+    _DMA2_IRQ,
+    _DMA3_IRQ,
+    _DMA4_IRQ,
+    _DMA5_IRQ,
+    _DMA6_IRQ,
+    _DMA7_IRQ    
+};
+
 /*******************************************************************************
   Function:
     void dma_init(  DMA_MODULE id, 
@@ -271,6 +283,24 @@ void dma_clear_flags(DMA_MODULE id, DMA_CHANNEL_FLAGS flags)
 {
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
     p_dma_channel->DCHINTCLR = flags;
+}
+
+/*******************************************************************************
+  Function: 
+    const uint8_t dma_get_irq(DMA_MODULE id)
+  
+  Description:
+       This routine is used to get the IRQ number of a DMA module.
+  
+  Parameters:
+       id: The DMA module you want to use.
+  
+  Return:
+       The constant IRQ number.
+ ******************************************************************************/
+const uint8_t dma_get_irq(DMA_MODULE id)
+{
+    return dma_irq[id];
 }
 
 /*******************************************************************************

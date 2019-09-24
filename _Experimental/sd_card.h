@@ -2,15 +2,18 @@
 #define __DEF_SD_CARD
 
 #define SD_CARD_FREQ_INIT       250000
-#define SD_CARD_FREQ            25000000
+#define SD_CARD_FREQ            10000000
 
 typedef enum
 {
     SM_SD_CARD_HOME             = 0,
             
     SM_SD_CARD_INITIALIZATION,  // Upper priority
-    SM_SD_CARD_READ_SECTOR_0,
-    SM_SD_CARD_READ_ONE_BLOCK,  // Lower priority
+    SM_SD_CARD_MASTER_BOOT_RECORD,
+    SM_SD_CARD_BOOT_SECTOR,
+    SM_SD_CARD_FAT1,
+    SM_SD_CARD_ROOT_DIRECTORY,
+    SM_SD_CARD_DATA_SPACE,      // Lower priority
             
     SM_SD_CARD_MAX_FLAGS,
     SM_SD_CARD_END
@@ -33,27 +36,121 @@ typedef enum
     SD_CARD_CMD_25      = 0x59,
     SD_CARD_ACMD_41     = 0x69,
     SD_CARD_CMD_55      = 0x77,
-    SD_CARD_CMD_58      = 0x7a
+    SD_CARD_CMD_58      = 0x7a,
+    SD_CARD_CMD_59      = 0x7b
 } SD_CARD_COMMAND_TYPE;
 
 typedef enum
 {
-    SD_CARD_RET_R1      = 1,
-    SD_CARD_RET_R3_R7   = 5,
-} SD_CARD_COMMAND_RETURN;
+    SD_CARD_RET_R1      = 0x01,                                         // 4 LSB bits are the response command size and the 4 MSB bits are the index of the response command
+    SD_CARD_RET_R1B     = 0x11,
+    SD_CARD_RET_R3      = 0x35,
+    SD_CARD_RET_R7      = 0x75
+} SD_CARD_RESPONSE_COMMAND;
+
+typedef enum
+{
+    SD_CARD_VER_1_X                 = 1,                                // SD Card Ver1.X Standard Capacity        
+    SD_CARD_VER_2_X_SDSC            = 2,                                // SD Card Ver2.X or Later Standard Capacity
+    SD_CARD_VER_2_X_SDHC            = 3,                                // SD Card Ver2.X or Later SDHC / SDXC
+} SD_CARD_VERSION;
 
 typedef struct
 {
-    bool                        is_init_done;
-    SPI_MODULE                  spi_id;
-    _IO                         spi_cs;
-    DMA_MODULE                  dma_tx_id;
-    DMA_MODULE                  dma_rx_id;
-    DMA_CHANNEL_TRANSFER        dma_tx_params;
-    DMA_CHANNEL_TRANSFER        dma_rx_params;
+    bool                            is_existing;                        //              true: if datas present / false: all is cleared (0x00)
+    uint8_t                         boot_descriptor;                    // [1 byte]     0x80: if active partition / 0x00 if inactive
+    uint32_t                        first_partition_sector;             // [3 bytes]    CHS address of first absolute sector in partition (ignore cos LBA used these days)
+    uint8_t                         file_system_descriptor;             // [1 byte]     0x04: 16-bit FAT < 32M / 0x06: 16-bit FAT >= 32M / 0x0e: DOS CHS mapped
+    uint32_t                        last_partition_sector;              // [3 bytes]    CHS address of last absolute sector in partition (ignore cos LBA used these days)
+    uint32_t                        first_sector_of_the_partition;      // [4 bytes]    Number of sector between the MBR (sector 0) and the first sector of the partition (called Boot Sector)
+    uint32_t                        number_of_sector_in_the_partition;  // [4 bytes]    Number of sector in the partition x 512 bytes per sector = total size of the partition (in bytes)
+} sd_card_partition_entry_t;
+
+typedef struct
+{
+    sd_card_partition_entry_t       partition_entry[4];
+} sd_card_master_boot_record_t;
+
+typedef union 
+{
+    struct 
+    {
+        unsigned                    idle_state:1;
+        unsigned                    erase_reset:1;
+        unsigned                    illegal_command:1;
+        unsigned                    command_crc_error:1;
+        unsigned                    erase_sequence_error:1;
+        unsigned                    address_error:1;
+        unsigned                    parameter_error:1;
+        unsigned                    :1;
+    };
+    struct
+    {
+        uint8_t                     value;
+    };
+} sd_card_command_R1_response_t;                            // This response is the "Normal Response Command" for most commands
+#define R1_RESPONSE_MASK_ERRORS     0x78
+
+typedef union
+{
+    struct 
+    {
+        unsigned                    :15;                    // Reserved (read as 0)
+        unsigned                    voltage_windows:9;      // VDD Voltage Window (bit 15: 2,7-2,8 / bit 16: 2,8-2,9 / .. / bit 23: 3,5-3,6) (example: if supported 2,7-3,6V then voltage_window = 0x1ff)
+        unsigned                    s18a:1;                 // Switching to 1,8V Accepted (This bit is valid only when Busy (Bit 31) is set to 1.)
+        unsigned                    :4;
+        unsigned                    UHS_II:1;               // UHS-II Card Status (Only UHS-I card supports this bit.) (This bit is valid only when Busy (Bit 31) is set to 1.)
+        unsigned                    CCS:1;                  // Card Capacity Status (This bit is valid only when Busy (Bit 31) is set to 1.)
+        unsigned                    busy:1;                 // Card Power-up status bit (This bit is set to LOW if the card has not finished the power up routine.)
+    };
+    struct
+    {
+        uint32_t                    value;
+    };
+} sd_card_command_R3_response_t;                            // This response is the "OCR register" for CMD58 & ACMD41 commands
+
+typedef union
+{
+    struct 
+    {
+        unsigned                    check_pattern:8;        // Echo back of check pattern (argument in CMD8 command)
+        unsigned                    voltage_accepted:4;     // 0: Not Defined / 1: 2,7-3,6V / 2: Reserved for low voltage range / 4: Reserved / 8: Reserved / Others: Not Defined
+        unsigned                    :20;                    // Reserved bits
+    };
+    struct
+    {
+        uint32_t                    value;
+    };
+} sd_card_command_R7_response_t;                            // This response is the "Card Interface Condition" for CMD8 command
+
+typedef struct
+{
+    bool                            is_response_returned;
+    sd_card_command_R1_response_t   R1;
+    sd_card_command_R3_response_t   R3;
+    sd_card_command_R7_response_t   R7;
+} sd_card_command_responses_t;
+
+typedef struct
+{
+    bool                            is_init_done;
+    SPI_MODULE                      spi_id;
+    _IO                             spi_cs;
+    DMA_MODULE                      dma_tx_id;
+    DMA_MODULE                      dma_rx_id;
+    DMA_CHANNEL_TRANSFER            dma_tx_params;
+    DMA_CHANNEL_TRANSFER            dma_rx_params;
     
-    uint32_t                    _flags;
-    state_machine_t             _sm;
+    SD_CARD_VERSION                 card_version;          
+    sd_card_command_responses_t     response_command;
+    
+    sd_card_master_boot_record_t    master_boot_record;
+    
+    uint8_t                         *_p_ram_tx;
+    uint8_t                         *_p_ram_rx;
+    
+    uint32_t                        _flags;
+    state_machine_t                 _sm;
 } sd_card_params_t;
 
 #define SD_CARD_INSTANCE(_spi_module, _io_port, _io_indice, _tx_buffer_ram, _rx_buffer_ram)     \
@@ -64,7 +161,12 @@ typedef struct
     .dma_tx_id = DMA_NUMBER_OF_MODULES,                                                         \
     .dma_rx_id = DMA_NUMBER_OF_MODULES,                                                         \
     .dma_tx_params = {_tx_buffer_ram, NULL, 0, 1, 1, 0x0000},                                   \
-    .dma_rx_params = {NULL, _rx_buffer_ram, 1, 0, 1, 0x0000},                                   \
+    .dma_rx_params = {NULL, _rx_buffer_ram, 1, 0, 1, 0xfffe},                                   \
+    .card_version = 0,                                                                          \
+    .response_command = {0},                                                                    \
+    .master_boot_record = {0},                                                                  \
+    ._p_ram_tx = _tx_buffer_ram,                                                                \
+    ._p_ram_rx = _rx_buffer_ram,                                                                \
     ._flags = 0,                                                                                \
     ._sm = {0}                                                                                  \
 }

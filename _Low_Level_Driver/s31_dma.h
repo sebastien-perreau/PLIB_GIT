@@ -207,6 +207,7 @@ void dma_abord_transfer(DMA_MODULE id);
 DMA_CHANNEL_FLAGS dma_get_flags(DMA_MODULE id);
 void dma_clear_flags(DMA_MODULE id, DMA_CHANNEL_FLAGS flags);
 
+const uint8_t dma_get_irq(DMA_MODULE id);
 void dma_interrupt_handler(DMA_MODULE id);
 	
 #endif
