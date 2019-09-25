@@ -1480,7 +1480,7 @@ void _EXAMPLE_PINK_LADY()
                 
                 case 3:
                     pink_lady_set_segment_params(&smartled, PL_ID_0, 0, 24, RGBW_COLOR_RED, RGBW_COLOR_RED, LED_RESO_ALL, 0);
-                    pink_lady_set_segment_params(&smartled, PL_ID_1, 25, 49, RGBW_COLOR_RED, RGBW_COLOR_BLUE, LED_RESO_ALL, TICK_1S);
+                    pink_lady_set_segment_params(&smartled, PL_ID_1, 25, 49, RGBW_COLOR_RED, RGBW_COLOR_BLUE, LED_RESO_ALL, TICK_1S);                    
                     break;
                 
                 case 4:

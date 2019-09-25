@@ -9,6 +9,7 @@ typedef enum
     SM_SD_CARD_HOME             = 0,
             
     SM_SD_CARD_INITIALIZATION,  // Upper priority
+    SM_SD_CARD_GET_CID,
     SM_SD_CARD_MASTER_BOOT_RECORD,
     SM_SD_CARD_BOOT_SECTOR,
     SM_SD_CARD_FAT1,
@@ -42,10 +43,11 @@ typedef enum
 
 typedef enum
 {
-    SD_CARD_RET_R1      = 0x01,                                         // 4 LSB bits are the response command size and the 4 MSB bits are the index of the response command
-    SD_CARD_RET_R1B     = 0x11,
-    SD_CARD_RET_R3      = 0x35,
-    SD_CARD_RET_R7      = 0x75
+    SD_CARD_RET_R1      = 0x01,                                         // 5 LSB bits are the response command size and the 3 MSB bits are the ID of the response command
+    SD_CARD_RET_R1B     = 0x21,
+    SD_CARD_RET_R3      = 0x65,
+    SD_CARD_RET_R7      = 0x85,
+    SD_CARD_RET_CID     = 0xbf
 } SD_CARD_RESPONSE_COMMAND;
 
 typedef enum
@@ -55,23 +57,25 @@ typedef enum
     SD_CARD_VER_2_X_SDHC            = 3,                                // SD Card Ver2.X or Later SDHC / SDXC
 } SD_CARD_VERSION;
 
-#define SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET    0x1be
-
-typedef struct
+// Manufacturer ID is present in CID register (get CID just after the Initialization)
+typedef enum
 {
-    bool                            is_existing;                        //              true: if datas present / false: all is cleared (0x00)
-    uint8_t                         boot_descriptor;                    // [1 byte]     0x80: if active partition / 0x00 if inactive
-    uint32_t                        first_partition_sector;             // [3 bytes]    CHS address of first absolute sector in partition (ignore cos LBA used these days)
-    uint8_t                         file_system_descriptor;             // [1 byte]     0x04: 16-bit FAT < 32M / 0x06: 16-bit FAT >= 32M / 0x0e: DOS CHS mapped
-    uint32_t                        last_partition_sector;              // [3 bytes]    CHS address of last absolute sector in partition (ignore cos LBA used these days)
-    uint32_t                        first_sector_of_the_partition;      // [4 bytes]    Number of sector between the MBR (sector 0) and the first sector of the partition (called Boot Sector)
-    uint32_t                        number_of_sector_in_the_partition;  // [4 bytes]    Number of sector in the partition x 512 bytes per sector = total size of the partition (in bytes)
-} sd_card_partition_entry_t;
-
-typedef struct
-{
-    sd_card_partition_entry_t       partition_entry[4];
-} sd_card_master_boot_record_t;
+    SD_CARD_PANASONIC               = 0x01,
+    SD_CARD_TOSHIBA                 = 0x02,
+    SD_CARD_SANDISK                 = 0x03,
+    SD_CARD_SAMSUNG                 = 0x1b,
+    SD_CARD_PROGRADE                = 0x1b,
+    SD_CARD_ADATA                   = 0x1d,
+    SD_CARD_PHISON                  = 0x27,                             // AgfaPhoto, Delkin, Integral, Lexar, Patriot, PNY, Polaroid, Sony, Verbatim
+    SD_CARD_LEXAR                   = 0x28,                             // Lexar, PNY, ProGrade
+    SD_CARD_SILICON_POWER           = 0x31,
+    SD_CARD_KINGSTON                = 0x41,
+    SD_CARD_TRANSCEND               = 0x74,
+    SD_CARD_PATRIOT                 = 0x76,
+    SD_CARD_SONY                    = 0x82,
+    SD_CARD_ANGELBIRD               = 0x9c,
+    SD_CARD_HOODMAN                 = 0x9c
+} SD_CARD_MANUFACTURER_ID;
 
 typedef union 
 {
@@ -127,11 +131,40 @@ typedef union
 
 typedef struct
 {
+    uint8_t                         manufacturer_id;
+    uint16_t                        oem_id;
+    char                            product_name[5];
+    uint8_t                         product_revision;
+    uint32_t                        serial_number;
+    uint16_t                        manufacturer_data_code;
+} sd_card_command_cid_t;
+
+typedef struct
+{
     bool                            is_response_returned;
     sd_card_command_R1_response_t   R1;
     sd_card_command_R3_response_t   R3;
     sd_card_command_R7_response_t   R7;
+    sd_card_command_cid_t           CID;
 } sd_card_command_responses_t;
+
+#define SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET    0x1be
+
+typedef struct
+{
+    bool                            is_existing;                        //              true: if datas present / false: all is cleared (0x00)
+    uint8_t                         boot_descriptor;                    // [1 byte]     0x80: if active partition / 0x00 if inactive
+    uint32_t                        first_partition_sector;             // [3 bytes]    CHS address of first absolute sector in partition (ignore cos LBA used these days)
+    uint8_t                         file_system_descriptor;             // [1 byte]     0x04: 16-bit FAT < 32M / 0x06: 16-bit FAT >= 32M / 0x0e: DOS CHS mapped
+    uint32_t                        last_partition_sector;              // [3 bytes]    CHS address of last absolute sector in partition (ignore cos LBA used these days)
+    uint32_t                        first_sector_of_the_partition;      // [4 bytes]    Number of sector between the MBR (sector 0) and the first sector of the partition (called Boot Sector)
+    uint32_t                        number_of_sector_in_the_partition;  // [4 bytes]    Number of sector in the partition x 512 bytes per sector = total size of the partition (in bytes)
+} sd_card_partition_entry_t;
+
+typedef struct
+{
+    sd_card_partition_entry_t       partition_entry[4];
+} sd_card_master_boot_record_t;
 
 typedef struct
 {
@@ -142,6 +175,7 @@ typedef struct
     DMA_MODULE                      dma_rx_id;
     DMA_CHANNEL_TRANSFER            dma_tx_params;
     DMA_CHANNEL_TRANSFER            dma_rx_params;
+    bool                            is_log_enable;
     
     SD_CARD_VERSION                 card_version;          
     sd_card_command_responses_t     response_command;
@@ -155,7 +189,7 @@ typedef struct
     state_machine_t                 _sm;
 } sd_card_params_t;
 
-#define SD_CARD_INSTANCE(_spi_module, _io_port, _io_indice, _tx_buffer_ram, _rx_buffer_ram)     \
+#define SD_CARD_INSTANCE(_spi_module, _io_port, _io_indice, _enable_log, _tx_buffer_ram, _rx_buffer_ram)     \
 {                                                                                               \
     .is_init_done = false,                                                                      \
     .spi_id = _spi_module,                                                                      \
@@ -164,6 +198,7 @@ typedef struct
     .dma_rx_id = DMA_NUMBER_OF_MODULES,                                                         \
     .dma_tx_params = {_tx_buffer_ram, NULL, 0, 1, 1, 0x0000},                                   \
     .dma_rx_params = {NULL, _rx_buffer_ram, 1, 0, 1, 0xfffe},                                   \
+    .is_log_enable = _enable_log,                                                               \
     .card_version = 0,                                                                          \
     .response_command = {0},                                                                    \
     .master_boot_record = {0},                                                                  \
@@ -173,10 +208,10 @@ typedef struct
     ._sm = {0}                                                                                  \
 }
 
-#define SD_CARD_DEF(_name, _spi_module, _cs_pin)                                                \
+#define SD_CARD_DEF(_name, _spi_module, _cs_pin, _enable_log)                                   \
 static uint8_t _name ## _tx_buffer_ram_allocation[1+2048+2];                                    \
 static uint8_t _name ## _rx_buffer_ram_allocation[1+2048+2];                                    \
-static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _name ## _tx_buffer_ram_allocation, _name ## _rx_buffer_ram_allocation)
+static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _enable_log, _name ## _tx_buffer_ram_allocation, _name ## _rx_buffer_ram_allocation)
 
 void sd_card_deamon(sd_card_params_t *var);
 
