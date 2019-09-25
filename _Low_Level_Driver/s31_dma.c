@@ -158,6 +158,33 @@ bool dma_channel_is_enable(DMA_MODULE id)
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
     return ((p_dma_channel->DCHCON & DMA_CONT_CHANNEL_ENABLE) > 0) ? 1 : 0;    
 }
+
+/*******************************************************************************
+  Function:
+    void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_event)
+
+  Description:
+    This routine is used to set the channel event control of a DMA module. This setup is
+    first called in the dma_init routine at the initialization but in your program you may
+    want to modify this setup at a specific time. You can thus modify this setup whenever 
+    you want thanks to this routine.
+
+  Parameters:
+    id                      - The DMA module you want to use.
+    dma_channel_event       - The DMA Channel Event Register (see DMA_CHANNEL_EVENT). It is used
+                            to setup the type of event for start transfer, abord transfer and/or 
+                            pattern match abord.
+  *****************************************************************************/
+void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_event)
+{
+    DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
+    
+    dma_abord_transfer(id);
+    
+    p_dma_channel->DCHECONCLR = DMA_EVT_START_TRANSFER_ON_IRQ | DMA_EVT_ABORD_TRANSFER | DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH;
+    p_dma_channel->DCHECON |= dma_channel_event;
+}
+
 /*******************************************************************************
   Function:
     void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer)
@@ -206,6 +233,31 @@ void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bo
     {        
         dma_force_transfer(id);
     }
+}
+
+/*******************************************************************************
+  Function:
+    uint16_t dma_get_index_cell_pointer(DMA_MODULE id)
+
+  Description:
+    This routine is used to get the current index of the cell pointer. When a
+    DMA transmission occurs, the data is moved from A to B (A & B are memory area).
+    Sometimes you know how many bytes are transfered and sometimes not (for example
+    you setup your DMA module to ABORD a transmission on a PATTERN_MATCH). Whit this 
+    routine you can get the last index of the DMA module when the ABORD occurs. 
+    (Example: You setup your DMA module to receive up to 1000 bytes of a UART module,
+    and add an abord condition on a pattern_match - 8 or 16 bits - then if the pattern
+    is detected on the UART RX then the abord condition occurs - DMA_INT_BLOCK_TRANSFER_DONE
+    flag is set - and the DMA module is aborded. How many bytes have been received (including
+    the pattern ? Use this routine to have the answer).
+
+  Parameters:
+    id          - The DMA module you want to use.
+  *****************************************************************************/
+uint16_t dma_get_index_cell_pointer(DMA_MODULE id)
+{
+    DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
+    return (uint16_t) p_dma_channel->DCHCPTR;
 }
 
 /*******************************************************************************

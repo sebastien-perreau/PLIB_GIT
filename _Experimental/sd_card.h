@@ -55,6 +55,8 @@ typedef enum
     SD_CARD_VER_2_X_SDHC            = 3,                                // SD Card Ver2.X or Later SDHC / SDXC
 } SD_CARD_VERSION;
 
+#define SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET    0x1be
+
 typedef struct
 {
     bool                            is_existing;                        //              true: if datas present / false: all is cleared (0x00)
