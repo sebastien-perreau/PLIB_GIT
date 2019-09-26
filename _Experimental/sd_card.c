@@ -50,10 +50,8 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
             }
             
             var->response_command.is_response_returned = false;
-            
             var->dma_tx_params.src_size = (6 + 8 + (ret & 0x1f));
             var->dma_rx_params.dst_size = var->dma_tx_params.src_size;
-            var->dma_rx_params.dst_start_addr = var->_p_ram_rx;
             
             memset((void *) var->_p_ram_tx, 0xff, var->dma_tx_params.src_size);
             var->_p_ram_tx[0] = cde_type;
@@ -143,7 +141,7 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
     return functionState;
 }
 
-static uint8_t sd_card_read(sd_card_params_t *var, uint16_t length, uint8_t *p_dst, SPI_CS_CDE cs_at_begining_of_transmission, SPI_CS_CDE cs_at_end_of_transmission)
+static uint8_t sd_card_read(sd_card_params_t *var, uint16_t length, SPI_CS_CDE cs_at_begining_of_transmission, SPI_CS_CDE cs_at_end_of_transmission)
 {
     static enum _functionState
     {
@@ -164,7 +162,6 @@ static uint8_t sd_card_read(sd_card_params_t *var, uint16_t length, uint8_t *p_d
                 ports_clr_bit(var->spi_cs);
             }
             memset((void *) var->_p_ram_tx, 0xff, length);
-            var->dma_rx_params.dst_start_addr = p_dst;
             var->dma_tx_params.src_size = length;
             var->dma_rx_params.dst_size = var->dma_tx_params.src_size;                                    
             dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, false);
@@ -243,7 +240,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             
         case SM_POWER_SEQUENCE_DUMMY_CLOCK:
             
-            if (!sd_card_read(var, 10, var->_p_ram_rx, SPI_CS_SET, SPI_CS_DO_NOTHING))
+            if (!sd_card_read(var, 10, SPI_CS_SET, SPI_CS_DO_NOTHING))
             {
                 functionState = SM_CMD_0;
             }
@@ -649,7 +646,7 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
             
         case SM_READ_DATA_PACKET:
             
-            if (!sd_card_read(var, SD_CARD_DATA_BLOCK_LENGTH, var->_p_ram_rx, SPI_CS_DO_NOTHING, SPI_CS_SET))
+            if (!sd_card_read(var, SD_CARD_DATA_BLOCK_LENGTH, SPI_CS_DO_NOTHING, SPI_CS_SET))
             {                
                 uint16_t end_of_data_packet = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
                 if (end_of_data_packet == SD_CARD_END_OF_DATA_BLOCK)

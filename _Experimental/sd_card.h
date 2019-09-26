@@ -79,6 +79,7 @@ typedef enum
     SD_CARD_HOODMAN                 = 0x9c
 } SD_CARD_MANUFACTURER_ID;
 
+#define R1_RESPONSE_MASK_ERRORS     0x78
 typedef union 
 {
     struct 
@@ -97,7 +98,6 @@ typedef union
         uint8_t                     value;
     };
 } sd_card_command_R1_response_t;                            // This response is the "Normal Response Command" for most commands
-#define R1_RESPONSE_MASK_ERRORS     0x78
 
 typedef union
 {
@@ -143,11 +143,17 @@ typedef struct
 
 typedef struct
 {
+    uint8_t                         manufacturer_id;
+} sd_card_command_csd_t;
+
+typedef struct
+{
     bool                            is_response_returned;
     sd_card_command_R1_response_t   R1;
     sd_card_command_R3_response_t   R3;
     sd_card_command_R7_response_t   R7;
     sd_card_command_cid_t           CID;
+    sd_card_command_csd_t           CSD;
 } sd_card_command_responses_t;
 
 #define SD_CARD_DATA_TOKEN          0xfe                                // DATA TOKEN for CMD9/10/17/18/19
