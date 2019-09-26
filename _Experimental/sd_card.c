@@ -111,6 +111,18 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
                                 }
                             }
                         }
+                        else if (ret == SD_CARD_RET_CSD)
+                        {
+                            while (++i < var->dma_rx_params.dst_size)
+                            {
+                                // Search for "Start Token" character
+                                if (var->_p_ram_rx[i] == 0xfe)
+                                {
+                                    // Get Data Packet (ignore Data CRC - 16 bit)
+                                    break;
+                                }
+                            }
+                        }
                         break;                        
                     }
                 }
@@ -465,7 +477,7 @@ static uint8_t sd_card_get_cid(sd_card_params_t *var)
             
             if (var->is_log_enable) 
             { 
-                LOG_BLANCK("SD Card get Identifications..."); 
+                LOG_BLANCK("SD Card get Identifications (CID)..."); 
             }
             fail_count = 0;
             functionState = SM_CMD_10;   
@@ -520,14 +532,80 @@ static uint8_t sd_card_get_cid(sd_card_params_t *var)
     return functionState;
 }
 
+static uint8_t sd_card_get_csd(sd_card_params_t *var)
+{
+    static enum _functionState
+    {
+        SM_FREE = 0,
+        SM_CMD_9,
+        SM_FAIL
+    } functionState = 0;
+    static uint64_t functionTick = 0;
+    static uint8_t fail_count = 0;
+    
+    switch (functionState)
+    {
+        case SM_FREE:      
+            
+            if (var->is_log_enable) 
+            { 
+                LOG_BLANCK("SD Card get Specific Data (CSD)..."); 
+            }
+            fail_count = 0;
+            functionState = SM_CMD_9;   
+            
+        case SM_CMD_9:
+            
+            if (!sd_card_send_command(var, SD_CARD_CMD_9, 0x00000000, SD_CARD_RET_CSD, SPI_CS_CLR, SPI_CS_SET))
+            {
+                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.idle_state)                
+                {
+                    if (var->is_log_enable) 
+                    { 
+                    }
+                    functionState = SM_FREE;
+                }
+                else
+                {
+                    functionState = SM_FAIL;
+                }
+            }
+            break;
+            
+        case SM_FAIL:
+            
+            if (++fail_count >= 10)
+            {
+                functionState = SM_FREE;
+                SET_BIT(var->_flags, SM_SD_CARD_INITIALIZATION);
+            }
+            else
+            {
+                mUpdateTick(functionTick);
+                functionState++;
+            }
+            break;
+            
+        default:
+            
+            if (mTickCompare(functionTick) >= TICK_1MS)
+            {
+                functionState = SM_CMD_9;
+            }
+            break;
+    }
+    
+    return functionState;
+}
+
 static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
 {
     static enum _functionState
     {
         SM_FREE = 0,
         SM_CMD_17,
-        SM_READ_DATA_PART_1,
-        SM_READ_DATA_PART_2,
+        SM_WAIT_START_TOKEN,
+        SM_READ_DATA_PACKET,
         SM_FAIL
     } functionState = 0;
     static uint64_t functionTick = 0;
@@ -545,10 +623,8 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
             if (!sd_card_send_command(var, SD_CARD_CMD_17, sector * 512, SD_CARD_RET_R1, SPI_CS_CLR, SPI_CS_DO_NOTHING))
             {
                 if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.illegal_command && !var->response_command.R1.idle_state)
-                {
-                    dma_set_channel_event_control(var->dma_tx_id, DMA_EVT_START_TRANSFER_ON_IRQ | DMA_EVT_ABORD_TRANSFER_ON_IRQ);
-                    dma_set_channel_event_control(var->dma_rx_id, DMA_EVT_START_TRANSFER_ON_IRQ | DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH);
-                    functionState = SM_READ_DATA_PART_1;
+                {                    
+                    functionState = SM_WAIT_START_TOKEN;
                 }
                 else
                 {
@@ -557,35 +633,26 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
             }
             break;
             
-        case SM_READ_DATA_PART_1:
-            
-            if (!sd_card_read(var, 2048, var->_p_ram_rx, SPI_CS_DO_NOTHING, SPI_CS_DO_NOTHING))
-            {                
-                dma_set_channel_event_control(var->dma_tx_id, DMA_EVT_START_TRANSFER_ON_IRQ);
-                dma_set_channel_event_control(var->dma_rx_id, DMA_EVT_START_TRANSFER_ON_IRQ);
-                
-                if (dma_get_index_cell_pointer(var->dma_rx_id) >= 2048)
-                {
-                    functionState = SM_FAIL;
-                }
-                else
-                {
-                    functionState = SM_READ_DATA_PART_2;
-                }
-            }
-            break;
-            
-        case SM_READ_DATA_PART_2:
-            
-            // The data to read is as follow: Data packet = 512 bytes + Data CRC = 2 bytes
-            // We read only 511 bytes because the abord transmission in SM_READ_DATA_PART_1 is occurred during the first byte of the Data packet
-            if (!sd_card_read(var, 512 + 2, var->_p_ram_rx, SPI_CS_DO_NOTHING, SPI_CS_SET))
+        case SM_WAIT_START_TOKEN:
+            if (!spi_write_and_read(var->spi_id, 0xff, (uint32_t *) var->_p_ram_rx))
             {
-//                char s[50];
-//                transform_uint8_t_tab_to_string(s, sizeof(s), (uint8_t *) &var->_p_ram_rx[510], 5, BASE_16);
-//                LOG("%s", p_string(s));
-                
-                if ((var->_p_ram_rx[510] == 0x55) && (var->_p_ram_rx[511] == 0xaa))
+                if (var->_p_ram_rx[0] == SD_CARD_DATA_TOKEN)
+                {
+                    functionState = SM_READ_DATA_PACKET;
+                }
+                else if (!(var->_p_ram_rx[0] & SD_CARD_ERROR_TOKEN_MASK))
+                {
+                    functionState = SM_FAIL;
+                }
+            }
+            break;
+            
+        case SM_READ_DATA_PACKET:
+            
+            if (!sd_card_read(var, SD_CARD_DATA_BLOCK_LENGTH, var->_p_ram_rx, SPI_CS_DO_NOTHING, SPI_CS_SET))
+            {                
+                uint16_t end_of_data_packet = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
+                if (end_of_data_packet == SD_CARD_END_OF_DATA_BLOCK)
                 {
                     functionState = SM_FREE;
                 }
@@ -698,7 +765,7 @@ void sd_card_deamon(sd_card_params_t *var)
                     DMA_INT_NONE, 
                     DMA_EVT_START_TRANSFER_ON_IRQ, 
                     spi_get_tx_irq(var->spi_id), 
-                    dma_get_irq(var->dma_rx_id));
+                    0xff);
         
         dma_init(   var->dma_rx_id, 
                     NULL, 
@@ -736,8 +803,9 @@ void sd_card_deamon(sd_card_params_t *var)
             {    
                 CLR_BIT(var->_flags, SM_SD_CARD_INITIALIZATION);
                 SET_BIT(var->_flags, SM_SD_CARD_GET_CID);
+                SET_BIT(var->_flags, SM_SD_CARD_GET_CSD);
                 SET_BIT(var->_flags, SM_SD_CARD_MASTER_BOOT_RECORD);
-                SET_BIT(var->_flags, SM_SD_CARD_BOOT_SECTOR);
+                SET_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
                 SET_BIT(var->_flags, SM_SD_CARD_FAT1);
                 SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
                 SET_BIT(var->_flags, SM_SD_CARD_DATA_SPACE);
@@ -754,6 +822,15 @@ void sd_card_deamon(sd_card_params_t *var)
             }
             break;
             
+        case SM_SD_CARD_GET_CSD:
+            
+            if (!sd_card_get_csd(var))
+            {    
+                CLR_BIT(var->_flags, SM_SD_CARD_GET_CSD);
+                var->_sm.index = SM_SD_CARD_HOME;   
+            }
+            break;
+            
         case SM_SD_CARD_MASTER_BOOT_RECORD:
                     
             if (!sd_card_read_single_block(var, 0))
@@ -765,8 +842,16 @@ void sd_card_deamon(sd_card_params_t *var)
             }
             break;
             
-        case SM_SD_CARD_BOOT_SECTOR:
+        case SM_SD_CARD_PARTITION_BOOT_SECTOR:
                
+            if (var->master_boot_record.partition_entry[0].is_existing)
+            {
+                if (!sd_card_read_single_block(var, var->master_boot_record.partition_entry[0].first_sector_of_the_partition))
+                {
+                    CLR_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
+                    var->_sm.index = SM_SD_CARD_HOME;
+                }
+            }
             break;
             
         case SM_SD_CARD_FAT1:

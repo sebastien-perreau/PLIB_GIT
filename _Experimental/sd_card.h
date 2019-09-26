@@ -10,8 +10,9 @@ typedef enum
             
     SM_SD_CARD_INITIALIZATION,  // Upper priority
     SM_SD_CARD_GET_CID,
+    SM_SD_CARD_GET_CSD,
     SM_SD_CARD_MASTER_BOOT_RECORD,
-    SM_SD_CARD_BOOT_SECTOR,
+    SM_SD_CARD_PARTITION_BOOT_SECTOR,
     SM_SD_CARD_FAT1,
     SM_SD_CARD_ROOT_DIRECTORY,
     SM_SD_CARD_DATA_SPACE,      // Lower priority
@@ -47,7 +48,8 @@ typedef enum
     SD_CARD_RET_R1B     = 0x21,
     SD_CARD_RET_R3      = 0x65,
     SD_CARD_RET_R7      = 0x85,
-    SD_CARD_RET_CID     = 0xbf
+    SD_CARD_RET_CID     = 0xbf,
+    SD_CARD_RET_CSD     = 0xdf,
 } SD_CARD_RESPONSE_COMMAND;
 
 typedef enum
@@ -148,6 +150,10 @@ typedef struct
     sd_card_command_cid_t           CID;
 } sd_card_command_responses_t;
 
+#define SD_CARD_DATA_TOKEN          0xfe                                // DATA TOKEN for CMD9/10/17/18/19
+#define SD_CARD_ERROR_TOKEN_MASK    0x1f
+#define SD_CARD_DATA_BLOCK_LENGTH   514                                 // 512 bytes of usefull data + 2 CRC bytes
+#define SD_CARD_END_OF_DATA_BLOCK   0xaa55                              // 2 characters to ends a data packet (510 bytes + 2 characters byte EoP - End of Packet)
 #define SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET    0x1be
 
 typedef struct

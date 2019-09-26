@@ -3,10 +3,6 @@
 
 #include "../_High_Level_Driver/utilities.h"
 
-volatile uint32_t   *SPIPointerDwordDataReceived[4];
-volatile _IO        SPICurrentChipSelect[4];
-volatile bool       SPIReleaseChipSelect[4];
-
 #define SPI1_CLK    __PD10
 #define SPI1_SDO    __PD0
 #define SPI1_SDI    __PC4
@@ -259,9 +255,9 @@ void spi_init(SPI_MODULE id, spi_event_handler_t evt_handler, IRQ_EVENT_TYPE eve
 void spi_enable(SPI_MODULE id, bool enable);
 void spi_set_mode(SPI_MODULE mSpiModule, SPI_CONFIG mode);
 void spi_set_frequency(SPI_MODULE id, uint32_t freq_hz);
+bool spi_write_and_read(SPI_MODULE id, uint32_t data_w, uint32_t * data_r);
 
-BOOL SPIIsRxAvailable(SPI_MODULE mSpiModule);
-BOOL SPIIsTxAvailable(SPI_MODULE mSpiModule);
+
 BOOL SPIWriteAndStore(SPI_MODULE mSpiModule, _IO chip_select, uint32_t txData, uint32_t* rxData, bool releaseChipSelect);
 BYTE SPIWriteAndStore8_16_32(SPI_MODULE spi_module, _IO chip_select, uint32_t txData, uint32_t *rxData, SPI_CONFIG confMode);
 BYTE SPIWriteAndStoreByteArray(SPI_MODULE spi_module, _IO chip_select, void *txBuffer, void *rxBuffer, uint32_t size);
