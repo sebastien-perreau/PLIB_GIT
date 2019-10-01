@@ -143,7 +143,7 @@ void spi_set_frequency(SPI_MODULE id, uint32_t freq_hz)
     spiRegister->SPIxBRG = ((uint32_t) (PERIPHERAL_FREQ / freq_hz) >> 1) - 1;
 }
 
-bool spi_write_and_read(SPI_MODULE id, uint32_t data_w, uint32_t * data_r)
+bool spi_write_and_read_8(SPI_MODULE id, uint32_t data_w, uint8_t * data_r)
 {
     SPI_REGISTERS * spiRegister = (SPI_REGISTERS *)SpiModules[id];
     
@@ -151,7 +151,7 @@ bool spi_write_and_read(SPI_MODULE id, uint32_t data_w, uint32_t * data_r)
     {
         spiRegister->SPIxBUF = data_w;
         while(!spi_is_rx_available(id));
-        *data_r = (uint32_t) spiRegister->SPIxBUF;
+        *data_r = (uint8_t) spiRegister->SPIxBUF;
         return 0;
     }
     return 1;

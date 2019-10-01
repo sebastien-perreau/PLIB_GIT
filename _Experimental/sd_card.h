@@ -13,7 +13,6 @@ typedef enum
     SM_SD_CARD_GET_CSD,
     SM_SD_CARD_MASTER_BOOT_RECORD,
     SM_SD_CARD_PARTITION_BOOT_SECTOR,
-    SM_SD_CARD_FAT1,
     SM_SD_CARD_ROOT_DIRECTORY,
     SM_SD_CARD_DATA_SPACE,      // Lower priority
             
@@ -24,32 +23,35 @@ typedef enum
 // ACMD<n> means a command sequence of CMD55 follow by the command CMD<n>
 typedef enum
 {
-    SD_CARD_CMD_0       = 0x40,
-    SD_CARD_CMD_1       = 0x41,    
-    SD_CARD_CMD_8       = 0x48,
-    SD_CARD_CMD_9       = 0x49,
-    SD_CARD_CMD_10      = 0x4a,
-    SD_CARD_CMD_12      = 0x4c,           
-    SD_CARD_CMD_16      = 0x50,
-    SD_CARD_CMD_17      = 0x51,
-    SD_CARD_CMD_18      = 0x52,   
-    SD_CARD_ACMD_23     = 0x57,
-    SD_CARD_CMD_24      = 0x58,
-    SD_CARD_CMD_25      = 0x59,
-    SD_CARD_ACMD_41     = 0x69,
-    SD_CARD_CMD_55      = 0x77,
-    SD_CARD_CMD_58      = 0x7a,
-    SD_CARD_CMD_59      = 0x7b
+    SD_CARD_CMD_0                   = 0x40,
+    SD_CARD_CMD_1                   = 0x41,    
+    SD_CARD_CMD_8                   = 0x48,
+    SD_CARD_CMD_9                   = 0x49,
+    SD_CARD_CMD_10                  = 0x4a,
+    SD_CARD_CMD_12                  = 0x4c,           
+    SD_CARD_CMD_16                  = 0x50,
+    SD_CARD_CMD_17                  = 0x51,
+    SD_CARD_CMD_18                  = 0x52,   
+    SD_CARD_ACMD_23                 = 0x57,
+    SD_CARD_CMD_24                  = 0x58,
+    SD_CARD_CMD_25                  = 0x59,
+    SD_CARD_ACMD_41                 = 0x69,
+    SD_CARD_CMD_55                  = 0x77,
+    SD_CARD_CMD_58                  = 0x7a,
+    SD_CARD_CMD_59                  = 0x7b
 } SD_CARD_COMMAND_TYPE;
+
+#define R1_RESPONSE_MASK_ERRORS         0x78
+#define R1_RESPONSE_MASK_NORMAL_STATE   0x7f
 
 typedef enum
 {
-    SD_CARD_RET_R1      = 0x01,                                         // 5 LSB bits are the response command size and the 3 MSB bits are the ID of the response command
-    SD_CARD_RET_R1B     = 0x21,
-    SD_CARD_RET_R3      = 0x65,
-    SD_CARD_RET_R7      = 0x85,
-    SD_CARD_RET_CID     = 0xbf,
-    SD_CARD_RET_CSD     = 0xdf,
+    SD_CARD_RET_R1                  = 1,
+    SD_CARD_RET_R1B,
+    SD_CARD_RET_R3,
+    SD_CARD_RET_R7,
+    SD_CARD_RET_CID,
+    SD_CARD_RET_CSD
 } SD_CARD_RESPONSE_COMMAND;
 
 typedef enum
@@ -58,6 +60,13 @@ typedef enum
     SD_CARD_VER_2_X_SDSC            = 2,                                // SD Card Ver2.X or Later Standard Capacity
     SD_CARD_VER_2_X_SDHC            = 3,                                // SD Card Ver2.X or Later SDHC / SDXC
 } SD_CARD_VERSION;
+
+#define SD_CARD_DATA_TOKEN          0xfe                                // DATA TOKEN for CMD9/10/17/18/19
+#define SD_CARD_MASK_ERROR_TOKEN    0x1f
+#define SD_CARD_DATA_BLOCK_LENGTH   514                                 // 512 bytes of usefull data + 2 CRC bytes
+#define SD_CARD_END_OF_DATA_BLOCK   0xaa55                              // 2 characters to ends a data packet (510 bytes + 2 characters byte EoP - End of Packet)
+#define SD_CARD_CID_LENGTH          18                                  // 16 bytes of usedfull data + 2 CRC bytes
+#define SD_CARD_CSD_LENGTH          18                                  // 16 bytes of usedfull data + 2 CRC bytes
 
 // Manufacturer ID is present in CID register (get CID just after the Initialization)
 typedef enum
@@ -79,7 +88,61 @@ typedef enum
     SD_CARD_HOODMAN                 = 0x9c
 } SD_CARD_MANUFACTURER_ID;
 
-#define R1_RESPONSE_MASK_ERRORS     0x78
+typedef struct
+{
+    uint8_t                         manufacturer_id;                    // An 8 bit binary number that identifies the card manufacturer (cf. SD_CARD_MANUFACTURER_ID enumeration).
+    char                            oem_id[3];                          // A 2 ASCII string characters (the third char is \0) that identifies the card OEM and/or the card contents when used as a distribution media either on ROM or FLASH cards.
+    char                            product_name[6];                    // A 5 ASCII string characters (the sixth char is \0). 
+    uint8_t                         product_revision;                   // The product revision is composed of two Binary Coded Decimal digits (4 bit each). (Example revision 6.2 will be coded as follow: 0110 0010).
+    uint32_t                        serial_number;                      // The serial number is a 32 bit binary number.
+    uint16_t                        manufacturer_data_code;             // The manufacturing date is composed of two hexadecimal digits, one for the year (y) and one for the month (m). The "m" field is the month code (1 = January .. 12 = December). The "y" field is the year code (0 = 2000 .. 19 = 2019 ...).
+    uint8_t                         crc;                                // A 7 bit CRC (bit 0 always '1').
+} sd_card_command_cid_t;
+
+typedef struct
+{
+    unsigned                        csd_structure:2;                    // [7:6] 0: CSD version No. 1.0 (1-3 reserved).
+    unsigned                        taac:8;                             // [2:0] time unit (0=1ns, 1=10ns, 2=100ns, 3=1us, 4=10us, 5=100us, 6=1ms, 7=10ms) [6:3] time value (0=reserved, 1=1.0, 2=1.2, 3=1.3, 4=1.5, 5=2.0, 6=2.5, 7=3.0, 8=3.5, 9=4.0, 10=4.5, 11=5.0, 12=5.5, 13=6.0, 14=7.0, 15=8.0) [7] reserved bit.
+    unsigned                        nsac:8;                             // Defines the worst case for the clock dependent factor of the data time. The unit for NSAC is 100 clock cycles.
+    unsigned                        transfer_rate:8;                    // [2:0] transfer rate unit (0=100kbit/s, 1=1Mbit/s, 2=10Mbit/s, 3=100Mbit/s, 4..7 are reserved) [6:3] time value (0=reserved, 1=1.0, 2=1.2, 3=1.3, 4=1.5, 5=2.0, 6=2.5, 7=3.0, 8=3.5, 9=4.0, 10=4.5, 11=5.0, 12=5.5, 13=6.0, 14=7.0, 15=8.0) [7] reserved bit. Note that for current SD Cards that field must be always 0 0110 010 which is equal to 25MHz.
+    unsigned                        command_classes:12;                 // The Card Command Class (CCC) defines which command classes are supported by this card. ([0] 1=Class 0 supported / 0=Class 0 not supported, .. , [11] 1=Class 11 supported / 0= Class 11 not supported).
+    unsigned                        max_read_data_block_length:4;       // The maximum read data block length is computed as pow(2, value) (0-8 & 12-15=reserved, 9=pow(2, 9)=512 bytes ...).
+    unsigned                        read_block_partial:1;               // Always '1'.
+    unsigned                        write_block_misalignement:1;        // Defines if the data block to be written by one command can be spread over more than one physical block of the memory device. The size of the memory block is defined in "max_write_data_block_length" (0=invalid, 1=allowed).
+    unsigned                        read_block_misalignement:1;         // Defines if the data block to be read by one command can be spread over more than one physical block of the memory device. The size of the memory block is defined in "max_read_data_block_length" (0=invalid, 1=allowed).
+    unsigned                        dsr_implemented:1;                  // Defines if the configurable driver stage is integrated on the card.
+    unsigned                        device_size:12;                     // This parameter is used to compute the user?s data card capacity (not include the security protected area). The memory capacity of the card is computed from the entries "device_size", "device_size_mult" and "max_read_data_block_length" as follows: 
+                                                                        // Memory capacity = BLOCKNR * BLOCK_LEN 
+                                                                        //      BLOCKNR = (device_size + 1) * MULT
+                                                                        //      MULT = pow(2, device_size_mult + 2)
+                                                                        //      BLOCK_LEN = pow(2, max_read_data_block_length)
+    unsigned                        max_read_current_at_vdd_min:3;      // The maximum values for read and write currents at the minimal power supply VDD are coded as follows: [2:0] value (0=0.5mA, 1=1mA, 2=5mA, 3=10mA, 4=25mA, 5=35mA, 6=60mA, 7=100mA)
+    unsigned                        max_read_current_at_vdd_max:3;      // The maximum values for read and write currents at the maximal power supply VDD are coded as follows: [2:0] value (0=1mA, 1=5mA, 2=10mA, 3=25mA, 4=35mA, 5=45mA, 6=80mA, 7=200mA)
+    unsigned                        max_write_current_at_vdd_min:3;
+    unsigned                        max_write_current_at_vdd_max:3;
+    unsigned                        device_size_mult:3;                 // The factor MULT is defined as pow(2, device_size_mult + 2).
+    unsigned                        erase_single_block_enable:1;        // If "erase_single_block_enable" = ?0?, the host can erase one or multiple units of SECTOR_SIZE. The erase will start from the
+                                                                        // beginning of the sector that contains the start address to the end of the sector that contains the end address. For
+                                                                        // example, if SECTOR_SIZE=31 and the host sets the Erase Start Address to 5 and the Erase End Address to 40. 
+                                                                        // If "erase_single_block_enable" = ?1? the host can erase one or multiple units of 512 bytes. All blocks that contain data from start
+                                                                        // address to end address are erased. For example, if the host sets the Erase Start Address to 5 and the Erase End
+                                                                        // Address to 40. 
+    unsigned                        erase_sector_size:7;                // The size of an erasable sector. The contents of this register is a 7 bit binary coded value, defining the number of write blocks (see "max_write_data_block_length"). The actual size is computed by increasing this number by one. A value of zero means 1 write block, 127 means 128 write blocks. 
+    unsigned                        write_protect_group_size:7;         // The size of a write protected group. The contents of this register is a 7 bit binary coded value, defining the number of erase sectors (see "erase_sector_size"). The actual size is computed by increasing this number by one. A value of zero means 1 erase sector, 127 means 128 erase sectors. 
+    unsigned                        write_protect_group_enable:1;       // A value of ?0? means no group write protection possible. 
+    unsigned                        write_speed_factor:3;               // Defines the typical block program time as a multiple of the read access time.
+    unsigned                        max_write_data_block_length:4;      // The maximum write data block length is computed as pow(2, max_write_data_block_length). The maximum block length might therefore be in the range from 512 up to 2048 bytes. Write Block Length of 512 bytes is always supported. Note that in SD Memory Card the WRITE_BL_LEN is always equal to READ_BL_LEN.
+    unsigned                        write_partial_blocks_enable:1;
+    unsigned                        file_format_group:1;                // Indicates the selected group of file formats. 
+    unsigned                        copy_flag:1;
+    unsigned                        permanent_write_protection:1;       // Permanently protects the whole card content against overwriting or erasing (all write and erase commands for this card are permanently disabled). The default value is ?0?, i.e. not permanently write protected. 
+    unsigned                        temporary_write_protection:1;       // Temporarily protects the whole card content from being overwritten or erased (all write and erase commands for this card are temporarily disabled). This bit can be set and reset. The default value is ?0?, i.e. not write protected. 
+    unsigned                        file_format:2;                      // Indicates the file format on the card. This field is read-only for ROM. 
+                                                                        // If "file_format_group = 1" then values 0..3 are reserved
+                                                                        // If "file_format_group = 0" then (0=Hard disk-like file system with partition table, 1=DOS FAT (floppy-like) with boost sector only (no partition table), 2=Universal File Format, 3=Others / Unknown).
+    unsigned                        crc:7;                              // A 7 bit CRC (bit 0 always '1').
+} sd_card_command_csd_t;
+
 typedef union 
 {
     struct 
@@ -133,50 +196,11 @@ typedef union
 
 typedef struct
 {
-    uint8_t                         manufacturer_id;
-    uint16_t                        oem_id;
-    char                            product_name[5];
-    uint8_t                         product_revision;
-    uint32_t                        serial_number;
-    uint16_t                        manufacturer_data_code;
-} sd_card_command_cid_t;
-
-typedef struct
-{
-    uint8_t                         manufacturer_id;
-} sd_card_command_csd_t;
-
-typedef struct
-{
     bool                            is_response_returned;
     sd_card_command_R1_response_t   R1;
     sd_card_command_R3_response_t   R3;
     sd_card_command_R7_response_t   R7;
-    sd_card_command_cid_t           CID;
-    sd_card_command_csd_t           CSD;
 } sd_card_command_responses_t;
-
-#define SD_CARD_DATA_TOKEN          0xfe                                // DATA TOKEN for CMD9/10/17/18/19
-#define SD_CARD_ERROR_TOKEN_MASK    0x1f
-#define SD_CARD_DATA_BLOCK_LENGTH   514                                 // 512 bytes of usefull data + 2 CRC bytes
-#define SD_CARD_END_OF_DATA_BLOCK   0xaa55                              // 2 characters to ends a data packet (510 bytes + 2 characters byte EoP - End of Packet)
-#define SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET    0x1be
-
-typedef struct
-{
-    bool                            is_existing;                        //              true: if datas present / false: all is cleared (0x00)
-    uint8_t                         boot_descriptor;                    // [1 byte]     0x80: if active partition / 0x00 if inactive
-    uint32_t                        first_partition_sector;             // [3 bytes]    CHS address of first absolute sector in partition (ignore cos LBA used these days)
-    uint8_t                         file_system_descriptor;             // [1 byte]     0x04: 16-bit FAT < 32M / 0x06: 16-bit FAT >= 32M / 0x0e: DOS CHS mapped
-    uint32_t                        last_partition_sector;              // [3 bytes]    CHS address of last absolute sector in partition (ignore cos LBA used these days)
-    uint32_t                        first_sector_of_the_partition;      // [4 bytes]    Number of sector between the MBR (sector 0) and the first sector of the partition (called Boot Sector)
-    uint32_t                        number_of_sector_in_the_partition;  // [4 bytes]    Number of sector in the partition x 512 bytes per sector = total size of the partition (in bytes)
-} sd_card_partition_entry_t;
-
-typedef struct
-{
-    sd_card_partition_entry_t       partition_entry[4];
-} sd_card_master_boot_record_t;
 
 typedef struct
 {
@@ -189,10 +213,16 @@ typedef struct
     DMA_CHANNEL_TRANSFER            dma_rx_params;
     bool                            is_log_enable;
     
-    SD_CARD_VERSION                 card_version;          
+    SD_CARD_VERSION                 card_version;  
+    sd_card_command_cid_t           cid;
+    sd_card_command_csd_t           csd;
     sd_card_command_responses_t     response_command;
     
-    sd_card_master_boot_record_t    master_boot_record;
+    fat16_file_system_master_boot_record_t      master_boot_record;
+    fat16_file_system_boot_sector_t             boot_sector;
+    fat16_file_system_root_directory_t          root_directory;
+    fat16_file_system_entry_t                   *p_file[10];
+    uint8_t                                     number_of_file;
     
     uint8_t                         *_p_ram_tx;
     uint8_t                         *_p_ram_rx;
@@ -212,8 +242,14 @@ typedef struct
     .dma_rx_params = {NULL, _rx_buffer_ram, 1, 0, 1, 0xfffe},                                   \
     .is_log_enable = _enable_log,                                                               \
     .card_version = 0,                                                                          \
+    .cid = {0},                                                                                 \
+    .csd = {0},                                                                                 \
     .response_command = {0},                                                                    \
     .master_boot_record = {0},                                                                  \
+    .boot_sector = {0},                                                                         \
+    .root_directory = {0},                                                                      \
+    .p_file = {NULL},                                                                           \
+    .number_of_file = 0,                                                                        \
     ._p_ram_tx = _tx_buffer_ram,                                                                \
     ._p_ram_rx = _rx_buffer_ram,                                                                \
     ._flags = 0,                                                                                \
@@ -226,5 +262,6 @@ static uint8_t _name ## _rx_buffer_ram_allocation[1+2048+2];                    
 static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _enable_log, _name ## _tx_buffer_ram_allocation, _name ## _rx_buffer_ram_allocation)
 
 void sd_card_deamon(sd_card_params_t *var);
+void sd_card_open(sd_card_params_t *var, fat16_file_system_entry_t *file);
 
 #endif

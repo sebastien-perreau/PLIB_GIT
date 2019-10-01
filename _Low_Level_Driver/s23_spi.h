@@ -255,7 +255,7 @@ void spi_init(SPI_MODULE id, spi_event_handler_t evt_handler, IRQ_EVENT_TYPE eve
 void spi_enable(SPI_MODULE id, bool enable);
 void spi_set_mode(SPI_MODULE mSpiModule, SPI_CONFIG mode);
 void spi_set_frequency(SPI_MODULE id, uint32_t freq_hz);
-bool spi_write_and_read(SPI_MODULE id, uint32_t data_w, uint32_t * data_r);
+bool spi_write_and_read_8(SPI_MODULE id, uint32_t data_w, uint8_t * data_r);
 
 
 BOOL SPIWriteAndStore(SPI_MODULE mSpiModule, _IO chip_select, uint32_t txData, uint32_t* rxData, bool releaseChipSelect);

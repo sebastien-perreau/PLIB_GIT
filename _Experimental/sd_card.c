@@ -8,7 +8,13 @@
 *   ------------ 
 *********************************************************************/
 
+#include <string.h>
+
 #include "../PLIB.h"
+
+#define sd_card_get_cid(var)                    sd_card_get_packet(var, SD_CARD_CMD_10, 0x00000000, SD_CARD_RET_R1, SD_CARD_CID_LENGTH)
+#define sd_card_get_csd(var)                    sd_card_get_packet(var, SD_CARD_CMD_9, 0x00000000, SD_CARD_RET_R1, SD_CARD_CSD_LENGTH)
+#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (sector * 512), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
 
 static uint8_t sd_card_crc7(uint8_t *buffer, uint8_t length)
 {
@@ -28,12 +34,338 @@ static uint8_t sd_card_crc7(uint8_t *buffer, uint8_t length)
 	return (crc | 0x01);
 }
 
+static void _sort_data_array_to_cid_structure(sd_card_params_t *var)
+{
+    var->cid.manufacturer_id = var->_p_ram_rx[0];
+    var->cid.oem_id[0] = var->_p_ram_rx[1];
+    var->cid.oem_id[1] = var->_p_ram_rx[2];
+    var->cid.product_name[0] = var->_p_ram_rx[3];
+    var->cid.product_name[1] = var->_p_ram_rx[4];
+    var->cid.product_name[2] = var->_p_ram_rx[5];
+    var->cid.product_name[3] = var->_p_ram_rx[6];
+    var->cid.product_name[4] = var->_p_ram_rx[7];
+    var->cid.product_revision = var->_p_ram_rx[8];
+    var->cid.serial_number = (uint32_t) ((var->_p_ram_rx[9] << 24) | (var->_p_ram_rx[10] << 16) | (var->_p_ram_rx[11] << 8) | (var->_p_ram_rx[12] << 0));
+    var->cid.manufacturer_data_code = (uint16_t) ((var->_p_ram_rx[13] << 8) | (var->_p_ram_rx[14] << 0)) & 0x0fff;
+    var->cid.crc = (var->_p_ram_rx[15] >> 1) & 0x7f;
+
+    if (var->is_log_enable) 
+    { 
+        LOG_BLANCK("\nSD Card get Identifications (CID):\n    Manufacturer ID: %2x", var->cid.manufacturer_id); 
+        LOG_BLANCK("    OEM ID: %s", p_string(var->cid.oem_id)); 
+        LOG_BLANCK("    Product Name: %s", p_string(var->cid.product_name)); 
+        LOG_BLANCK("    Product Revision: %2d.%2d", ((var->cid.product_revision >> 4) & 0x0f), ((var->cid.product_revision >> 0) & 0x0f));
+        LOG_BLANCK("    Serial Number: %8x", var->cid.serial_number); 
+        LOG_BLANCK("    Manufacturer Data Code: %2d/%4d", (var->cid.manufacturer_data_code >> 0)&0x0f, (((var->cid.manufacturer_data_code >> 4) & 0xff) + 2000)); 
+    }
+}
+
+static void _sort_data_array_to_csd_structure(sd_card_params_t *var)
+{
+    var->csd.csd_structure = (var->_p_ram_rx[0] >> 6) & 0x03;
+    var->csd.taac = var->_p_ram_rx[1];
+    var->csd.nsac = var->_p_ram_rx[2];
+    var->csd.transfer_rate = var->_p_ram_rx[3];
+    var->csd.command_classes = (var->_p_ram_rx[4] << 4) | ((var->_p_ram_rx[5] >> 4) & 0x0f);
+    var->csd.max_read_data_block_length = (var->_p_ram_rx[5] & 0x0f);  
+    var->csd.read_block_partial = GET_BIT(var->_p_ram_rx[6], 7);
+    var->csd.write_block_misalignement = GET_BIT(var->_p_ram_rx[6], 6);
+    var->csd.read_block_misalignement = GET_BIT(var->_p_ram_rx[6], 5);
+    var->csd.dsr_implemented = GET_BIT(var->_p_ram_rx[6], 4);
+    var->csd.device_size = ((var->_p_ram_rx[6] & 0x03) << 10) | (var->_p_ram_rx[7] << 2) | ((var->_p_ram_rx[8] >> 6) & 0x03);
+    var->csd.max_read_current_at_vdd_min = ((var->_p_ram_rx[8] >> 3) & 0x07);
+    var->csd.max_read_current_at_vdd_max = ((var->_p_ram_rx[8] >> 0) & 0x07);
+    var->csd.max_write_current_at_vdd_min = ((var->_p_ram_rx[9] >> 5) & 0x07);
+    var->csd.max_write_current_at_vdd_max = ((var->_p_ram_rx[9] >> 2) & 0x07);    
+    var->csd.device_size_mult = ((var->_p_ram_rx[9] & 0x03) << 1) | ((var->_p_ram_rx[10] & 0x80) >> 7);    
+    var->csd.erase_single_block_enable = GET_BIT(var->_p_ram_rx[10], 6);
+    var->csd.erase_sector_size = ((var->_p_ram_rx[10] & 0x3f) << 1) | ((var->_p_ram_rx[11] & 0x80) >> 7);
+    var->csd.write_protect_group_size = (var->_p_ram_rx[11] & 0x7f);
+    var->csd.write_protect_group_enable = GET_BIT(var->_p_ram_rx[12], 7);
+    var->csd.write_speed_factor = ((var->_p_ram_rx[12] >> 2) & 0x07);    
+    var->csd.max_write_data_block_length = ((var->_p_ram_rx[12] & 0x03) << 2) | ((var->_p_ram_rx[13] & 0xc0) >> 6);    
+    var->csd.write_partial_blocks_enable = GET_BIT(var->_p_ram_rx[13], 5);
+    var->csd.file_format_group = GET_BIT(var->_p_ram_rx[14], 7);
+    var->csd.copy_flag = GET_BIT(var->_p_ram_rx[14], 6);
+    var->csd.permanent_write_protection = GET_BIT(var->_p_ram_rx[14], 5);
+    var->csd.temporary_write_protection = GET_BIT(var->_p_ram_rx[14], 4);
+    var->csd.file_format = (var->_p_ram_rx[14] >> 2) & 0x03;
+    var->csd.crc = (var->_p_ram_rx[15] >> 1) & 0x7f;
+
+    if (var->is_log_enable) 
+    { 
+        LOG_BLANCK("\nSD Card get Specific Data (CSD):\n    TAAC (time unit = %d / time value = %d) - NSAC (%d)", (var->csd.taac & 0x03), ((var->csd.taac >> 3) & 0x0f), var->csd.nsac);        
+        LOG_BLANCK("    Transfer Rate: time unit = %d / time value = %d (always tu=2 and tv = 6 to give 25MHz)", (var->csd.transfer_rate & 0x03), ((var->csd.transfer_rate >> 3) & 0x0f));
+        LOG_BLANCK("    Command Classes (CCC): %12b", var->csd.command_classes);
+        LOG_BLANCK("    Maximum Read Data Block Length: %d bytes", pow(2, var->csd.max_read_data_block_length));
+        LOG_BLANCK("    Maximum Write Data Block Length: %d bytes", pow(2, var->csd.max_write_data_block_length));
+        LOG_BLANCK("    Memory Capacity (without protected security area): %d MB", (var->csd.device_size + 1) * (pow(2, var->csd.device_size_mult + 2)) / 1024 * pow(2, var->csd.max_read_data_block_length) / 1024);
+        LOG_BLANCK("    Max. Read / Write Current @Vdd min: %d / %d and @Vdd max: %d / %d", var->csd.max_read_current_at_vdd_min, var->csd.max_write_current_at_vdd_min, var->csd.max_read_current_at_vdd_max, var->csd.max_write_current_at_vdd_max);        
+        LOG_BLANCK("    Erase Single Block Enable: %d - Erase Sector Size: %d write blocks", var->csd.erase_single_block_enable, (var->csd.erase_sector_size + 1));        
+        LOG_BLANCK("    File Format Group: %d / File Format: %d", var->csd.file_format_group, var->csd.file_format);
+    }
+}
+
+static void _sort_data_array_to_master_boot_record_structure(sd_card_params_t *var)
+{
+    uint16_t end_of_data_block = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
+    if (end_of_data_block == SD_CARD_END_OF_DATA_BLOCK)
+    {
+        uint8_t i;
+        for (i = 0 ; i < 4 ; i++)
+        {
+            var->master_boot_record.partition_entry[i].boot_descriptor = var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 0];
+            var->master_boot_record.partition_entry[i].first_partition_sector = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 1] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 2] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 3] << 16);    
+            var->master_boot_record.partition_entry[i].file_system_descriptor = var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 4];
+            var->master_boot_record.partition_entry[i].last_partition_sector = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 5] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 6] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 7] << 16);   
+            var->master_boot_record.partition_entry[i].first_sector_of_the_partition = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 8] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 9] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 10] << 16) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 11] << 24);    
+            var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 12] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 13] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 14] << 16) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 15] << 24);    
+            var->master_boot_record.partition_entry[i].is_existing = (var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition > 0) ? true : false;        
+
+            if (var->is_log_enable)
+            {
+                if (var->master_boot_record.partition_entry[i].is_existing)
+                {
+                    LOG_BLANCK("\nPartition %d entry:", i);
+                    LOG_BLANCK("    Boot descriptor: %2x", var->master_boot_record.partition_entry[i].boot_descriptor);
+                    LOG_BLANCK("    First Partition Sector: %6x", var->master_boot_record.partition_entry[i].first_partition_sector);
+                    switch (var->master_boot_record.partition_entry[i].file_system_descriptor)
+                    {
+                        case 0x04:
+                            LOG_BLANCK("    File System Descriptor: 16-bit FAT < 32M");
+                            break;
+
+                        case 0x06:
+                            LOG_BLANCK("    File System Descriptor: 16-bit FAT >= 32M");
+                            break;
+
+                        case 0x0e:
+                            LOG_BLANCK("    File System Descriptor: DOS CHS mapped");
+                            break;
+
+                        default:
+                            LOG_BLANCK("    File System Descriptor: %2x", var->master_boot_record.partition_entry[i].file_system_descriptor);
+                            break;
+                    }
+                    LOG_BLANCK("    Last Partition Sector: %6x", var->master_boot_record.partition_entry[i].last_partition_sector);
+                    LOG_BLANCK("    First Sector Of The Partition (Boot Sector): %d", var->master_boot_record.partition_entry[i].first_sector_of_the_partition);
+                    LOG_BLANCK("    Number Of Sector In The Partition: %d", var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition);                    
+                }
+                else
+                {
+                    LOG_BLANCK("Partition %d entry not existing...", i);
+                }
+            }
+        }    
+    }
+    else
+    {
+        if (var->is_log_enable)
+        {
+            LOG_BLANCK("Read Master Boot Record Fail (0xAA55 mismatch)");
+        }
+    }
+}
+
+static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
+{
+    uint16_t end_of_data_block = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
+    if (end_of_data_block == SD_CARD_END_OF_DATA_BLOCK)
+    {
+        var->boot_sector.jump_command = (var->_p_ram_rx[0] << 0) | (var->_p_ram_rx[1] << 8) | (var->_p_ram_rx[2] << 16);
+        memcpy((void *) &var->boot_sector.oem_name, &var->_p_ram_rx[3], 8);
+        var->boot_sector.bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
+        var->boot_sector.sectors_per_cluster = var->_p_ram_rx[13];
+        var->boot_sector.total_number_of_reserved_sectors = (var->_p_ram_rx[14] << 0) | (var->_p_ram_rx[15] << 8);
+        var->boot_sector.number_of_file_allocation_tables = var->_p_ram_rx[16];
+        var->boot_sector.number_of_possible_root_directory_entries = (var->_p_ram_rx[17] << 0) | (var->_p_ram_rx[18] << 8);
+        var->boot_sector.small_number_of_sectors = (var->_p_ram_rx[19] << 0) | (var->_p_ram_rx[20] << 8);
+        var->boot_sector.large_number_of_sectors = (var->_p_ram_rx[32] << 0) | (var->_p_ram_rx[33] << 8) | (var->_p_ram_rx[34] << 16) | (var->_p_ram_rx[35] << 24);
+        var->boot_sector.media_descriptor = var->_p_ram_rx[21];
+        var->boot_sector.number_of_sectors_per_fat = (var->_p_ram_rx[22] << 0) | (var->_p_ram_rx[23] << 8);
+        var->boot_sector.sectors_per_track = (var->_p_ram_rx[24] << 0) | (var->_p_ram_rx[25] << 8);
+        var->boot_sector.number_of_heads = (var->_p_ram_rx[26] << 0) | (var->_p_ram_rx[27] << 8);
+        var->boot_sector.number_of_hidden_sectors = (var->_p_ram_rx[28] << 0) | (var->_p_ram_rx[29] << 8) | (var->_p_ram_rx[30] << 16) | (var->_p_ram_rx[31] << 24);
+        var->boot_sector.physical_drive_number = var->_p_ram_rx[36];
+        var->boot_sector.current_head = var->_p_ram_rx[37];
+        var->boot_sector.boot_signature = var->_p_ram_rx[38];
+        var->boot_sector.volume_id = (var->_p_ram_rx[39] << 0) | (var->_p_ram_rx[40] << 8) | (var->_p_ram_rx[41] << 16) | (var->_p_ram_rx[42] << 24);
+        memcpy((void *) &var->boot_sector.volume_label, &var->_p_ram_rx[43], 11);
+        memcpy((void *) &var->boot_sector.file_system_type, &var->_p_ram_rx[54], 8);
+        
+        var->boot_sector.start_root_directory_sector = var->master_boot_record.partition_entry[0].first_sector_of_the_partition + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat) + 1;
+        
+        if (var->is_log_enable)
+        {
+            LOG_BLANCK("\nBoot Sector (%d) Partition 0:", var->master_boot_record.partition_entry[0].first_sector_of_the_partition);
+            LOG_BLANCK("    Capacity Of The Partition: %d MB", ((var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors)/1024*var->boot_sector.bytes_per_sector/1024);
+            LOG_BLANCK("    Jump Command: %6x", var->boot_sector.jump_command);
+            LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", (var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors, var->boot_sector.bytes_per_sector, var->boot_sector.sectors_per_cluster, var->boot_sector.sectors_per_track, var->boot_sector.total_number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
+            LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT) - %d Possible Root Directory Entries", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat, var->boot_sector.number_of_possible_root_directory_entries);
+            LOG_BLANCK("    Media Descriptor: %x - Number of Heads: %d (Current Head: %d) - Physical Drive Number: %x", var->boot_sector.media_descriptor, var->boot_sector.number_of_heads, var->boot_sector.current_head, var->boot_sector.physical_drive_number);
+            LOG_BLANCK("    Boot Signature: %2x - Volume ID: %8x", var->boot_sector.boot_signature, var->boot_sector.volume_id);
+            LOG_BLANCK("    OEM Name: %s - Volume Label: %s", p_string(var->boot_sector.oem_name), p_string(var->boot_sector.volume_label));            
+            LOG_BLANCK("    File System Type: %s", p_string(var->boot_sector.file_system_type));
+        }  
+    }
+    else
+    {
+        if (var->is_log_enable)
+        {
+            LOG_BLANCK("Boot Sector Fail (0xAA55 mismatch)");
+        }
+    }    
+}
+
+static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
+{
+    uint8_t i, j;
+    uint8_t index_entry = 0;    
+    uint8_t first_byte = 0;
+    uint8_t file_attributes = 0;
+    static uint8_t long_file_name_number_of_entry = 0;
+    
+    while (1)
+    {
+        first_byte = var->_p_ram_rx[index_entry * 32];
+        file_attributes = var->_p_ram_rx[index_entry * 32 + 0x0b];
+        
+        if (first_byte != 0x00)
+        {
+            if (first_byte != 0xe5)
+            {             
+                if (file_attributes != FAT16_FILE_SYSTEME_FA_LFN)    
+                {
+                    if (long_file_name_number_of_entry > 0)
+                    {
+                        // Long File Name
+                        if (!(file_attributes & FAT16_FILE_SYSTEME_FA_DIRECTORY))
+                        {
+                            uint8_t k = 0;
+                            uint8_t tab_offset[] = {1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30};                            
+                            for (i = 1 ; i <= long_file_name_number_of_entry ; i++)
+                            {
+                                for (j = 0 ; j < 13 ; j++)
+                                {
+                                    uint8_t character = var->_p_ram_rx[index_entry * 32 - i * 32 + tab_offset[j]];
+                                    
+                                    if (character == 0)
+                                    {
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        var->root_directory.file_name[var->root_directory.number_of_file_found][k++] = character;
+                                    }
+                                }                                
+                            }
+                            var->root_directory.number_of_file_found++;
+                            
+                            for (j = 0 ; j < var->number_of_file ; j++)
+                            {
+                                if (!strcmp(&var->root_directory.file_name[var->root_directory.number_of_file_found - 1][0], &var->p_file[j]->file_name[0]))
+                                {
+                                    var->p_file[j]->is_found = true;
+                                    var->p_file[j]->file_attributes = file_attributes;
+                                    var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
+                                    var->p_file[j]->creation_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
+                                    var->p_file[j]->creation_date = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
+                                    var->p_file[j]->last_access_date = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
+                                    var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
+                                    var->p_file[j]->last_update_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
+                                    var->p_file[j]->last_update_date = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
+                                    var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
+                                    var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
+                                }
+                            }
+                        }
+                        long_file_name_number_of_entry = 0;
+                    }
+                    else
+                    {
+                        if (!(file_attributes & FAT16_FILE_SYSTEME_FA_DIRECTORY))
+                        {
+                            // Standard name 8.3                                         
+
+                            /*  Get Name without space between 'name' and extension and remove space in extension if extension_length < 3 chars (example: "MOVIE   IO " becomes "MOVIE.IO"
+                                Set all characters to lower case "MOVIE.IO" becomes "movie.io"*/
+                            for (i = 7 ; i > 0 ; i--)
+                            {
+                                if (var->_p_ram_rx[index_entry * 32 + i] != ' ')
+                                {
+                                    break;
+                                }
+                            }
+                            for (j = 0 ; j <= i ; j++)
+                            {
+                                var->root_directory.file_name[var->root_directory.number_of_file_found][j] = var->_p_ram_rx[index_entry * 32 + j];
+                                var->root_directory.file_name[var->root_directory.number_of_file_found][j] = ((var->root_directory.file_name[var->root_directory.number_of_file_found][j] >= 65) && (var->root_directory.file_name[var->root_directory.number_of_file_found][j] <= 90)) ? (var->root_directory.file_name[var->root_directory.number_of_file_found][j] + 32) : var->root_directory.file_name[var->root_directory.number_of_file_found][j];
+                            }
+                            var->root_directory.file_name[var->root_directory.number_of_file_found][j] = '.';
+                            for (i = 0 ; i < 3 ; i++)
+                            {
+                                if (var->_p_ram_rx[index_entry * 32 + 8 + i] != ' ')
+                                {
+                                    var->root_directory.file_name[var->root_directory.number_of_file_found][++j] = var->_p_ram_rx[index_entry * 32 + 8 + i];
+                                    var->root_directory.file_name[var->root_directory.number_of_file_found][j] = ((var->root_directory.file_name[var->root_directory.number_of_file_found][j] >= 65) && (var->root_directory.file_name[var->root_directory.number_of_file_found][j] <= 90)) ? (var->root_directory.file_name[var->root_directory.number_of_file_found][j] + 32) : var->root_directory.file_name[var->root_directory.number_of_file_found][j];
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }                                                
+                            var->root_directory.number_of_file_found++;
+                            
+                            for (j = 0 ; j < var->number_of_file ; j++)
+                            {
+                                if (!strcmp(&var->root_directory.file_name[var->root_directory.number_of_file_found - 1][0], &var->p_file[j]->file_name[0]))
+                                {
+                                    var->p_file[j]->is_found = true;
+                                    var->p_file[j]->file_attributes = file_attributes;
+                                    var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
+                                    var->p_file[j]->creation_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
+                                    var->p_file[j]->creation_date = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
+                                    var->p_file[j]->last_access_date = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
+                                    var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
+                                    var->p_file[j]->last_update_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
+                                    var->p_file[j]->last_update_date = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
+                                    var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
+                                    var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
+                                }
+                            }
+                        }
+                    }                    
+                }
+                else if (GET_BIT(first_byte, 6))
+                {
+                    // Long File Name detected (get the number of entry useful - start with 0x4...)
+                    long_file_name_number_of_entry = first_byte & 0x0f;
+                    if (long_file_name_number_of_entry + index_entry > 16)
+                    {
+                        // Next of LFN data in next sector !!!!!!!!!!!!
+                    }
+                }
+            }
+
+            if (++index_entry >= 16)
+            {
+                index_entry = 0;                
+                return 1;
+            }           
+        }
+        else
+        {
+            return 0;
+        }
+    }
+}
+
 static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE cde_type, uint32_t args, SD_CARD_RESPONSE_COMMAND ret, SPI_CS_CDE cs_at_begining_of_transmission, SPI_CS_CDE cs_at_end_of_transmission)
 {
     static enum _functionState
     {
         SM_FREE = 0,
-        SM_WAIT_FULL_RECEPTION
+        SM_GET_RESPONSE     
     } functionState = 0;    
     
     switch (functionState)
@@ -50,7 +382,8 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
             }
             
             var->response_command.is_response_returned = false;
-            var->dma_tx_params.src_size = (6 + 8 + (ret & 0x1f));
+            
+            var->dma_tx_params.src_size = 6;
             var->dma_rx_params.dst_size = var->dma_tx_params.src_size;
             
             memset((void *) var->_p_ram_tx, 0xff, var->dma_tx_params.src_size);
@@ -63,77 +396,74 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
             
             dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, false);
             dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, true, false);
-            functionState++;
+            functionState = SM_GET_RESPONSE;
             break;
             
-        case SM_WAIT_FULL_RECEPTION:
+        case SM_GET_RESPONSE:
             
             if ((dma_get_flags(var->dma_rx_id) & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
             {
-                dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE);                                               
+                dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE);  
                 
-                uint8_t i;
-                for (i = 6 ; i < var->dma_rx_params.dst_size ; i++)
+                uint8_t number_of_retransmission = 8;
+                
+                do
                 {
-                    if (var->_p_ram_rx[i] != 0xff)
+                    if (!spi_write_and_read_8(var->spi_id, 0xff, var->_p_ram_rx))
                     {
-                        var->response_command.R1.value = var->_p_ram_rx[i];
-                        var->response_command.is_response_returned = true;  
-                        if (ret == SD_CARD_RET_R3)
+                        if (var->_p_ram_rx[0] != 0xff)
                         {
-                            var->response_command.R3.value = (uint32_t) ((var->_p_ram_rx[i + 1] << 24) | (var->_p_ram_rx[i + 2] << 16) | (var->_p_ram_rx[i + 3] << 8) | (var->_p_ram_rx[i + 4] << 0));
-                        }
-                        else if (ret == SD_CARD_RET_R7)
-                        {
-                            var->response_command.R7.value = (uint32_t) ((var->_p_ram_rx[i + 1] << 24) | (var->_p_ram_rx[i + 2] << 16) | (var->_p_ram_rx[i + 3] << 8) | (var->_p_ram_rx[i + 4] << 0));
-                        }
-                        else if (ret == SD_CARD_RET_CID)
-                        {
-                            while (++i < var->dma_rx_params.dst_size)
+                            var->response_command.R1.value = var->_p_ram_rx[0];
+                            var->response_command.is_response_returned = true;  
+
+                            if (ret == SD_CARD_RET_R1B)
                             {
-                                // Search for "Start Token" character
-                                if (var->_p_ram_rx[i] == 0xfe)
+
+                            }
+                            else if (ret > SD_CARD_RET_R1B)
+                            {
+                                uint8_t i = 0;
+
+                                do
                                 {
-                                    // Get Data Packet (ignore Data CRC - 16 bit)
-                                    var->response_command.CID.manufacturer_id = var->_p_ram_rx[i + 1];
-                                    var->response_command.CID.oem_id = (uint16_t) ((var->_p_ram_rx[i + 2] << 8) | (var->_p_ram_rx[i + 3] << 0));
-                                    var->response_command.CID.product_name[0] = var->_p_ram_rx[i + 4];
-                                    var->response_command.CID.product_name[1] = var->_p_ram_rx[i + 5];
-                                    var->response_command.CID.product_name[2] = var->_p_ram_rx[i + 6];
-                                    var->response_command.CID.product_name[3] = var->_p_ram_rx[i + 7];
-                                    var->response_command.CID.product_name[4] = var->_p_ram_rx[i + 8];
-                                    var->response_command.CID.product_revision = var->_p_ram_rx[i + 9];
-                                    var->response_command.CID.serial_number = (uint32_t) ((var->_p_ram_rx[i + 10] << 24) | (var->_p_ram_rx[i + 11] << 16) | (var->_p_ram_rx[i + 12] << 8) | (var->_p_ram_rx[i + 13] << 0));
-                                    var->response_command.CID.manufacturer_data_code = (uint16_t) ((var->_p_ram_rx[i + 14] << 8) | (var->_p_ram_rx[i + 15] << 0)) & 0x0fff;
-                                    break;
+                                    if (!spi_write_and_read_8(var->spi_id, 0xff, &var->_p_ram_rx[i]))
+                                    {
+                                        i++;
+                                    }
+                                }
+                                while (i < 4);
+
+                                if (ret == SD_CARD_RET_R3)
+                                {
+                                    var->response_command.R3.value = (uint32_t) ((var->_p_ram_rx[0] << 24) | (var->_p_ram_rx[1] << 16) | (var->_p_ram_rx[2] << 8) | (var->_p_ram_rx[3] << 0));
+                                }
+                                else if (ret == SD_CARD_RET_R7)
+                                {
+                                    var->response_command.R7.value = (uint32_t) ((var->_p_ram_rx[0] << 24) | (var->_p_ram_rx[1] << 16) | (var->_p_ram_rx[2] << 8) | (var->_p_ram_rx[3] << 0));
                                 }
                             }
-                        }
-                        else if (ret == SD_CARD_RET_CSD)
-                        {
-                            while (++i < var->dma_rx_params.dst_size)
+
+                            if (cs_at_end_of_transmission == SPI_CS_SET)
                             {
-                                // Search for "Start Token" character
-                                if (var->_p_ram_rx[i] == 0xfe)
-                                {
-                                    // Get Data Packet (ignore Data CRC - 16 bit)
-                                    break;
-                                }
+                                ports_set_bit(var->spi_cs);
                             }
+                            else if (cs_at_end_of_transmission == SPI_CS_CLR)
+                            {
+                                ports_clr_bit(var->spi_cs);
+                            }
+                            functionState = SM_FREE;
+                            break;
                         }
-                        break;                        
+                        else
+                        {
+                            number_of_retransmission--;
+                        }
                     }
                 }
+                while (number_of_retransmission > 0);
                 
-                if (cs_at_end_of_transmission == SPI_CS_SET)
-                {
-                    ports_set_bit(var->spi_cs);
-                }
-                else if (cs_at_end_of_transmission == SPI_CS_CLR)
-                {
-                    ports_clr_bit(var->spi_cs);
-                }
                 functionState = SM_FREE;
+                
             }
             break;
     }
@@ -361,7 +691,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             
             if (!sd_card_send_command(var, SD_CARD_CMD_58, 0x00000000, SD_CARD_RET_R3, SPI_CS_DO_NOTHING, SPI_CS_DO_NOTHING))
             {                
-                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.illegal_command)
+                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_NORMAL_STATE) && var->response_command.is_response_returned)
                 {
                     if (var->response_command.R3.busy)
                     {
@@ -389,7 +719,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             // Set 512 bytes per sector (case if the SD card is Ver2.X SDSC - Standard Capacity or Ver1.X)
             if (!sd_card_send_command(var, SD_CARD_CMD_16, 0x00000200, SD_CARD_RET_R1, SPI_CS_DO_NOTHING, SPI_CS_DO_NOTHING))
             {
-                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.illegal_command)
+                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_NORMAL_STATE) && var->response_command.is_response_returned)
                 {
                     functionState = SM_CMD_59;
                 }
@@ -405,7 +735,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             // Disable CRC
             if (!sd_card_send_command(var, SD_CARD_CMD_59, 0x00000000, SD_CARD_RET_R1, SPI_CS_DO_NOTHING, SPI_CS_DO_NOTHING))
             {
-                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.illegal_command)
+                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_NORMAL_STATE) && var->response_command.is_response_returned)
                 {
                     functionState = SM_END_OF_INIT;
                 }
@@ -422,15 +752,15 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             {
                 if (var->card_version == SD_CARD_VER_1_X)
                 {
-                    LOG_BLANCK("SD Card version: Ver1.X SDSC (Standard Capacity)\nSD Card ready !\n");
+                    LOG_BLANCK("SD Card version: Ver1.X SDSC (Standard Capacity)\nSD Card is ready !");
                 }
                 else if (var->card_version == SD_CARD_VER_2_X_SDSC)
                 {
-                    LOG_BLANCK("SD Card version: Ver2.00 or upper - SDSC (Standard Capacity)\nSD Card ready !\n");
+                    LOG_BLANCK("SD Card version: Ver2.00 or upper - SDSC (Standard Capacity)\nSD Card is ready !");
                 }
                 else if (var->card_version == SD_CARD_VER_2_X_SDHC)
                 {
-                    LOG_BLANCK("SD Card version: Ver2.00 or upper - SDHC / SDXC (High or Extended Capacity)\nSD Card ready !\n");
+                    LOG_BLANCK("SD Card version: Ver2.00 or upper - SDHC / SDXC (High or Extended Capacity)\nSD Card is ready !");
                 }
             }
             functionState = SM_FREE;
@@ -443,6 +773,10 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             ports_set_bit(var->spi_cs);
             mUpdateTick(functionTick);
             functionState++;
+            if (var->is_log_enable) 
+            { 
+                LOG_BLANCK("    SD Card Fail: Retry..."); 
+            }
             break;
             
         default:
@@ -457,150 +791,12 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
     return functionState;
 }
 
-static uint8_t sd_card_get_cid(sd_card_params_t *var)
+static uint8_t sd_card_get_packet(sd_card_params_t *var, SD_CARD_COMMAND_TYPE cde_type, uint32_t args, SD_CARD_RESPONSE_COMMAND ret, uint16_t packet_length)
 {
     static enum _functionState
     {
         SM_FREE = 0,
-        SM_CMD_10,
-        SM_FAIL
-    } functionState = 0;
-    static uint64_t functionTick = 0;
-    static uint8_t fail_count = 0;
-    
-    switch (functionState)
-    {
-        case SM_FREE:      
-            
-            if (var->is_log_enable) 
-            { 
-                LOG_BLANCK("SD Card get Identifications (CID)..."); 
-            }
-            fail_count = 0;
-            functionState = SM_CMD_10;   
-            
-        case SM_CMD_10:
-            
-            if (!sd_card_send_command(var, SD_CARD_CMD_10, 0x00000000, SD_CARD_RET_CID, SPI_CS_CLR, SPI_CS_SET))
-            {
-                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.idle_state)                
-                {
-                    if (var->is_log_enable) 
-                    { 
-                        LOG_BLANCK("    Manufacturer ID: %2x", var->response_command.CID.manufacturer_id); 
-                        LOG_BLANCK("    OEM ID: %4x", var->response_command.CID.oem_id); 
-                        LOG_BLANCK("    Product Name: %s", p_string(var->response_command.CID.product_name)); 
-                        LOG_BLANCK("    Product Revision: %2x", var->response_command.CID.product_revision); 
-                        LOG_BLANCK("    Serial Number: %8x", var->response_command.CID.serial_number); 
-                        LOG_BLANCK("    Manufacturer Data Code: %3x\n", var->response_command.CID.manufacturer_data_code); 
-                    }
-                    functionState = SM_FREE;
-                }
-                else
-                {
-                    functionState = SM_FAIL;
-                }
-            }
-            break;
-            
-        case SM_FAIL:
-            
-            if (++fail_count >= 10)
-            {
-                functionState = SM_FREE;
-                SET_BIT(var->_flags, SM_SD_CARD_INITIALIZATION);
-            }
-            else
-            {
-                mUpdateTick(functionTick);
-                functionState++;
-            }
-            break;
-            
-        default:
-            
-            if (mTickCompare(functionTick) >= TICK_1MS)
-            {
-                functionState = SM_CMD_10;
-            }
-            break;
-    }
-    
-    return functionState;
-}
-
-static uint8_t sd_card_get_csd(sd_card_params_t *var)
-{
-    static enum _functionState
-    {
-        SM_FREE = 0,
-        SM_CMD_9,
-        SM_FAIL
-    } functionState = 0;
-    static uint64_t functionTick = 0;
-    static uint8_t fail_count = 0;
-    
-    switch (functionState)
-    {
-        case SM_FREE:      
-            
-            if (var->is_log_enable) 
-            { 
-                LOG_BLANCK("SD Card get Specific Data (CSD)..."); 
-            }
-            fail_count = 0;
-            functionState = SM_CMD_9;   
-            
-        case SM_CMD_9:
-            
-            if (!sd_card_send_command(var, SD_CARD_CMD_9, 0x00000000, SD_CARD_RET_CSD, SPI_CS_CLR, SPI_CS_SET))
-            {
-                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.idle_state)                
-                {
-                    if (var->is_log_enable) 
-                    { 
-                    }
-                    functionState = SM_FREE;
-                }
-                else
-                {
-                    functionState = SM_FAIL;
-                }
-            }
-            break;
-            
-        case SM_FAIL:
-            
-            if (++fail_count >= 10)
-            {
-                functionState = SM_FREE;
-                SET_BIT(var->_flags, SM_SD_CARD_INITIALIZATION);
-            }
-            else
-            {
-                mUpdateTick(functionTick);
-                functionState++;
-            }
-            break;
-            
-        default:
-            
-            if (mTickCompare(functionTick) >= TICK_1MS)
-            {
-                functionState = SM_CMD_9;
-            }
-            break;
-    }
-    
-    return functionState;
-}
-
-static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
-{
-    static enum _functionState
-    {
-        SM_FREE = 0,
-        SM_CMD_17,
+        SM_CMD,
         SM_WAIT_START_TOKEN,
         SM_READ_DATA_PACKET,
         SM_FAIL
@@ -611,15 +807,15 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
     switch (functionState)
     {
         case SM_FREE:      
-                  
+            
             fail_count = 0;
-            functionState = SM_CMD_17;
+            functionState = SM_CMD;   
             
-        case SM_CMD_17:
+        case SM_CMD:
             
-            if (!sd_card_send_command(var, SD_CARD_CMD_17, sector * 512, SD_CARD_RET_R1, SPI_CS_CLR, SPI_CS_DO_NOTHING))
+            if (!sd_card_send_command(var, cde_type, args, ret, SPI_CS_CLR, SPI_CS_DO_NOTHING))
             {
-                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_ERRORS) && var->response_command.is_response_returned && !var->response_command.R1.illegal_command && !var->response_command.R1.idle_state)
+                if (!(var->response_command.R1.value & R1_RESPONSE_MASK_NORMAL_STATE) && var->response_command.is_response_returned)
                 {                    
                     functionState = SM_WAIT_START_TOKEN;
                 }
@@ -631,13 +827,14 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
             break;
             
         case SM_WAIT_START_TOKEN:
-            if (!spi_write_and_read(var->spi_id, 0xff, (uint32_t *) var->_p_ram_rx))
+            
+            if (!spi_write_and_read_8(var->spi_id, 0xff, var->_p_ram_rx))
             {
                 if (var->_p_ram_rx[0] == SD_CARD_DATA_TOKEN)
                 {
                     functionState = SM_READ_DATA_PACKET;
                 }
-                else if (!(var->_p_ram_rx[0] & SD_CARD_ERROR_TOKEN_MASK))
+                else if (!(var->_p_ram_rx[0] & SD_CARD_MASK_ERROR_TOKEN))
                 {
                     functionState = SM_FAIL;
                 }
@@ -646,17 +843,9 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
             
         case SM_READ_DATA_PACKET:
             
-            if (!sd_card_read(var, SD_CARD_DATA_BLOCK_LENGTH, SPI_CS_DO_NOTHING, SPI_CS_SET))
-            {                
-                uint16_t end_of_data_packet = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
-                if (end_of_data_packet == SD_CARD_END_OF_DATA_BLOCK)
-                {
-                    functionState = SM_FREE;
-                }
-                else
-                {
-                    functionState = SM_FAIL;
-                }
+            if (!sd_card_read(var, packet_length, SPI_CS_DO_NOTHING, SPI_CS_SET))
+            {      
+                functionState = SM_FREE;
             }
             break;
             
@@ -678,7 +867,7 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
             
             if (mTickCompare(functionTick) >= TICK_1MS)
             {
-                functionState = SM_CMD_17;
+                functionState = SM_CMD;
             }
             break;
     }
@@ -686,55 +875,68 @@ static uint8_t sd_card_read_single_block(sd_card_params_t *var, uint32_t sector)
     return functionState;
 }
 
-static void _sort_sector_to_master_boot_record(sd_card_params_t *var)
+static uint8_t sd_card_root_directory(sd_card_params_t *var)
 {
-    uint8_t i;
-    for (i = 0 ; i < 4 ; i++)
+    static enum _functionState
     {
-        var->master_boot_record.partition_entry[i].boot_descriptor = var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 0];
-        var->master_boot_record.partition_entry[i].first_partition_sector = (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 1] << 0) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 2] << 8) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 3] << 16);    
-        var->master_boot_record.partition_entry[i].file_system_descriptor = var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 4];
-        var->master_boot_record.partition_entry[i].last_partition_sector = (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 5] << 0) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 6] << 8) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 7] << 16);   
-        var->master_boot_record.partition_entry[i].first_sector_of_the_partition = (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 8] << 0) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 9] << 8) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 10] << 16) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 11] << 24);    
-        var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition = (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 12] << 0) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 13] << 8) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 14] << 16) | (var->_p_ram_rx[SD_CARD_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 15] << 24);    
-        var->master_boot_record.partition_entry[i].is_existing = (var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition > 0) ? true : false;        
+        SM_FREE = 0,
+        SM_GET_ROOT_DIRECTORY,
+        SM_GET_FAT
+    } functionState = 0;
+    static uint8_t index_current_sector = 0;
     
-        if (var->is_log_enable)
-        {
-            if (var->master_boot_record.partition_entry[i].is_existing)
+    switch (functionState)
+    {
+        case SM_FREE:      
+            
+            if (var->is_log_enable) 
+            { 
+                LOG_BLANCK("\nRoot Directories:"); 
+            }
+            functionState = SM_GET_ROOT_DIRECTORY;   
+            
+        case SM_GET_ROOT_DIRECTORY:
+            
+            if (!sd_card_read_single_block(var, (var->boot_sector.start_root_directory_sector + index_current_sector)))
             {
-                LOG_BLANCK("Partition %d entry:", i);
-                LOG_BLANCK("    Boot descriptor: %2x", var->master_boot_record.partition_entry[i].boot_descriptor);
-                LOG_BLANCK("    First Partition Sector: %6x", var->master_boot_record.partition_entry[i].first_partition_sector);
-                switch (var->master_boot_record.partition_entry[i].file_system_descriptor)
+                if (!_sort_data_array_to_root_directory_structure(var))
                 {
-                    case 0x04:
-                        LOG_BLANCK("    File System Descriptor: 16-bit FAT < 32M");
-                        break;
-                        
-                    case 0x06:
-                        LOG_BLANCK("    File System Descriptor: 16-bit FAT >= 32M");
-                        break;
-                        
-                    case 0x0e:
-                        LOG_BLANCK("    File System Descriptor: DOS CHS mapped");
-                        break;
-                        
-                    default:
-                        LOG_BLANCK("    File System Descriptor: %2x", var->master_boot_record.partition_entry[i].file_system_descriptor);
-                        break;
+                    uint8_t i;
+                    for (i = 0 ; i < var->root_directory.number_of_file_found ; i++)
+                    {
+                        if (var->is_log_enable) 
+                        {
+                            LOG_BLANCK("\\%s", p_string(&var->root_directory.file_name[i][0]));
+                        }
+                    }
+                    for (i = 0 ; i < var->number_of_file ; i++)
+                    {
+                        if (var->is_log_enable) 
+                        {
+                            if(var->p_file[i]->is_found)
+                            {
+                                LOG_BLANCK("\nFile open: %s", p_string(&var->p_file[i]->file_name));
+                            }
+                        }
+                    }
+                    functionState = SM_FREE;
                 }
-                LOG_BLANCK("    Last Partition Sector: %6x", var->master_boot_record.partition_entry[i].last_partition_sector);
-                LOG_BLANCK("    First Sector Of The Partition (Boot Sector): %d", var->master_boot_record.partition_entry[i].first_sector_of_the_partition);
-                LOG_BLANCK("    Number Of Sector In The Partition: %d", var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition);
-                LOG_BLANCK("    Capacity Of The Partition: %d MB\n", var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition/1024*512/1024);
+                else
+                {
+                    index_current_sector++;
+                }
             }
-            else
-            {
-                LOG_BLANCK("Partition %d entry not existing...", i);
-            }
-        }
-    }    
+            break;
+            
+        case SM_GET_FAT:
+            
+            break;
+            
+        default:
+            break;
+    }
+    
+    return functionState;
 }
 
 void sd_card_deamon(sd_card_params_t *var)
@@ -777,6 +979,11 @@ void sd_card_deamon(sd_card_params_t *var)
         
         SET_BIT(var->_flags, SM_SD_CARD_INITIALIZATION);        
         
+        if (var->is_log_enable)
+        {
+            LOG_BLANCK("PIC32 initialization done.");
+        }
+        
         var->is_init_done = true;
     }      
     
@@ -803,9 +1010,6 @@ void sd_card_deamon(sd_card_params_t *var)
                 SET_BIT(var->_flags, SM_SD_CARD_GET_CSD);
                 SET_BIT(var->_flags, SM_SD_CARD_MASTER_BOOT_RECORD);
                 SET_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
-                SET_BIT(var->_flags, SM_SD_CARD_FAT1);
-                SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
-                SET_BIT(var->_flags, SM_SD_CARD_DATA_SPACE);
                 var->_sm.index = SM_SD_CARD_HOME;   
             }
             break;
@@ -814,6 +1018,7 @@ void sd_card_deamon(sd_card_params_t *var)
             
             if (!sd_card_get_cid(var))
             {    
+                _sort_data_array_to_cid_structure(var);
                 CLR_BIT(var->_flags, SM_SD_CARD_GET_CID);
                 var->_sm.index = SM_SD_CARD_HOME;   
             }
@@ -822,7 +1027,8 @@ void sd_card_deamon(sd_card_params_t *var)
         case SM_SD_CARD_GET_CSD:
             
             if (!sd_card_get_csd(var))
-            {    
+            {            
+                _sort_data_array_to_csd_structure(var);
                 CLR_BIT(var->_flags, SM_SD_CARD_GET_CSD);
                 var->_sm.index = SM_SD_CARD_HOME;   
             }
@@ -832,8 +1038,7 @@ void sd_card_deamon(sd_card_params_t *var)
                     
             if (!sd_card_read_single_block(var, 0))
             {
-                _sort_sector_to_master_boot_record(var);
-                
+                _sort_data_array_to_master_boot_record_structure(var);                
                 CLR_BIT(var->_flags, SM_SD_CARD_MASTER_BOOT_RECORD);
                 var->_sm.index = SM_SD_CARD_HOME;
             }
@@ -845,16 +1050,28 @@ void sd_card_deamon(sd_card_params_t *var)
             {
                 if (!sd_card_read_single_block(var, var->master_boot_record.partition_entry[0].first_sector_of_the_partition))
                 {
+                    _sort_data_array_to_boot_sector_structure(var);
                     CLR_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
                     var->_sm.index = SM_SD_CARD_HOME;
                 }
             }
             break;
             
-        case SM_SD_CARD_FAT1:
-               
+        case SM_SD_CARD_ROOT_DIRECTORY:
+            
+            if (!sd_card_root_directory(var))
+            {               
+                CLR_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
+                var->_sm.index = SM_SD_CARD_HOME;
+            }
             break;
                         
     }
 }
 
+void sd_card_open(sd_card_params_t *var, fat16_file_system_entry_t *file)
+{
+    var->p_file[var->number_of_file] = file;
+    var->number_of_file++;
+    SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
+}
