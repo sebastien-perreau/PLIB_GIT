@@ -9,31 +9,59 @@ typedef enum
     FAT16_FILE_SYSTEME_FA_SYSTEM        = 0x04,
     FAT16_FILE_SYSTEME_FA_VOLUME_NAME   = 0x08,
     FAT16_FILE_SYSTEME_FA_DIRECTORY     = 0x10,
-    FAT16_FILE_SYSTEME_FA_ACHIEVE_FLAG  = 0x20
+    FAT16_FILE_SYSTEME_FA_ARCHIVE       = 0x20
 } FAT16_FILE_SYSTEM_FILE_ATTRIBUTES;
 
 typedef struct
 {
-    char                                file_name[50][36];              // Save the first 50 files/directories found
+    char                                file_name[50][36];              // Save the first 50 files found
     uint16_t                            number_of_file_found;           
 } fat16_file_system_root_directory_t;
+
+typedef union
+{
+    struct 
+    {
+        unsigned                        seconds:5;
+        unsigned                        minutes:6;
+        unsigned                        hours:5;
+    };
+    struct
+    {
+        uint16_t                        value;
+    };
+} fat16_file_system_time_t;
+
+typedef union
+{
+    struct 
+    {
+        unsigned                        day:5;
+        unsigned                        month:4;
+        unsigned                        year:7;
+    };
+    struct
+    {
+        uint16_t                        value;
+    };
+} fat16_file_system_date_t;
 
 typedef struct
 {
     char                                file_name[36];                  // File name and extension    
     FAT16_FILE_SYSTEM_FILE_ATTRIBUTES   file_attributes;
-    uint8_t                             creation_time_ms;
-    uint16_t                            creation_time_h_m_s;
-    uint16_t                            creation_date;
-    uint16_t                            last_access_date;
-    uint16_t                            extended_address_index;
-    uint16_t                            last_update_time_h_m_s;
-    uint16_t                            last_update_date;
-    uint16_t                            first_cluster_of_the_file;
-    uint32_t                            file_size;
+    uint8_t                             creation_time_ms;               // Due to size limitations this field (1 byte) only contains the millisecond stamp in counts of 10 milliseconds. Therefore valid values are between 0 and 199 inclusive.
+    fat16_file_system_time_t            creation_time_h_m_s;            // The 16 bit time field contain the time of day when this entry was created. hours (0..23) [15..11] minutes (0..59) [10..5] seconds (0..29) [4..0]
+    fat16_file_system_date_t            creation_date;                  // The 16 bit time field contain the time of day when this entry was created. year (0..127 -> 1980..2107) [15..9] month (1..12) [8..5] day (1..31) [4..0]
+    fat16_file_system_date_t            last_access_date;               // The 16 bit time field contain the time of day when this entry was created. year (0..127 -> 1980..2107) [15..9] month (1..12) [8..5] day (1..31) [4..0]
+    uint16_t                            extended_address_index;         // Reserved for fat32
+    fat16_file_system_time_t            last_update_time_h_m_s;         // The 16 bit time field contain the time of day when this entry was created. hours (0..23) [15..11] minutes (0..59) [10..5] seconds (0..29) [4..0]
+    fat16_file_system_date_t            last_update_date;               // The 16 bit time field contain the time of day when this entry was created. year (0..127 -> 1980..2107) [15..9] month (1..12) [8..5] day (1..31) [4..0]
+    uint16_t                            first_cluster_of_the_file;      // This 16-bit field points to the starting cluster number of entrys data. If the entry is a directory this entry point to the cluster which contain the beginning of the sub-directory. If the entry is a file then this entry point to the cluster holding the first chunk of data from the file.
+    uint32_t                            file_size;                      // This 32-bit field count the total file size in bytes. For this reason the file system driver must not allow more than 4 Gb to be allocated to a file. For other entries than files then file size field should be set to 0.
     
-    bool                                is_found;
-    DYNAMIC_TAB_WORD                    fat;
+    bool                                is_found;                       // This bit is set if the file is found on the SD Card
+    DYNAMIC_TAB_WORD                    fat;                            // Contains the File Allocation Table for the file
     
 } fat16_file_system_entry_t;
 
@@ -61,6 +89,7 @@ static fat16_file_system_entry_t _name = FAT16_FILE_SYSTEM_ENTRY_INSTANCE(_name,
 typedef struct
 {
     uint32_t                            start_root_directory_sector;                // Sector start: boot sector + (number of FAT x number of Sectors per FAT) + 1
+    uint32_t                            start_data_space_sector;                    // Sector start (= Cluster 2 because Cluster 0 and 1 are reserved): root directory + Number of possible root directory entries / 16 (16 is the number of root directory (32 bytes) per Sector)
     
     uint32_t                            jump_command;
     char                                oem_name[9];

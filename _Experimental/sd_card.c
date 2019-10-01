@@ -194,6 +194,7 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
         memcpy((void *) &var->boot_sector.file_system_type, &var->_p_ram_rx[54], 8);
         
         var->boot_sector.start_root_directory_sector = var->master_boot_record.partition_entry[0].first_sector_of_the_partition + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat) + 1;
+        var->boot_sector.start_data_space_sector = var->boot_sector.start_root_directory_sector + var->boot_sector.number_of_possible_root_directory_entries / 16;
         
         if (var->is_log_enable)
         {
@@ -224,6 +225,7 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
     uint8_t first_byte = 0;
     uint8_t file_attributes = 0;
     static uint8_t long_file_name_number_of_entry = 0;
+    static uint8_t copy_lfn_data_entry[32*3] = {0};
     
     while (1)
     {
@@ -247,7 +249,7 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
                             {
                                 for (j = 0 ; j < 13 ; j++)
                                 {
-                                    uint8_t character = var->_p_ram_rx[index_entry * 32 - i * 32 + tab_offset[j]];
+                                    uint8_t character = copy_lfn_data_entry[long_file_name_number_of_entry * 32 - i * 32 + tab_offset[j]];
                                     
                                     if (character == 0)
                                     {
@@ -268,12 +270,12 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
                                     var->p_file[j]->is_found = true;
                                     var->p_file[j]->file_attributes = file_attributes;
                                     var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
-                                    var->p_file[j]->creation_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
-                                    var->p_file[j]->creation_date = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
-                                    var->p_file[j]->last_access_date = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
+                                    var->p_file[j]->creation_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
+                                    var->p_file[j]->creation_date.value = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
+                                    var->p_file[j]->last_access_date.value = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
                                     var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
-                                    var->p_file[j]->last_update_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
-                                    var->p_file[j]->last_update_date = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
+                                    var->p_file[j]->last_update_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
+                                    var->p_file[j]->last_update_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
                                     var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
                                     var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
                                 }
@@ -323,12 +325,12 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
                                     var->p_file[j]->is_found = true;
                                     var->p_file[j]->file_attributes = file_attributes;
                                     var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
-                                    var->p_file[j]->creation_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
-                                    var->p_file[j]->creation_date = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
-                                    var->p_file[j]->last_access_date = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
+                                    var->p_file[j]->creation_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
+                                    var->p_file[j]->creation_date.value = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
+                                    var->p_file[j]->last_access_date.value = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
                                     var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
-                                    var->p_file[j]->last_update_time_h_m_s = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
-                                    var->p_file[j]->last_update_date = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
+                                    var->p_file[j]->last_update_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
+                                    var->p_file[j]->last_update_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
                                     var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
                                     var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
                                 }
@@ -336,14 +338,14 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
                         }
                     }                    
                 }
-                else if (GET_BIT(first_byte, 6))
+                else 
                 {
-                    // Long File Name detected (get the number of entry useful - start with 0x4...)
-                    long_file_name_number_of_entry = first_byte & 0x0f;
-                    if (long_file_name_number_of_entry + index_entry > 16)
+                    if (GET_BIT(first_byte, 6))
                     {
-                        // Next of LFN data in next sector !!!!!!!!!!!!
-                    }
+                        // Long File Name detected (get the number of entry useful - start with 0x4...)
+                        long_file_name_number_of_entry = first_byte & 0x0f;
+                    }    
+                    memcpy(&copy_lfn_data_entry[(long_file_name_number_of_entry - (first_byte & 0x0f)) * 32], &var->_p_ram_rx[index_entry * 32], 32);
                 }
             }
 
@@ -916,6 +918,12 @@ static uint8_t sd_card_root_directory(sd_card_params_t *var)
                             if(var->p_file[i]->is_found)
                             {
                                 LOG_BLANCK("\nFile open: %s", p_string(&var->p_file[i]->file_name));
+                                LOG_BLANCK("    Size: %d bytes - Starting Cluster: %d (Sector: %d)", var->p_file[i]->file_size, var->p_file[i]->first_cluster_of_the_file, ((var->p_file[i]->first_cluster_of_the_file - 2)* var->boot_sector.sectors_per_cluster + var->boot_sector.start_data_space_sector));
+                                LOG_BLANCK("    Creation: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->creation_date.day, var->p_file[i]->creation_date.month, (var->p_file[i]->creation_date.year + 1980), var->p_file[i]->creation_time_h_m_s.hours, var->p_file[i]->creation_time_h_m_s.minutes, var->p_file[i]->creation_time_h_m_s.seconds);
+                                LOG_BLANCK("    Last update: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->last_update_date.day, var->p_file[i]->last_update_date.month, (var->p_file[i]->last_update_date.year + 1980), var->p_file[i]->last_update_time_h_m_s.hours, var->p_file[i]->last_update_time_h_m_s.minutes, var->p_file[i]->last_update_time_h_m_s.seconds);
+                                LOG_BLANCK("    Last access: %2d/%2d/%4d", var->p_file[i]->last_access_date.day, var->p_file[i]->last_access_date.month, (var->p_file[i]->last_access_date.year + 1980));
+                                LOG_BLANCK("    Read-only: %1d / Hidden: %1d / System: %1d / Volume: %1d / Directory: %1d / Archive: %1d", GET_BIT(var->p_file[i]->file_attributes, 0), GET_BIT(var->p_file[i]->file_attributes, 1), GET_BIT(var->p_file[i]->file_attributes, 2), GET_BIT(var->p_file[i]->file_attributes, 3), GET_BIT(var->p_file[i]->file_attributes, 4), GET_BIT(var->p_file[i]->file_attributes, 5));
+                                LOG_BLANCK("    FAT size: %d", var->p_file[i]->fat.size);
                             }
                         }
                     }
