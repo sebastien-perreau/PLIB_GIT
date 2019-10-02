@@ -174,16 +174,16 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
     {
         var->boot_sector.jump_command = (var->_p_ram_rx[0] << 0) | (var->_p_ram_rx[1] << 8) | (var->_p_ram_rx[2] << 16);
         memcpy((void *) &var->boot_sector.oem_name, &var->_p_ram_rx[3], 8);
-        var->boot_sector.bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
-        var->boot_sector.sectors_per_cluster = var->_p_ram_rx[13];
-        var->boot_sector.total_number_of_reserved_sectors = (var->_p_ram_rx[14] << 0) | (var->_p_ram_rx[15] << 8);
+        var->boot_sector.number_of_bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
+        var->boot_sector.number_of_sectors_per_cluster = var->_p_ram_rx[13];
+        var->boot_sector.number_of_reserved_sectors = (var->_p_ram_rx[14] << 0) | (var->_p_ram_rx[15] << 8);
         var->boot_sector.number_of_file_allocation_tables = var->_p_ram_rx[16];
         var->boot_sector.number_of_possible_root_directory_entries = (var->_p_ram_rx[17] << 0) | (var->_p_ram_rx[18] << 8);
         var->boot_sector.small_number_of_sectors = (var->_p_ram_rx[19] << 0) | (var->_p_ram_rx[20] << 8);
         var->boot_sector.large_number_of_sectors = (var->_p_ram_rx[32] << 0) | (var->_p_ram_rx[33] << 8) | (var->_p_ram_rx[34] << 16) | (var->_p_ram_rx[35] << 24);
         var->boot_sector.media_descriptor = var->_p_ram_rx[21];
         var->boot_sector.number_of_sectors_per_fat = (var->_p_ram_rx[22] << 0) | (var->_p_ram_rx[23] << 8);
-        var->boot_sector.sectors_per_track = (var->_p_ram_rx[24] << 0) | (var->_p_ram_rx[25] << 8);
+        var->boot_sector.number_of_sectors_per_track = (var->_p_ram_rx[24] << 0) | (var->_p_ram_rx[25] << 8);
         var->boot_sector.number_of_heads = (var->_p_ram_rx[26] << 0) | (var->_p_ram_rx[27] << 8);
         var->boot_sector.number_of_hidden_sectors = (var->_p_ram_rx[28] << 0) | (var->_p_ram_rx[29] << 8) | (var->_p_ram_rx[30] << 16) | (var->_p_ram_rx[31] << 24);
         var->boot_sector.physical_drive_number = var->_p_ram_rx[36];
@@ -193,15 +193,21 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
         memcpy((void *) &var->boot_sector.volume_label, &var->_p_ram_rx[43], 11);
         memcpy((void *) &var->boot_sector.file_system_type, &var->_p_ram_rx[54], 8);
         
-        var->boot_sector.start_root_directory_sector = var->master_boot_record.partition_entry[0].first_sector_of_the_partition + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat) + 1;
-        var->boot_sector.start_data_space_sector = var->boot_sector.start_root_directory_sector + var->boot_sector.number_of_possible_root_directory_entries / 16;
+        var->boot_sector.reserved_region_start = var->master_boot_record.partition_entry[0].first_sector_of_the_partition;
+        var->boot_sector.fat_region_start = var->boot_sector.reserved_region_start + var->boot_sector.number_of_reserved_sectors;
+        var->boot_sector.root_directory_region_start = var->boot_sector.fat_region_start + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat);
+        var->boot_sector.data_space_region_start = var->boot_sector.root_directory_region_start + (var->boot_sector.number_of_possible_root_directory_entries * 32 / var->boot_sector.number_of_bytes_per_sector);
         
         if (var->is_log_enable)
         {
-            LOG_BLANCK("\nBoot Sector (%d) Partition 0:", var->master_boot_record.partition_entry[0].first_sector_of_the_partition);
-            LOG_BLANCK("    Capacity Of The Partition: %d MB", ((var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors)/1024*var->boot_sector.bytes_per_sector/1024);
+            LOG_BLANCK("\nBoot Sector Partition 0:");
+            LOG_BLANCK("        Boot region sector: %d", var->boot_sector.reserved_region_start);
+            LOG_BLANCK("        FAT region sector: %d", var->boot_sector.fat_region_start);
+            LOG_BLANCK("        Root Directory region sector: %d", var->boot_sector.root_directory_region_start);
+            LOG_BLANCK("        Data Space region sector: %d (start of Cluster 2)", var->boot_sector.data_space_region_start);
+            LOG_BLANCK("    Capacity Of The Partition: %d MB", ((var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors)/1024*var->boot_sector.number_of_bytes_per_sector/1024);
             LOG_BLANCK("    Jump Command: %6x", var->boot_sector.jump_command);
-            LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", (var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors, var->boot_sector.bytes_per_sector, var->boot_sector.sectors_per_cluster, var->boot_sector.sectors_per_track, var->boot_sector.total_number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
+            LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", (var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors, var->boot_sector.number_of_bytes_per_sector, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.number_of_sectors_per_track, var->boot_sector.number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
             LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT) - %d Possible Root Directory Entries", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat, var->boot_sector.number_of_possible_root_directory_entries);
             LOG_BLANCK("    Media Descriptor: %x - Number of Heads: %d (Current Head: %d) - Physical Drive Number: %x", var->boot_sector.media_descriptor, var->boot_sector.number_of_heads, var->boot_sector.current_head, var->boot_sector.physical_drive_number);
             LOG_BLANCK("    Boot Signature: %2x - Volume ID: %8x", var->boot_sector.boot_signature, var->boot_sector.volume_id);
@@ -268,16 +274,17 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
                                 if (!strcmp(&var->root_directory.file_name[var->root_directory.number_of_file_found - 1][0], &var->p_file[j]->file_name[0]))
                                 {
                                     var->p_file[j]->is_found = true;
-                                    var->p_file[j]->file_attributes = file_attributes;
+                                    var->p_file[j]->file_attributes.value = file_attributes;
                                     var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
                                     var->p_file[j]->creation_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
                                     var->p_file[j]->creation_date.value = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
                                     var->p_file[j]->last_access_date.value = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
                                     var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
-                                    var->p_file[j]->last_update_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
-                                    var->p_file[j]->last_update_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
+                                    var->p_file[j]->last_write_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
+                                    var->p_file[j]->last_write_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
                                     var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
                                     var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
+                                    var->p_file[j]->first_sector_of_the_file = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[j]->first_cluster_of_the_file);
                                 }
                             }
                         }
@@ -323,16 +330,17 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
                                 if (!strcmp(&var->root_directory.file_name[var->root_directory.number_of_file_found - 1][0], &var->p_file[j]->file_name[0]))
                                 {
                                     var->p_file[j]->is_found = true;
-                                    var->p_file[j]->file_attributes = file_attributes;
+                                    var->p_file[j]->file_attributes.value = file_attributes;
                                     var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
                                     var->p_file[j]->creation_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
                                     var->p_file[j]->creation_date.value = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
                                     var->p_file[j]->last_access_date.value = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
                                     var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
-                                    var->p_file[j]->last_update_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
-                                    var->p_file[j]->last_update_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
+                                    var->p_file[j]->last_write_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
+                                    var->p_file[j]->last_write_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
                                     var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
                                     var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
+                                    var->p_file[j]->first_sector_of_the_file = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[j]->first_cluster_of_the_file);
                                 }
                             }
                         }
@@ -359,6 +367,34 @@ static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
         {
             return 0;
         }
+    }
+}
+
+static uint32_t _sort_data_array_to_file_allocation_table(sd_card_params_t *var, uint8_t index_p_file, uint32_t current_fat_sector)
+{
+    uint16_t last_cluster_value = (!var->p_file[index_p_file]->fat.size) ? var->p_file[index_p_file]->first_cluster_of_the_file : var->p_file[index_p_file]->fat.p[var->p_file[index_p_file]->fat.size - 1];   
+    uint16_t cluster_position_in_sector = (last_cluster_value * 2) % var->boot_sector.number_of_bytes_per_sector;
+    uint16_t cluster_value = (var->_p_ram_rx[cluster_position_in_sector] << 0) | (var->_p_ram_rx[cluster_position_in_sector + 1] << 8);        
+    uint32_t next_fat_sector = fat16_file_system_get_fat_sector_of_cluster_N(var->boot_sector.fat_region_start, var->boot_sector.number_of_bytes_per_sector, cluster_value);
+
+    var->p_file[index_p_file]->fat.p[var->p_file[index_p_file]->fat.size++] = cluster_value;
+
+    while ((cluster_value != 0xffff) && (current_fat_sector == next_fat_sector))
+    {
+        cluster_position_in_sector = (cluster_value * 2) % var->boot_sector.number_of_bytes_per_sector;
+        cluster_value = (var->_p_ram_rx[cluster_position_in_sector] << 0) | (var->_p_ram_rx[cluster_position_in_sector + 1] << 8);  
+        next_fat_sector = fat16_file_system_get_fat_sector_of_cluster_N(var->boot_sector.fat_region_start, var->boot_sector.number_of_bytes_per_sector, cluster_value);
+
+        var->p_file[index_p_file]->fat.p[var->p_file[index_p_file]->fat.size++] = cluster_value;
+    }
+    
+    if (var->p_file[index_p_file]->fat.p[var->p_file[index_p_file]->fat.size - 1] == 0xffff)
+    {
+        return 0;
+    }
+    else
+    {
+        return next_fat_sector;
     }
 }
 
@@ -883,51 +919,28 @@ static uint8_t sd_card_root_directory(sd_card_params_t *var)
     {
         SM_FREE = 0,
         SM_GET_ROOT_DIRECTORY,
-        SM_GET_FAT
+        SM_PREPARE_GET_FAT,
+        SM_GET_FAT,
+        SM_END
     } functionState = 0;
     static uint8_t index_current_sector = 0;
+    static uint8_t current_p_file = 0;
+    static uint32_t current_fat_sector = 0;
+    uint8_t i;
     
     switch (functionState)
     {
         case SM_FREE:      
             
-            if (var->is_log_enable) 
-            { 
-                LOG_BLANCK("\nRoot Directories:"); 
-            }
             functionState = SM_GET_ROOT_DIRECTORY;   
             
         case SM_GET_ROOT_DIRECTORY:
             
-            if (!sd_card_read_single_block(var, (var->boot_sector.start_root_directory_sector + index_current_sector)))
+            if (!sd_card_read_single_block(var, (var->boot_sector.root_directory_region_start + index_current_sector)))
             {
                 if (!_sort_data_array_to_root_directory_structure(var))
-                {
-                    uint8_t i;
-                    for (i = 0 ; i < var->root_directory.number_of_file_found ; i++)
-                    {
-                        if (var->is_log_enable) 
-                        {
-                            LOG_BLANCK("\\%s", p_string(&var->root_directory.file_name[i][0]));
-                        }
-                    }
-                    for (i = 0 ; i < var->number_of_file ; i++)
-                    {
-                        if (var->is_log_enable) 
-                        {
-                            if(var->p_file[i]->is_found)
-                            {
-                                LOG_BLANCK("\nFile open: %s", p_string(&var->p_file[i]->file_name));
-                                LOG_BLANCK("    Size: %d bytes - Starting Cluster: %d (Sector: %d)", var->p_file[i]->file_size, var->p_file[i]->first_cluster_of_the_file, ((var->p_file[i]->first_cluster_of_the_file - 2)* var->boot_sector.sectors_per_cluster + var->boot_sector.start_data_space_sector));
-                                LOG_BLANCK("    Creation: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->creation_date.day, var->p_file[i]->creation_date.month, (var->p_file[i]->creation_date.year + 1980), var->p_file[i]->creation_time_h_m_s.hours, var->p_file[i]->creation_time_h_m_s.minutes, var->p_file[i]->creation_time_h_m_s.seconds);
-                                LOG_BLANCK("    Last update: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->last_update_date.day, var->p_file[i]->last_update_date.month, (var->p_file[i]->last_update_date.year + 1980), var->p_file[i]->last_update_time_h_m_s.hours, var->p_file[i]->last_update_time_h_m_s.minutes, var->p_file[i]->last_update_time_h_m_s.seconds);
-                                LOG_BLANCK("    Last access: %2d/%2d/%4d", var->p_file[i]->last_access_date.day, var->p_file[i]->last_access_date.month, (var->p_file[i]->last_access_date.year + 1980));
-                                LOG_BLANCK("    Read-only: %1d / Hidden: %1d / System: %1d / Volume: %1d / Directory: %1d / Archive: %1d", GET_BIT(var->p_file[i]->file_attributes, 0), GET_BIT(var->p_file[i]->file_attributes, 1), GET_BIT(var->p_file[i]->file_attributes, 2), GET_BIT(var->p_file[i]->file_attributes, 3), GET_BIT(var->p_file[i]->file_attributes, 4), GET_BIT(var->p_file[i]->file_attributes, 5));
-                                LOG_BLANCK("    FAT size: %d", var->p_file[i]->fat.size);
-                            }
-                        }
-                    }
-                    functionState = SM_FREE;
+                {                                                            
+                    functionState = SM_PREPARE_GET_FAT;
                 }
                 else
                 {
@@ -936,8 +949,63 @@ static uint8_t sd_card_root_directory(sd_card_params_t *var)
             }
             break;
             
-        case SM_GET_FAT:
+        case SM_PREPARE_GET_FAT:
+                    
+            for (i = 0 ; i < var->number_of_file ; i++)
+            {
+                if(var->p_file[i]->is_found && !var->p_file[i]->fat.size)
+                {
+                    current_p_file = i;
+                    current_fat_sector = fat16_file_system_get_fat_sector_of_cluster_N(var->boot_sector.fat_region_start, var->boot_sector.number_of_bytes_per_sector, var->p_file[current_p_file]->first_cluster_of_the_file);
+                    functionState = SM_GET_FAT;
+                    break;
+                }
+            }
+            if (i >= var->number_of_file)
+            {
+                functionState = SM_END;
+            }
+            break;
             
+        case SM_GET_FAT:
+                    
+            if (!sd_card_read_single_block(var, current_fat_sector))
+            {                
+                current_fat_sector = _sort_data_array_to_file_allocation_table(var, current_p_file, current_fat_sector);
+                if (!current_fat_sector)
+                {
+                    functionState = SM_PREPARE_GET_FAT;
+                }
+            }
+            break;
+            
+        case SM_END:
+            
+            if (var->is_log_enable) 
+            {
+                LOG_BLANCK("\nRoot Directories:"); 
+                for (i = 0 ; i < var->root_directory.number_of_file_found ; i++)
+                {
+                    LOG_BLANCK("    \\%s", p_string(&var->root_directory.file_name[i][0]));
+                }                
+                for (i = 0 ; i < var->number_of_file ; i++)
+                {
+                    if(var->p_file[i]->is_found)
+                    {
+                        LOG_BLANCK("\nFile open: %s (%d bytes) - Starting Cluster: %d (Starting Sector: %d)", p_string(&var->p_file[i]->file_name), var->p_file[i]->file_size, var->p_file[i]->first_cluster_of_the_file, var->p_file[i]->first_sector_of_the_file);
+                        LOG_BLANCK("    Creation: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->creation_date.day, var->p_file[i]->creation_date.month, (var->p_file[i]->creation_date.year + 1980), var->p_file[i]->creation_time_h_m_s.hours, var->p_file[i]->creation_time_h_m_s.minutes, var->p_file[i]->creation_time_h_m_s.seconds);
+                        LOG_BLANCK("    Last write: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->last_write_date.day, var->p_file[i]->last_write_date.month, (var->p_file[i]->last_write_date.year + 1980), var->p_file[i]->last_write_time_h_m_s.hours, var->p_file[i]->last_write_time_h_m_s.minutes, var->p_file[i]->last_write_time_h_m_s.seconds);
+                        LOG_BLANCK("    Last access: %2d/%2d/%4d", var->p_file[i]->last_access_date.day, var->p_file[i]->last_access_date.month, (var->p_file[i]->last_access_date.year + 1980));
+                        LOG_BLANCK("    Read-only: %1d / Hidden: %1d / System: %1d / Volume: %1d / Directory: %1d / Archive: %1d", var->p_file[i]->file_attributes.read_only, var->p_file[i]->file_attributes.hidden, var->p_file[i]->file_attributes.system, var->p_file[i]->file_attributes.volume_name, var->p_file[i]->file_attributes.directory, var->p_file[i]->file_attributes.archive);
+                        LOG_BLANCK("    FAT size: %d (number of necessary cluster)", var->p_file[i]->fat.size);
+                    }
+                    else
+                    {
+                        LOG_BLANCK("\nFile Not Found: %s", p_string(&var->p_file[i]->file_name));
+                    }
+                }
+            }
+            functionState = SM_FREE;
             break;
             
         default:
@@ -1018,6 +1086,7 @@ void sd_card_deamon(sd_card_params_t *var)
                 SET_BIT(var->_flags, SM_SD_CARD_GET_CSD);
                 SET_BIT(var->_flags, SM_SD_CARD_MASTER_BOOT_RECORD);
                 SET_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
+                SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
                 var->_sm.index = SM_SD_CARD_HOME;   
             }
             break;
@@ -1082,4 +1151,9 @@ void sd_card_open(sd_card_params_t *var, fat16_file_system_entry_t *file)
     var->p_file[var->number_of_file] = file;
     var->number_of_file++;
     SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
+}
+
+void sd_card_read(sd_card_params_t *var, fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t length)
+{
+    
 }

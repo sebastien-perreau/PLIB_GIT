@@ -263,5 +263,8 @@ static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), _
 
 void sd_card_deamon(sd_card_params_t *var);
 void sd_card_open(sd_card_params_t *var, fat16_file_system_entry_t *file);
+void sd_card_read(sd_card_params_t *var, fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t length);
+
+#define sd_card_is_read_operation_terminated()  // Return flag read_op
 
 #endif
