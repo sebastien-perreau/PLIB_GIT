@@ -14,7 +14,8 @@ typedef enum
     SM_SD_CARD_MASTER_BOOT_RECORD,
     SM_SD_CARD_PARTITION_BOOT_SECTOR,
     SM_SD_CARD_ROOT_DIRECTORY,
-    SM_SD_CARD_DATA_SPACE,      // Lower priority
+    SM_SD_CARD_READ_OPERATION_PREPARATION,
+    SM_SD_CARD_READ_OPERATION,      // Lower priority
             
     SM_SD_CARD_MAX_FLAGS,
     SM_SD_CARD_END
@@ -220,9 +221,10 @@ typedef struct
     
     fat16_file_system_master_boot_record_t      master_boot_record;
     fat16_file_system_boot_sector_t             boot_sector;
-    fat16_file_system_root_directory_t          root_directory;
-    fat16_file_system_entry_t                   *p_file[10];
-    uint8_t                                     number_of_file;
+    uint16_t                                    number_of_file_in_the_sd_card;
+    fat16_file_system_entry_t                   *p_file[20];
+    uint8_t                                     number_of_p_file;
+    uint8_t                                     current_selected_file;
     
     uint8_t                         *_p_ram_tx;
     uint8_t                         *_p_ram_rx;
@@ -247,9 +249,10 @@ typedef struct
     .response_command = {0},                                                                    \
     .master_boot_record = {0},                                                                  \
     .boot_sector = {0},                                                                         \
-    .root_directory = {0},                                                                      \
+    .number_of_file_in_the_sd_card = 0,                                                         \
     .p_file = {NULL},                                                                           \
-    .number_of_file = 0,                                                                        \
+    .number_of_p_file = 0,                                                                      \
+    .current_selected_file = 0xff,                                                              \
     ._p_ram_tx = _tx_buffer_ram,                                                                \
     ._p_ram_rx = _rx_buffer_ram,                                                                \
     ._flags = 0,                                                                                \
@@ -262,9 +265,7 @@ static uint8_t _name ## _rx_buffer_ram_allocation[1+2048+2];                    
 static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _enable_log, _name ## _tx_buffer_ram_allocation, _name ## _rx_buffer_ram_allocation)
 
 void sd_card_deamon(sd_card_params_t *var);
-void sd_card_open(sd_card_params_t *var, fat16_file_system_entry_t *file);
-void sd_card_read(sd_card_params_t *var, fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t length);
-
-#define sd_card_is_read_operation_terminated()  // Return flag read_op
+void sd_card_open(fat16_file_system_entry_t *file);
+uint8_t sd_card_read(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t data_length);
 
 #endif

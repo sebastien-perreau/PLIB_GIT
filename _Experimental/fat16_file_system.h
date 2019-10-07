@@ -12,11 +12,12 @@ typedef enum
     FAT16_FILE_SYSTEME_FA_ARCHIVE       = 0x20
 } FAT16_FILE_SYSTEM_FILE_ATTRIBUTES;
 
-typedef struct
+typedef enum
 {
-    char                                file_name[50][36];              // Save the first 50 files found
-    uint16_t                            number_of_file_found;           
-} fat16_file_system_root_directory_t;
+    FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_REQUESTED   = 1,
+    FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_ON_GOING    = 2,
+    FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED  = 3
+} FAT16_FILE_SYSTEM_FLAGS_READ_OP;
 
 typedef union
 {
@@ -64,9 +65,24 @@ typedef union
     };
 } fat16_file_system_date_t;
 
+typedef union
+{
+    struct
+    {
+        bool                            is_found;                       // This bit is set if the file is found on the SD Card
+        bool                            is_fat_updated;
+        FAT16_FILE_SYSTEM_FLAGS_READ_OP is_read_op;                     // 0: not used, 1: read_requested, 2: read_on_going, 3: read_terminated
+        unsigned                        :4;
+    };
+    struct
+    {
+        uint8_t                         value;
+    };
+} fat16_file_system_flags_t;
+
 typedef struct
 {
-    char                                file_name[36];                  // File name and extension    
+    char                                file_name[255];                 // File name and extension (example "My Folder\my_file.extension")
     fat16_file_system_file_attributes_t file_attributes;
     uint8_t                             creation_time_ms;               // Due to size limitations this field (1 byte) only contains the millisecond stamp in counts of 10 milliseconds. Therefore valid values are between 0 and 199 inclusive.
     fat16_file_system_time_t            creation_time_h_m_s;            // The 16 bit time field contain the time of day when this entry was created. This value never change. hours (0..23) [15..11] minutes (0..59) [10..5] seconds (0..29 - multiply by 2) [4..0]
@@ -78,13 +94,20 @@ typedef struct
     uint16_t                            first_cluster_of_the_file;      // This 16-bit field points to the starting cluster number of entries data. If the entry is a directory this entry point to the cluster which contain the beginning of the sub-directory. If the entry is a file then this entry point to the cluster holding the first chunk of data from the file.
     uint32_t                            file_size;                      // This 32-bit field count the total file size in bytes. For this reason the file system driver must not allow more than 4 GB to be allocated to a file. For other entries than files then file size field should be set to 0.
     
-    bool                                is_found;                       // This bit is set if the file is found on the SD Card
+    fat16_file_system_flags_t           flags;                          
     uint32_t                            first_sector_of_the_file;       
     DYNAMIC_TAB_WORD                    fat;                            // Contains the File Allocation Table for the file
     
+    state_machine_t                     sm_read;
+    DYNAMIC_TAB_BYTE                    buffer;
+    uint32_t                            _data_address;
+    uint16_t                            _data_length;
+    
+    void                                *p_sd_card;
+    
 } fat16_file_system_entry_t;
 
-#define FAT16_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _p_fat_ram)     \
+#define FAT16_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _p_fat_ram, _p_sd_card)     \
 {                                                                           \
     .file_name = _file_name,                                                \
     .file_attributes = 0,                                                   \
@@ -97,13 +120,18 @@ typedef struct
     .last_write_date = 0,                                                   \
     .first_cluster_of_the_file = 0,                                         \
     .file_size = 0,                                                         \
-    .is_found = 0,                                                          \
-    .fat = {_p_fat_ram, 0, 0}                                               \
+    .flags = {0},                                                           \
+    .fat = {_p_fat_ram, 0, 0},                                              \
+    .sm_read = {0},                                                         \
+    .buffer = {0, 0, 0},                                                    \
+    ._data_address = 0,                                                     \
+    ._data_length = 0,                                                      \
+    .p_sd_card = (void*) &_p_sd_card                                        \
 }
 
-#define FILE_DEF(_name, _file_name)                                         \
+#define FILE_DEF(_p_sd_card, _name, _file_name)                             \
 static uint16_t _name ## _fat_ram_allocation[500];                          \
-static fat16_file_system_entry_t _name = FAT16_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _name ## _fat_ram_allocation)
+static fat16_file_system_entry_t _name = FAT16_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _name ## _fat_ram_allocation, _p_sd_card)
 
 typedef struct
 {
@@ -157,5 +185,7 @@ typedef struct
 
 #define fat16_file_system_get_first_sector_of_cluster_N(data_space_region_start, sectors_per_cluster, cluster_index)        ((uint32_t) (data_space_region_start + (cluster_index - 2) * sectors_per_cluster))
 #define fat16_file_system_get_fat_sector_of_cluster_N(fat_region_start, bytes_per_sector, cluster_index)                    ((uint32_t) (fat_region_start + cluster_index * 2 / bytes_per_sector))
+
+#define sd_card_is_read_operation_terminated(file)          ((file.flags.is_read_op == FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED) ? 1 : 0)
 
 #endif
