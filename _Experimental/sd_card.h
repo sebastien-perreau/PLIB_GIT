@@ -267,6 +267,6 @@ static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), _
 void sd_card_deamon(sd_card_params_t *var);
 void sd_card_open(fat16_file_system_entry_t *file);
 uint8_t sd_card_read(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t data_length);
-uint8_t sd_card_read_all(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period);
+uint8_t sd_card_read_all(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint64_t period);
 
 #endif

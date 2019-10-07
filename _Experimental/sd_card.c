@@ -1305,7 +1305,7 @@ uint8_t sd_card_read(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t d
     return file->sm_read.index;
 }
 
-uint8_t sd_card_read_all(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period)
+uint8_t sd_card_read_all(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint64_t period)
 {
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
     
