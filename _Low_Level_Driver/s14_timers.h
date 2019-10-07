@@ -8,7 +8,7 @@ volatile uint64_t getTime;
 #define mGetTick()                  (getTick += TMR1, (TMR1 = 12), getTick)
 #define mTickCompare(var)           (getLastCompare = (mGetTick() - var))
 #define mUpdateTick(var)            (var = mGetTick())
-#define mUpdateTick_withCathingUpTime(var, time)     (var = mGetTick() - (getLastCompare - time))
+#define mUpdateTick_withCathingUpTime(var, time)     (var = (uint64_t) (mGetTick() - (getLastCompare - time)))
 #define Delay_ms(v)                 {                                                       \
                                         uint64_t vDelay = mGetTick();                       \
                                         do {} while(mTickCompare(vDelay) < (v*TICK_1MS));   \

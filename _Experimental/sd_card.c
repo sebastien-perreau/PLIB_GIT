@@ -1064,13 +1064,7 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
                 uint16_t fat_index = data_address / (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster);
                 uint8_t index_sector_in_cluster = (data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..63]                                
                 current_data_sector = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[var->current_selected_file]->fat.p[fat_index]) + index_sector_in_cluster;
-                index_data_in_sector = data_address - index_sector_in_cluster * var->boot_sector.number_of_bytes_per_sector;
-                
-                if (index_data_in_sector == 32768)
-                {
-                    index_data_in_sector = 0;
-                }
-
+                index_data_in_sector = data_address % var->boot_sector.number_of_bytes_per_sector;
                 functionState = SM_GET_FILE_DATA;
             }
             else
@@ -1089,7 +1083,7 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
                     memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[index_data_in_sector], max_read_byte_in_sector);
                     data_length -= max_read_byte_in_sector;
                     
-                    var->p_file[var->current_selected_file]->buffer.index = max_read_byte_in_sector;
+                    var->p_file[var->current_selected_file]->buffer.index += max_read_byte_in_sector;
                     data_address += max_read_byte_in_sector;                    
                 }                
                 else
@@ -1292,8 +1286,6 @@ uint8_t sd_card_read(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t d
         case 0:
             
             file->buffer.p = p_dst;
-            file->buffer.size = 0;  // Not used
-            file->buffer.index = 0;
             file->_data_address = data_address;
             file->_data_length = data_length;
             file->flags.is_read_op = FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_REQUESTED;
@@ -1306,6 +1298,61 @@ uint8_t sd_card_read(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t d
             if (file->flags.is_read_op == FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED)
             {
                 file->sm_read.index = 0;
+            }
+            break;
+    }
+        
+    return file->sm_read.index;
+}
+
+uint8_t sd_card_read_all(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period)
+{
+    sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
+    
+    switch (file->sm_read.index)
+    {
+        case 0:
+            
+            file->buffer.p = p_dst;
+            file->_data_address = 0;
+            file->_data_length = (block_length > file->file_size) ? file->file_size : block_length;
+            file->flags.is_read_op = FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_REQUESTED;
+            SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
+            file->sm_read.index++;
+            break;
+            
+        case 1:
+            
+            if (file->flags.is_read_op == FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED)
+            {
+                file->sm_read.index++;                
+            }
+            break;
+            
+        case 2:
+            
+            if (mTickCompare(file->sm_read.tick) >= period)
+            {
+                mUpdateTick_withCathingUpTime(file->sm_read.tick, period);
+                file->sm_read.index++;
+            }
+            break;
+            
+        case 3:
+            
+            file->buffer.p = p_dst;
+            file->_data_address += file->_data_length;
+            file->_data_length = ((file->_data_address + block_length) > file->file_size) ? (file->file_size - file->_data_address) : block_length;
+            file->flags.is_read_op = FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_REQUESTED;
+            SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
+            
+            if (!file->_data_length)
+            {
+                file->sm_read.index = 0;
+            }
+            else
+            {
+                file->sm_read.index = 1;
             }
             break;
     }
