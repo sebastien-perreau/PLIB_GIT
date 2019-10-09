@@ -1282,7 +1282,7 @@ uint8_t sd_card_read_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint3
 {
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
     
-    if (!file->flags.is_read_file_stopped && !file->flags.is_read_file_terminated)
+    if (file->flags.is_fat_updated && !file->flags.is_read_file_stopped && !file->flags.is_read_file_terminated)
     {
         switch (file->sm_read.index)
         {
@@ -1315,7 +1315,7 @@ uint8_t sd_card_read_all_file(fat16_file_system_entry_t *file, uint8_t *p_dst, u
 {    
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
         
-    if (!file->flags.is_read_file_stopped && !file->flags.is_read_file_terminated)
+    if (file->flags.is_fat_updated && !file->flags.is_read_file_stopped && !file->flags.is_read_file_terminated)
     {
         switch (file->sm_read.index)
         {
