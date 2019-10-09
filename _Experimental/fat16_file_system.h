@@ -14,9 +14,9 @@ typedef enum
 
 typedef enum
 {
-    FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_REQUESTED   = 1,
-    FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_ON_GOING    = 2,
-    FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED  = 3
+    FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED   = 1,
+    FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_ON_GOING    = 2,
+    FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED  = 3
 } FAT16_FILE_SYSTEM_FLAGS_READ_OP;
 
 typedef union
@@ -71,8 +71,10 @@ typedef union
     {
         bool                            is_found;                       // This bit is set if the file is found on the SD Card
         bool                            is_fat_updated;
-        FAT16_FILE_SYSTEM_FLAGS_READ_OP is_read_op;                     // 0: not used, 1: read_requested, 2: read_on_going, 3: read_terminated
-        unsigned                        :4;
+        FAT16_FILE_SYSTEM_FLAGS_READ_OP is_read_block_op;               // 0: not used, 1: read_block_requested, 2: read_block_on_going, 3: read_block_terminated
+        bool                            is_read_file_stopped;           // 0: play / continue, 1: stop / pause
+        bool                            is_read_file_terminated;        // 0: no, 1: yes
+        unsigned                        :2;
     };
     struct
     {
@@ -187,5 +189,10 @@ typedef struct
 #define fat16_file_system_get_fat_sector_of_cluster_N(fat_region_start, bytes_per_sector, cluster_index)                    ((uint32_t) (fat_region_start + cluster_index * 2 / bytes_per_sector))
 
 #define sd_card_is_read_operation_terminated(file)          ((file.flags.is_read_op == FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED) ? 1 : 0)
+
+#define sd_card_read_file_pause(file)                       (file.flags.is_read_file_stopped = 1)
+#define sd_card_read_file_play(file)                        (file.flags.is_read_file_stopped = 0)
+#define sd_card_read_file_restart_playback(file)            (file.flags.is_read_file_stopped = 0, file.flags.is_read_file_terminated = 0, file.sm_read.index = 0)
+#define sd_card_is_read_file_terminated(file)               (file.flags.is_read_file_terminated)
 
 #endif
