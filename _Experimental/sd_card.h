@@ -221,7 +221,7 @@ typedef struct
     
     fat16_file_system_master_boot_record_t      master_boot_record;
     fat16_file_system_boot_sector_t             boot_sector;
-    uint16_t                                    number_of_file_in_the_sd_card;
+    uint16_t                                    number_of_file_in_the_sd_card;    
     fat16_file_system_entry_t                   *p_file[20];
     uint8_t                                     number_of_p_file;
     uint8_t                                     current_selected_file;
@@ -260,8 +260,8 @@ typedef struct
 }
 
 #define SD_CARD_DEF(_name, _spi_module, _cs_pin, _enable_log)                                   \
-static uint8_t _name ## _tx_buffer_ram_allocation[1+2048+2];                                    \
-static uint8_t _name ## _rx_buffer_ram_allocation[1+2048+2];                                    \
+static uint8_t _name ## _tx_buffer_ram_allocation[512+2];                                       \
+static uint8_t _name ## _rx_buffer_ram_allocation[512+2];                                       \
 static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _enable_log, _name ## _tx_buffer_ram_allocation, _name ## _rx_buffer_ram_allocation)
 
 void sd_card_deamon(sd_card_params_t *var);

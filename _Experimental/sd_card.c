@@ -6,6 +6,25 @@
 * 
 *   Description:
 *   ------------ 
+  * 
+  *  ---------------    --> Boot sector of a partition
+  * | BOOT SECTOR   |
+  *  ---------------    --> FAT 1 starts at BOOT SECTOR + Number of reserved sector
+  * | FAT 1         |   File Allocation Table is Number of FAT * Number of sectors per FAT
+  *  ---------------
+  * | FAT N         |
+  *  ---------------    --> ROOT Dir. starts at FAT 1 SECTOR + Size of FATs
+  * |               |
+  * | ROOT DIR.     |   Root Directory is (Number of possible ROOT Dir. * 32 / Number of bytes per sector) length (length = number of sectors)
+  * |               |
+  *  ---------------    --> DATA SPACE starts at CLUSTER 2 (ROOT Dir. SECTOR + Size of ROOT Dir)
+  * |               |
+  * | DATA SPACE    |
+  * |   files...    |
+  * |   folders...  |
+  * |               |
+  *  ---------------
+  * 
 *********************************************************************/
 
 #include <string.h>
