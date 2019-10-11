@@ -221,7 +221,8 @@ typedef struct
     
     fat16_file_system_master_boot_record_t      master_boot_record;
     fat16_file_system_boot_sector_t             boot_sector;
-    uint16_t                                    number_of_file_in_the_sd_card;    
+    uint16_t                                    number_of_file;   
+    uint16_t                                    number_of_folder;   
     fat16_file_system_entry_t                   *p_file[20];
     uint8_t                                     number_of_p_file;
     uint8_t                                     current_selected_file;
@@ -249,7 +250,8 @@ typedef struct
     .response_command = {0},                                                                    \
     .master_boot_record = {0},                                                                  \
     .boot_sector = {0},                                                                         \
-    .number_of_file_in_the_sd_card = 0,                                                         \
+    .number_of_file = 0,                                                                        \
+    .number_of_folder = 0,                                                                      \
     .p_file = {NULL},                                                                           \
     .number_of_p_file = 0,                                                                      \
     .current_selected_file = 0xff,                                                              \

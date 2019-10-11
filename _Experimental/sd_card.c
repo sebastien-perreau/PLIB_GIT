@@ -53,6 +53,70 @@ static uint8_t sd_card_crc7(uint8_t *buffer, uint8_t length)
 	return (crc | 0x01);
 }
 
+static uint8_t _get_last_entry_name(uint8_t *p_lfn_number_of_entry, uint8_t *p_lfn_buffer, uint8_t *p_ram_rx_of_last_entry, char *p_last_entry_name)
+{
+    uint8_t i, j, k;
+    uint8_t name_length = 0;
+    static const uint8_t lfn_entry_offset[] = {1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30};
+    
+    memset(p_last_entry_name, 0, 255);
+                    
+    if (*p_lfn_number_of_entry > 0)
+    {    
+        for (i = 1, k = 0 ; i <= *p_lfn_number_of_entry ; i++)
+        {
+            for (j = 0 ; j < 13 ; j++)
+            {
+                uint8_t character = p_lfn_buffer[*p_lfn_number_of_entry * 32 - i * 32 + lfn_entry_offset[j]];
+                if (character == 0)
+                {
+                    break;
+                }
+                else
+                {
+                    p_last_entry_name[k++] = character;
+                }
+            }                                
+        }
+        name_length = k;
+        memset(p_lfn_buffer, 0, 32*3);
+        *p_lfn_number_of_entry = 0;   
+    }
+    else
+    {
+        /*  Get Name without space between 'name' and extension and remove space in extension if extension_length < 3 chars (example: "MOVIE   IO " becomes "MOVIE.IO"
+            Set all characters to lower case "MOVIE.IO" becomes "movie.io"*/
+        for (i = 7 ; i > 0 ; i--)
+        {
+            if (p_ram_rx_of_last_entry[i] != ' ')
+            {
+                break;
+            }
+        }
+        for (j = 0 ; j <= i ; j++)
+        {
+            p_last_entry_name[j] = p_ram_rx_of_last_entry[j];
+            p_last_entry_name[j] = ((p_last_entry_name[j] >= 65) && (p_last_entry_name[j] <= 90)) ? (p_last_entry_name[j] + 32) : p_last_entry_name[j];
+        }
+        p_last_entry_name[j] = '.';
+        for (i = 0 ; i < 3 ; i++)
+        {
+            if (p_ram_rx_of_last_entry[8 + i] != ' ')
+            {
+                p_last_entry_name[++j] = p_ram_rx_of_last_entry[8 + i];
+                p_last_entry_name[j] = ((p_last_entry_name[j] >= 65) && (p_last_entry_name[j] <= 90)) ? (p_last_entry_name[j] + 32) : p_last_entry_name[j];
+                name_length = j + 1;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    
+    return name_length;
+}
+
 static void _sort_data_array_to_cid_structure(sd_card_params_t *var)
 {
     var->cid.manufacturer_id = var->_p_ram_rx[0];
@@ -243,162 +307,137 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
     }    
 }
 
-static bool _sort_data_array_to_root_directory_structure(sd_card_params_t *var)
+static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
 {
-    uint8_t i, j;
-    uint8_t index_entry = 0;    
+    uint8_t i;
+    static uint8_t last_entry_index = 0;  
+    static uint32_t save_address[10] = {0};    
+    static uint8_t save_path_name_length[10] = {0};
+    static uint8_t save_index = 0;
+    
     uint8_t first_byte = 0;
     uint8_t file_attributes = 0;
-    static uint8_t long_file_name_number_of_entry = 0;
-    static uint8_t copy_lfn_data_entry[32*3] = {0};
-    char temp_name[255] = {0};
+    
+    static uint8_t lfn_number_of_entry = 0;
+    static uint8_t lfn_data_entries[32*3] = {0};        
+    
+    char last_entry_name[255] = {0};
+    uint8_t last_entry_name_length = 0;
+    
+    static char path_name[255] = {0};
+    char file_name[255] = {0};
     
     while (1)
     {
-        first_byte = var->_p_ram_rx[index_entry * 32];
-        file_attributes = var->_p_ram_rx[index_entry * 32 + 0x0b];
+        first_byte = var->_p_ram_rx[last_entry_index * 32];
+        file_attributes = var->_p_ram_rx[last_entry_index * 32 + 0x0b];
         
         if (first_byte != 0x00)
         {
-            if (first_byte != 0xe5)
-            {             
+            if ((first_byte != 0xe5) && (first_byte != 0x2e))
+            {   
                 if (file_attributes != FAT16_FILE_SYSTEME_FA_LFN)    
                 {
-                    if (long_file_name_number_of_entry > 0)
+                    
+                    last_entry_name_length = _get_last_entry_name(&lfn_number_of_entry, lfn_data_entries, &var->_p_ram_rx[last_entry_index * 32], last_entry_name);
+                                                                                
+                    if (!(file_attributes & FAT16_FILE_SYSTEME_FA_DIRECTORY))
                     {
-                        // Long File Name
-                        if (!(file_attributes & FAT16_FILE_SYSTEME_FA_DIRECTORY))
+                        if (var->is_log_enable)
                         {
-                            uint8_t k = 0;
-                            uint8_t tab_offset[] = {1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30};          
-                            
-                            memset(temp_name, 0, sizeof(temp_name));
-                            
-                            for (i = 1 ; i <= long_file_name_number_of_entry ; i++)
+                            uint16_t cluster = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8);
+                            uint32_t sector = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, cluster);
+                            uint32_t size = (var->_p_ram_rx[last_entry_index * 32 + 0x1c] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1d] << 8) | (var->_p_ram_rx[last_entry_index * 32 + 0x1e] << 16) | (var->_p_ram_rx[last_entry_index * 32 + 0x1f] << 24);
+                            if (save_index > 0)
                             {
-                                for (j = 0 ; j < 13 ; j++)
-                                {
-                                    uint8_t character = copy_lfn_data_entry[long_file_name_number_of_entry * 32 - i * 32 + tab_offset[j]];
-                                    
-                                    if (character == 0)
-                                    {
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        temp_name[k++] = character;
-                                    }
-                                }                                
+                                LOG_BLANCK("    \\%s%s (sector: %d / size: %d bytes)", p_string(path_name), p_string(last_entry_name), sector, size);
                             }
-                            var->number_of_file_in_the_sd_card++;
-                            
-                            if (var->is_log_enable)
+                            else
                             {
-                                LOG_BLANCK("    \\%s", p_string(temp_name));
-                            }
-                            
-                            for (j = 0 ; j < var->number_of_p_file ; j++)
-                            {
-                                if (!strcmp(temp_name, var->p_file[j]->file_name))
-                                {
-                                    var->p_file[j]->flags.is_found = true;
-                                    var->p_file[j]->file_attributes.value = file_attributes;
-                                    var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
-                                    var->p_file[j]->creation_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
-                                    var->p_file[j]->creation_date.value = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
-                                    var->p_file[j]->last_access_date.value = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
-                                    var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
-                                    var->p_file[j]->last_write_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
-                                    var->p_file[j]->last_write_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
-                                    var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
-                                    var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
-                                    var->p_file[j]->first_sector_of_the_file = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[j]->first_cluster_of_the_file);
-                                }
+                                LOG_BLANCK("    \\%s (sector: %d / size: %d bytes)", p_string(last_entry_name), sector, size);
                             }
                         }
-                        long_file_name_number_of_entry = 0;
+                        memset(file_name, 0, 255);
+                        memcpy(file_name, path_name, save_path_name_length[(save_index > 0) ? (save_index) : 0]);
+                        memcpy(&file_name[save_path_name_length[(save_index > 0) ? (save_index) : 0]], last_entry_name, last_entry_name_length);  
+                            
+                        var->number_of_file++;                            
+                        for (i = 0 ; i < var->number_of_p_file ; i++)
+                        {    
+                            if (!strcmp(file_name, var->p_file[i]->file_name))
+                            {
+                                var->p_file[i]->flags.is_found = true;
+                                var->p_file[i]->file_attributes.value = file_attributes;
+                                var->p_file[i]->creation_time_ms = var->_p_ram_rx[last_entry_index * 32 + 0x0d];
+                                var->p_file[i]->creation_time_h_m_s.value = (var->_p_ram_rx[last_entry_index * 32 + 0x0e] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x0e] << 8);
+                                var->p_file[i]->creation_date.value = (var->_p_ram_rx[last_entry_index * 32 + 0x10] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x11] << 8);
+                                var->p_file[i]->last_access_date.value = (var->_p_ram_rx[last_entry_index * 32 + 0x12] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x13] << 8);
+                                var->p_file[i]->extended_address_index = (var->_p_ram_rx[last_entry_index * 32 + 0x14] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x15] << 8);
+                                var->p_file[i]->last_write_time_h_m_s.value = (var->_p_ram_rx[last_entry_index * 32 + 0x16] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x17] << 8);
+                                var->p_file[i]->last_write_date.value = (var->_p_ram_rx[last_entry_index * 32 + 0x18] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x18] << 8);
+                                var->p_file[i]->first_cluster_of_the_file = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8);
+                                var->p_file[i]->file_size = (var->_p_ram_rx[last_entry_index * 32 + 0x1c] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1d] << 8) | (var->_p_ram_rx[last_entry_index * 32 + 0x1e] << 16) | (var->_p_ram_rx[last_entry_index * 32 + 0x1f] << 24);
+                                var->p_file[i]->first_sector_of_the_file = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[i]->first_cluster_of_the_file);
+                            }
+                        }
                     }
                     else
                     {
-                        if (!(file_attributes & FAT16_FILE_SYSTEME_FA_DIRECTORY))
+                        uint16_t first_cluster_of_the_folder = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8);                            
+                        var->number_of_folder++;  
+                        memcpy(&path_name[save_path_name_length[save_index]], last_entry_name, last_entry_name_length);
+                        path_name[save_path_name_length[save_index] + last_entry_name_length] = '\\';
+                        save_path_name_length[save_index + 1] = save_path_name_length[save_index] + last_entry_name_length + 1;
+                        save_address[save_index] = (*current_sector * var->boot_sector.number_of_bytes_per_sector) + ((last_entry_index + 1) * 32);
+                        save_index++;
+                        *current_sector = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, first_cluster_of_the_folder);                      
+                        last_entry_index = 0;
+                        
+                        if (var->is_log_enable)
                         {
-                            // Standard name 8.3                                         
-                            memset(temp_name, 0, sizeof(temp_name));
-                            /*  Get Name without space between 'name' and extension and remove space in extension if extension_length < 3 chars (example: "MOVIE   IO " becomes "MOVIE.IO"
-                                Set all characters to lower case "MOVIE.IO" becomes "movie.io"*/
-                            for (i = 7 ; i > 0 ; i--)
-                            {
-                                if (var->_p_ram_rx[index_entry * 32 + i] != ' ')
-                                {
-                                    break;
-                                }
-                            }
-                            for (j = 0 ; j <= i ; j++)
-                            {
-                                temp_name[j] = var->_p_ram_rx[index_entry * 32 + j];
-                                temp_name[j] = ((temp_name[j] >= 65) && (temp_name[j] <= 90)) ? (temp_name[j] + 32) : temp_name[j];
-                            }
-                            temp_name[j] = '.';
-                            for (i = 0 ; i < 3 ; i++)
-                            {
-                                if (var->_p_ram_rx[index_entry * 32 + 8 + i] != ' ')
-                                {
-                                    temp_name[++j] = var->_p_ram_rx[index_entry * 32 + 8 + i];
-                                    temp_name[j] = ((temp_name[j] >= 65) && (temp_name[j] <= 90)) ? (temp_name[j] + 32) : temp_name[j];
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            }                                                
-                            var->number_of_file_in_the_sd_card++;
-                            
-                            if (var->is_log_enable)
-                            {
-                                LOG_BLANCK("    \\%s", p_string(temp_name));
-                            }
-                            
-                            for (j = 0 ; j < var->number_of_p_file ; j++)
-                            {
-                                if (!strcmp(temp_name, var->p_file[j]->file_name))
-                                {
-                                    var->p_file[j]->flags.is_found = true;
-                                    var->p_file[j]->file_attributes.value = file_attributes;
-                                    var->p_file[j]->creation_time_ms = var->_p_ram_rx[index_entry * 32 + 0x0d];
-                                    var->p_file[j]->creation_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x0e] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x0e] << 8);
-                                    var->p_file[j]->creation_date.value = (var->_p_ram_rx[index_entry * 32 + 0x10] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x11] << 8);
-                                    var->p_file[j]->last_access_date.value = (var->_p_ram_rx[index_entry * 32 + 0x12] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x13] << 8);
-                                    var->p_file[j]->extended_address_index = (var->_p_ram_rx[index_entry * 32 + 0x14] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x15] << 8);
-                                    var->p_file[j]->last_write_time_h_m_s.value = (var->_p_ram_rx[index_entry * 32 + 0x16] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x17] << 8);
-                                    var->p_file[j]->last_write_date.value = (var->_p_ram_rx[index_entry * 32 + 0x18] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x18] << 8);
-                                    var->p_file[j]->first_cluster_of_the_file = (var->_p_ram_rx[index_entry * 32 + 0x1a] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1b] << 8);
-                                    var->p_file[j]->file_size = (var->_p_ram_rx[index_entry * 32 + 0x1c] << 0) | (var->_p_ram_rx[index_entry * 32 + 0x1d] << 8) | (var->_p_ram_rx[index_entry * 32 + 0x1e] << 16) | (var->_p_ram_rx[index_entry * 32 + 0x1f] << 24);
-                                    var->p_file[j]->first_sector_of_the_file = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[j]->first_cluster_of_the_file);
-                                }
-                            }
+                            LOG_BLANCK("D   \\%s", p_string(path_name));
                         }
-                    }                    
+                        
+                        return 1;
+                    }
                 }
                 else 
                 {
                     if (GET_BIT(first_byte, 6))
                     {
                         // Long File Name detected (get the number of entry useful - start with 0x4...)
-                        long_file_name_number_of_entry = first_byte & 0x0f;
+                        lfn_number_of_entry = first_byte & 0x0f;
                     }    
-                    memcpy(&copy_lfn_data_entry[(long_file_name_number_of_entry - (first_byte & 0x0f)) * 32], &var->_p_ram_rx[index_entry * 32], 32);
+                    memcpy(&lfn_data_entries[(lfn_number_of_entry - (first_byte & 0x0f)) * 32], &var->_p_ram_rx[last_entry_index * 32], 32);
                 }
             }
-
-            if (++index_entry >= 16)
+            
+            if (++last_entry_index >= 16)
             {
-                index_entry = 0;                
+                last_entry_index = 0;
+                (*current_sector)++;
                 return 1;
-            }           
+            }  
         }
         else
         {
-            return 0;
+            if (save_index > 0)
+            {
+                save_index--;
+                *current_sector = save_address[save_index] / var->boot_sector.number_of_bytes_per_sector;
+                last_entry_index = (save_address[save_index] % var->boot_sector.number_of_bytes_per_sector) / 32;
+                save_address[save_index] = 0;
+                memset(&path_name[save_path_name_length[save_index]], 0, save_path_name_length[save_index+1]);
+                return 1;
+            }
+            else
+            {
+                if (var->is_log_enable)
+                {
+                    LOG_BLANCK("%d folders / %d files", var->number_of_folder, var->number_of_file); 
+                }
+                return 0;
+            }
         }
     }
 }
@@ -951,17 +990,17 @@ static uint8_t sd_card_get_packet(sd_card_params_t *var, SD_CARD_COMMAND_TYPE cd
     return functionState;
 }
 
-static uint8_t sd_card_root_directory(sd_card_params_t *var)
+static uint8_t sd_card_search_files(sd_card_params_t *var)
 {
     static enum _functionState
     {
         SM_FREE = 0,
-        SM_GET_ROOT_DIRECTORY,
+        SM_SEARCH_FILES,
         SM_PREPARE_GET_FAT,
         SM_GET_FAT,
         SM_END
     } functionState = 0;
-    static uint8_t index_current_sector = 0;
+    static uint32_t current_sector = 0;
     static uint8_t current_p_file = 0;
     static uint32_t current_fat_sector = 0;
     uint8_t i;
@@ -974,19 +1013,16 @@ static uint8_t sd_card_root_directory(sd_card_params_t *var)
             {
                 LOG_BLANCK("\nRoot Directories:"); 
             }
-            functionState = SM_GET_ROOT_DIRECTORY;   
+            current_sector = var->boot_sector.root_directory_region_start;
+            functionState = SM_SEARCH_FILES;   
             
-        case SM_GET_ROOT_DIRECTORY:
+        case SM_SEARCH_FILES:
             
-            if (!sd_card_read_single_block(var, (var->boot_sector.root_directory_region_start + index_current_sector)))
+            if (!sd_card_read_single_block(var, current_sector))
             {
-                if (!_sort_data_array_to_root_directory_structure(var))
+                if (!_search_and_sort_files(var, &current_sector))
                 {                                                            
                     functionState = SM_PREPARE_GET_FAT;
-                }
-                else
-                {
-                    index_current_sector++;
                 }
             }
             break;
@@ -1049,7 +1085,7 @@ static uint8_t sd_card_root_directory(sd_card_params_t *var)
         default:
             break;
     }
-    
+        
     return functionState;
 }
 
@@ -1250,8 +1286,8 @@ void sd_card_deamon(sd_card_params_t *var)
             
         case SM_SD_CARD_ROOT_DIRECTORY:
             
-            if (!sd_card_root_directory(var))
-            {               
+            if (!sd_card_search_files(var))
+            {
                 CLR_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
                 var->_sm.index = SM_SD_CARD_HOME;
             }
