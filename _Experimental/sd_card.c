@@ -676,6 +676,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
         SM_FAIL
     } functionState = 0;
     static uint64_t functionTick = 0;
+    static uint8_t fail_index = 0;
     
     switch (functionState)
     {
@@ -722,6 +723,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 1;
                     functionState = SM_FAIL;
                 }
             }
@@ -752,17 +754,20 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                             }
                             else
                             {
+                                fail_index = 2;
                                 functionState = SM_FAIL;
                             }
                         }
                         else
                         {
+                            fail_index = 3;
                             functionState = SM_FAIL;
                         }
                     }
                 }
                 else
                 {
+                    fail_index = 4;
                     functionState = SM_FAIL;
                 }
             }
@@ -782,6 +787,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 5;
                     functionState = SM_FAIL;
                 }
             }
@@ -797,6 +803,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 6;
                     functionState = SM_FAIL;
                 }
             }
@@ -813,11 +820,13 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 7;
                     functionState = SM_FAIL;
                 }
                 
                 if (mTickCompare(functionTick) >= TICK_1S)
                 {
+                    fail_index = 8;
                     functionState = SM_FAIL;        // Timeout: SD Card stay in Idle mode
                 }
             }
@@ -845,6 +854,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 9;
                     functionState = SM_FAIL;
                 }
             }
@@ -861,6 +871,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 10;
                     functionState = SM_FAIL;
                 }
             }
@@ -877,6 +888,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
                 }
                 else
                 {
+                    fail_index = 11;
                     functionState = SM_FAIL;
                 }
             }
@@ -911,7 +923,7 @@ static uint8_t sd_card_initialization(sd_card_params_t *var)
             functionState++;
             if (var->is_log_enable) 
             { 
-                LOG_BLANCK("    SD Card Fail: Retry..."); 
+                LOG_BLANCK("    SD Card Fail: Retry... (code: %d)", fail_index); 
             }
             break;
             
