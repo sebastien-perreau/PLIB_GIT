@@ -1648,3 +1648,96 @@ void _EXAMPLE_TPS92662()
             break;
     } 
 }
+
+void _EXAMPLE_SD_CARD()
+{
+    SWITCH_DEF(sw1, SWITCH2, ACTIVE_LOW);
+    SWITCH_DEF(sw2, SWITCH3, ACTIVE_LOW);
+    SD_CARD_DEF(sd, SPI1, __PB14, ENABLE);
+    FILE_DEF(sd, mFile1, "pict1.mextension");
+    FILE_DEF(sd, mFile2, "short_movie_side_2.nff");
+    FILE_DEF(sd, mFile3, "Nouveau dossier\\Fold\\ParICI\\seb.txt");
+    static state_machine_t sm_example = {0};
+    static uint8_t read_buffer[200];
+    static uint8_t progression, prev_progression;
+    
+    static uint32_t address = 0;
+    
+    switch (sm_example.index)
+    {
+        case _SETUP:          
+                      
+            sd_card_open(&mFile1);
+            sd_card_open(&mFile2);
+            sd_card_open(&mFile3);
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            if (sw1.is_updated)
+            {
+                sw1.is_updated = false;
+                sd_card_read_file_restart_playback(mFile1);
+                sd_card_read_file_restart_playback(mFile2);
+                sd_card_read_file_restart_playback(mFile3);
+            }
+            
+            if (sw2.is_updated)
+            {
+                sw2.is_updated = false;
+                sd_card_read_file_restart_playback(mFile1);
+            }
+            
+            switch (sw1.indice)
+            {
+                case 0:
+                    
+                    if (!sd_card_read_block_file(&mFile1, (uint8_t *) read_buffer, address, sizeof(read_buffer)))
+                    {
+                        // Reception completed. Manipulate read_buffer...
+                        address += sizeof(read_buffer);
+                        if ((address + sizeof(read_buffer)) > mFile1.file_size)
+                        {
+                            address = 0;
+                        }
+                    }
+                    break;
+                    
+                case 1:
+                    
+                    if (!sd_card_read_play_file(&mFile2, (uint8_t *) read_buffer, sizeof(read_buffer), TICK_30MS, &progression))
+                    {
+                        sd_card_read_file_restart_playback(mFile2);
+                    }
+                    break;
+                    
+                case 2:
+                    
+                    if (!sd_card_read_block_file(&mFile3, (uint8_t *) read_buffer, 0, sizeof(read_buffer)))
+                    {
+                        // Reception completed. Manipulate read_buffer...
+                    }
+                    break;
+                    
+                default:
+                    
+                    sw1.indice = 0;
+                    break;
+            }
+            
+            if (prev_progression != progression)
+            {
+                prev_progression = progression;
+                LOG_BLANCK("progression: %d", progression);
+            }
+            
+            fu_switch(&sw1);
+            
+            fu_switch(&sw2);
+            
+            sd_card_deamon(&sd);
+            
+            break;
+    } 
+}

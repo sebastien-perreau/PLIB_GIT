@@ -1377,7 +1377,7 @@ uint8_t sd_card_read_block_file(fat16_file_system_entry_t *file, uint8_t *p_dst,
             case 0:
 
                 file->buffer.p = p_dst;
-                file->_data_address = data_address;
+                file->_data_address = (data_address > file->file_size) ? file->file_size : data_address;
                 file->_data_length = ((file->_data_address + block_length) > file->file_size) ? (file->file_size - file->_data_address) : block_length;
                 file->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
                 SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);

@@ -28,5 +28,6 @@ void _EXAMPLE_BLE(ble_params_t * p_ble);
 void _EXAMPLE_LIN();
 void _EXAMPLE_PINK_LADY();
 void _EXAMPLE_TPS92662();
+void _EXAMPLE_SD_CARD();
 
 #endif
