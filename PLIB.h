@@ -3,6 +3,7 @@
 
 #include <xc.h>                     // xc pic32 header
 #include <math.h>
+#include <string.h>
 #include <lega-c/machine/types.h>
 #include "ctype.h"
 #include <GenericTypeDefs.h>

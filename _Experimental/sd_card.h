@@ -1,21 +1,23 @@
 #ifndef __DEF_SD_CARD
 #define __DEF_SD_CARD
 
-#define SD_CARD_FREQ_INIT                       250000
-#define SD_CARD_FREQ                            10000000
+#define SD_CARD_FREQ_INIT                       250000      // DO NOT MODIFY
+#define SD_CARD_FREQ                            10000000    // Can be set up to 25 MHz
+
+#define SD_CARD_MAXIMUM_FILE                    20
 
 typedef enum
 {
     SM_SD_CARD_HOME                             = 0,
             
-    SM_SD_CARD_INITIALIZATION,  // Upper priority
+    SM_SD_CARD_INITIALIZATION,                  // Upper priority
     SM_SD_CARD_GET_CID,
     SM_SD_CARD_GET_CSD,
     SM_SD_CARD_MASTER_BOOT_RECORD,
     SM_SD_CARD_PARTITION_BOOT_SECTOR,
     SM_SD_CARD_ROOT_DIRECTORY,
     SM_SD_CARD_READ_OPERATION_PREPARATION,
-    SM_SD_CARD_READ_OPERATION,      // Lower priority
+    SM_SD_CARD_READ_OPERATION,                  // Lower priority
             
     SM_SD_CARD_MAX_FLAGS,
     SM_SD_CARD_END
@@ -91,7 +93,7 @@ typedef enum
 
 typedef struct
 {
-    uint8_t                                     manufacturer_id;                    // An 8 bit binary number that identifies the card manufacturer (cf. SD_CARD_MANUFACTURER_ID enumeration).
+    SD_CARD_MANUFACTURER_ID                     manufacturer_id;                    // An 8 bit binary number that identifies the card manufacturer (cf. SD_CARD_MANUFACTURER_ID enumeration).
     char                                        oem_id[3];                          // A 2 ASCII string characters (the third char is \0) that identifies the card OEM and/or the card contents when used as a distribution media either on ROM or FLASH cards.
     char                                        product_name[6];                    // A 5 ASCII string characters (the sixth char is \0). 
     uint8_t                                     product_revision;                   // The product revision is composed of two Binary Coded Decimal digits (4 bit each). (Example revision 6.2 will be coded as follow: 0110 0010).
@@ -223,7 +225,7 @@ typedef struct
     fat16_file_system_boot_sector_t             boot_sector;
     uint16_t                                    number_of_file;   
     uint16_t                                    number_of_folder;   
-    fat16_file_system_entry_t                   *p_file[20];
+    fat16_file_system_entry_t                   *p_file[SD_CARD_MAXIMUM_FILE];
     uint8_t                                     number_of_p_file;
     uint8_t                                     current_selected_file;
     

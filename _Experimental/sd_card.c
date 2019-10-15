@@ -1,14 +1,35 @@
  /*********************************************************************
-*	Author : Sébastien PERREAU
-*
-*	Revision history	:
-*		19/09/2019		- Initial release
-* 
-*   Description:
-*   ------------ 
-  * 
-  *  ---------------    --> Boot sector of a partition
+  * Author : Sébastien PERREAU 
+  * Creation Date:  19/09/2019
+  
+  * General overview: 
+  * -----------------
+  * SD Card driver uses 1 SPI and 2 DMA modules compatible ONLY with FAT16 File System 
+  * and READ requests. A maximum of 20 files can be opened at same time. 
+  * The maximum SPI frequency is 25 MHz. 
+  * The card detection is implemented in the communication (no need to have a 
+  * CD signal). If a card is removed then the software re-launch the initialization
+  * sequence (up to SUCCESS). 
+  * A flag is used (in the SD_CARD_DEF) to enable/disable the LOG (need to activate the 
+  * LOG driver...).
+  * File name (including path) can not exceed 255 bytes length. 
+  * The File Allocation Table of a file has a maximum of 512 clusters (one cluster address = 16 bits)
+  * One cluster = 1 / 2 / 4 / 8 / 16 / 32 / 64 / 128 sectors
+  * One sector = 512 / 1024 / 2048 / 4096 bytes (A lot of code are assuming 512 bytes per sectors)
+  * Maximum number of cluster in a partition with FAT16 is 65536 clusters (so maximum SD Card
+  * size is 4 Go)
+  
+  * Memory Description of a SD CARD with a FAT16 File System:
+  * ---------------------------------------------------------
+  *  ---------------    --> Sector 0: Master Boot Record (sd card boot sector)
+  * | MASTER BOOT   |
+  * | RECORD        |
+  *  ---------------
+  * |   ...         |
+  *  ---------------    --> Boot sector of a partition (up to 4 - possible - partitions)
   * | BOOT SECTOR   |
+  *  ---------------
+  * |   ...         |   reserved sector
   *  ---------------    --> FAT 1 starts at BOOT SECTOR + Number of reserved sector
   * | FAT 1         |   File Allocation Table is Number of FAT * Number of sectors per FAT
   *  ---------------
@@ -27,13 +48,11 @@
   * 
 *********************************************************************/
 
-#include <string.h>
-
 #include "../PLIB.h"
 
 #define sd_card_get_cid(var)                    sd_card_get_packet(var, SD_CARD_CMD_10, 0x00000000, SD_CARD_RET_R1, SD_CARD_CID_LENGTH)
 #define sd_card_get_csd(var)                    sd_card_get_packet(var, SD_CARD_CMD_9, 0x00000000, SD_CARD_RET_R1, SD_CARD_CSD_LENGTH)
-#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (sector * 512), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
+#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (sector * var->boot_sector.number_of_bytes_per_sector), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
 
 static uint8_t sd_card_crc7(uint8_t *buffer, uint8_t length)
 {

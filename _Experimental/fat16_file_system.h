@@ -1,6 +1,8 @@
 #ifndef __DEF_FAT16_FILE_SYSTEM
 #define __DEF_FAT16_FILE_SYSTEM
 
+#define FAT16_MAXIMUM_FAT_SIZE          512
+
 typedef enum
 {
     FAT16_FILE_SYSTEME_FA_LFN           = 0x0f,                         // Long File Name attribute (always equal to 0x0f if the 32 bytes entry is a part of a Long File Name)
@@ -41,13 +43,13 @@ typedef union
 {
     struct 
     {
-        unsigned                        seconds:5;
-        unsigned                        minutes:6;
-        unsigned                        hours:5;
+        unsigned                        seconds:5;                      // seconds (0..29 - multiply by 2)
+        unsigned                        minutes:6;                      // minutes (0..59)
+        unsigned                        hours:5;                        // hours (0..23)
     };
     struct
     {
-        uint16_t                        value;
+        uint16_t                        value;                          // hours [15..11] minutes [10..5] seconds [4..0]
     };
 } fat16_file_system_time_t;
 
@@ -55,13 +57,13 @@ typedef union
 {
     struct 
     {
-        unsigned                        day:5;
-        unsigned                        month:4;
-        unsigned                        year:7;
+        unsigned                        day:5;                          // day of month (1..31)
+        unsigned                        month:4;                        // month of year (1..12)
+        unsigned                        year:7;                         // years from 1980 (0..127 -> 1980..2107)
     };
     struct
     {
-        uint16_t                        value;
+        uint16_t                        value;                          // year [15..9] month [8..5] day [4..0]
     };
 } fat16_file_system_date_t;
 
@@ -70,7 +72,7 @@ typedef union
     struct
     {
         bool                            is_found;                       // This bit is set if the file is found on the SD Card
-        bool                            is_fat_updated;
+        bool                            is_fat_updated;                 // This bit is set if the File Allocation Table has been recovering
         FAT16_FILE_SYSTEM_FLAGS_READ_OP is_read_block_op;               // 0: not used, 1: read_block_requested, 2: read_block_on_going, 3: read_block_terminated
         bool                            is_read_file_stopped;           // 0: play / continue, 1: stop / pause
         bool                            is_read_file_terminated;        // 0: no, 1: yes
@@ -84,8 +86,8 @@ typedef union
 
 typedef struct
 {
-    char                                file_name[255];                 // File name and extension (example "My Folder\my_file.extension")
-    fat16_file_system_file_attributes_t file_attributes;
+    char                                file_name[255];                 // File name and extension (example "My Folder\\my_file.extension")
+    fat16_file_system_file_attributes_t file_attributes;                // The attribute byte defines a set of flags which can be set for directories, volume name, hidden files, system files, etc. 
     uint8_t                             creation_time_ms;               // Due to size limitations this field (1 byte) only contains the millisecond stamp in counts of 10 milliseconds. Therefore valid values are between 0 and 199 inclusive.
     fat16_file_system_time_t            creation_time_h_m_s;            // The 16 bit time field contain the time of day when this entry was created. This value never change. hours (0..23) [15..11] minutes (0..59) [10..5] seconds (0..29 - multiply by 2) [4..0]
     fat16_file_system_date_t            creation_date;                  // The 16 bit date field contain the date of day when this entry was created. This value never change. year (0..127 -> 1980..2107) [15..9] month (1..12) [8..5] day (1..31) [4..0]
@@ -97,7 +99,7 @@ typedef struct
     uint32_t                            file_size;                      // This 32-bit field count the total file size in bytes. For this reason the file system driver must not allow more than 4 GB to be allocated to a file. For other entries than files then file size field should be set to 0.
     
     fat16_file_system_flags_t           flags;                          
-    uint32_t                            first_sector_of_the_file;       
+    uint32_t                            first_sector_of_the_file;       // Pre calculate the first sector of the file thanks to the "first_cluster_of_the_file" value
     DYNAMIC_TAB_WORD                    fat;                            // Contains the File Allocation Table for the file
     
     state_machine_t                     sm_read;
@@ -132,7 +134,7 @@ typedef struct
 }
 
 #define FILE_DEF(_p_sd_card, _name, _file_name)                             \
-static uint16_t _name ## _fat_ram_allocation[500];                          \
+static uint16_t _name ## _fat_ram_allocation[FAT16_MAXIMUM_FAT_SIZE];       \
 static fat16_file_system_entry_t _name = FAT16_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _name ## _fat_ram_allocation, _p_sd_card)
 
 typedef struct
@@ -142,26 +144,38 @@ typedef struct
     uint32_t                            root_directory_region_start;                // = fat_region_start + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat)
     uint32_t                            data_space_region_start;                    // = root_directory_region_start + (var->boot_sector.number_of_possible_root_directory_entries * 32 / var->boot_sector.bytes_per_sector)
                                                                                     // Important: The DATA SPACE start at Cluster 2 because Cluster 0 and Cluster 1 are reserved.        
-    uint32_t                            jump_command;
-    char                                oem_name[9];
-    uint16_t                            number_of_bytes_per_sector;
-    uint8_t                             number_of_sectors_per_cluster;
-    uint16_t                            number_of_reserved_sectors;
-    uint8_t                             number_of_file_allocation_tables;
-    uint16_t                            number_of_possible_root_directory_entries;
+    uint32_t                            jump_command;                               // Code to jump to the bootstrap code.
+    char                                oem_name[9];                                // Oem ID - Name of the formatting OS (8 bytes length - the 9th byte is '\0' for LOG)
+                                                                    // **** BIOS Parameter Block ****
+    uint16_t                            number_of_bytes_per_sector;                 // This value is the number of bytes in each physical sector. The allowed values are: 512, 1024, 2048 or 4096 bytes. A lot of code are assuming 512 bytes per sectors.
+    uint8_t                             number_of_sectors_per_cluster;              // This is the number of sectors per cluster. The allowed values are: 1, 2, 4, 8, 16, 32 or 128.
+    uint16_t                            number_of_reserved_sectors;                 // Since the reserved region always contain the boot sector a zero value in this field is not allowed. The usual setting of this value is 1. The value is used to calculate the location for the first sector containing the FAT.
+    uint8_t                             number_of_file_allocation_tables;           // This is the number of FAT copies in the file system. The recommended value is 2 (and then have two FAT copies). The usage of two copies are to prevent data loss if one or part of one FAT copy is corrupted.
+    uint16_t                            number_of_possible_root_directory_entries;  // This value contain the number of entries in the root directory. Its recommended that the number of entries is an even multiple of the BytesPerSector values. The recommended value for FAT16 volumes is 512 entries (compatibility reasons).
     uint16_t                            small_number_of_sectors;                    // Used when volume size < 32MB
     uint32_t                            large_number_of_sectors;                    // Used when volume size > 32MB
-    uint8_t                             media_descriptor;
-    uint16_t                            number_of_sectors_per_fat;
-    uint16_t                            number_of_sectors_per_track;
-    uint16_t                            number_of_heads;
-    uint32_t                            number_of_hidden_sectors;
-    uint8_t                             physical_drive_number;
-    uint8_t                             current_head;
-    uint8_t                             boot_signature;
-    uint32_t                            volume_id;
-    char                                volume_label[12];
-    char                                file_system_type[9];
+    uint8_t                             media_descriptor;                           // 0xF0     2.88 MB     3.5-inch, 2-sided, 36-sector
+                                                                                    // 0xF0     1.44 MB     3.5-inch, 2-sided, 18-sector
+                                                                                    // 0xF8     ?           Fixed disk
+                                                                                    // 0xF9     720 KB      3.5-inch, 2-sided, 9-sector
+                                                                                    // 0xF9     1.2 MB      5.25-inch, 2-sided, 15-sector
+                                                                                    // 0xFA     ?           ?
+                                                                                    // 0xFB     ?           ?
+                                                                                    // 0xFC     180 KB      5.25-inch, 1-sided, 9-sector
+                                                                                    // 0xFD     360 KB      5.25-inch, 2-sided, 9-sector
+                                                                                    // 0xFE     160 KB      5.25-inch, 1-sided, 8-sector
+                                                                                    // 0xFF     320 KB      5.25-inch, 2-sided, 8-sector
+    uint16_t                            number_of_sectors_per_fat;                  // This is the number of sectors occupied by one copy of the FAT.
+    uint16_t                            number_of_sectors_per_track;                // This value is used when the volume is on a media which have a geometry, that is when the LBA number is broken down into a Cylinder-Head-Sector address. This field represents the multiple of the max. Head and Sector value used when the volume was formatted. The field itself is used to check if the LBA to CHS translation has changed, since the formatting. And for calculating the correct Cylinder, Head and Sector values for the translation algorithm.
+    uint16_t                            number_of_heads;                            // This value is used when the volume is on a media which have a geometry, that is when the LBA number is broken down into a Cylinder-Head-Sector address. This field represents the Head value used when the volume was formatted. The field itself is used to check if the LBA to CHS translation has changed, since the formatting. And for calculating the correct Cylinder, Head and Sector values for the translation algorithm.
+    uint32_t                            number_of_hidden_sectors;                   // When the volume is on a media that is partitioned, this value contains the number of sectors preceeding the first sector of the volume.
+                                                                    // **** Extended BIOS Parameter Block ****
+    uint8_t                             physical_drive_number;                      // This is the integer 13h drive number of the drive. The value 00h is used for the first floppy drive and the value 80h is used for the first harddrive.
+    uint8_t                             current_head;                               // Reserved byte. It was original used to store the cylinder on which the boot sector is located.
+    uint8_t                             boot_signature;                             // If this byte contain a value of 29h it indicates that the next three fields are available (volume_id, volume_label and file_system_type).
+    uint32_t                            volume_id;                                  // This value is a 32 bit random number, which, combined with the volume label, makes is possible to track removable media and check if the correct one is inserted.
+    char                                volume_label[12];                           // This 11 byte long string (the 12th byte is '\0' for LOG) should match the volume label entry in the root directory. If no such entry is available this field should contain the string 'NO NAME ' (11 bytes long string).
+    char                                file_system_type[9];                        // This 8 byte long string (the 9th byte is '\0' for LOG) should be used for informational display only. Thats because its sometime incorrectly set. The field should contain the string 'FAT16 ' (8 bytes long string).
 } fat16_file_system_boot_sector_t;
 
 #define FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET      0x1be
