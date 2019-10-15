@@ -4,8 +4,10 @@
   
   * General overview: 
   * -----------------
-  * SD Card driver uses 1 SPI and 2 DMA modules compatible ONLY with FAT16 File System 
-  * and READ requests. A maximum of 20 files can be opened at same time. 
+  * SD Card driver uses 1 SPI and 2 DMA modules and is compatible ONLY with FAT16 File System.
+  * READ requests are implemented.
+  * (WRITE requests are not implemented.)
+  * A maximum of 20 files can be opened at same time. 
   * The maximum SPI frequency is 25 MHz. 
   * The card detection is implemented in the communication (no need to have a 
   * CD signal). If a card is removed then the software re-launch the initialization
@@ -16,11 +18,11 @@
   * The File Allocation Table of a file has a maximum of 512 clusters (one cluster address = 16 bits)
   * One cluster = 1 / 2 / 4 / 8 / 16 / 32 / 64 / 128 sectors
   * One sector = 512 / 1024 / 2048 / 4096 bytes (A lot of code are assuming 512 bytes per sectors)
-  * Maximum number of cluster in a partition with FAT16 is 65536 clusters (so maximum SD Card
-  * size is 4 Go)
+  * Maximum number of cluster in a partition with FAT16 is 65536 clusters (maximum SD Card
+  * size is 2 Go - minimum is 2 Mo)
   
-  * Memory Description of a SD CARD with a FAT16 File System:
-  * ---------------------------------------------------------
+  * Memory Description of a SD CARD formated in a FAT16 File System:
+  * ---------------------------------------------------------------
   *  ---------------    --> Sector 0: Master Boot Record (sd card boot sector)
   * | MASTER BOOT   |
   * | RECORD        |
@@ -52,7 +54,7 @@
 
 #define sd_card_get_cid(var)                    sd_card_get_packet(var, SD_CARD_CMD_10, 0x00000000, SD_CARD_RET_R1, SD_CARD_CID_LENGTH)
 #define sd_card_get_csd(var)                    sd_card_get_packet(var, SD_CARD_CMD_9, 0x00000000, SD_CARD_RET_R1, SD_CARD_CSD_LENGTH)
-#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (sector * var->boot_sector.number_of_bytes_per_sector), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
+#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (sector * 512), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
 
 static uint8_t sd_card_crc7(uint8_t *buffer, uint8_t length)
 {
@@ -98,13 +100,13 @@ static uint8_t _get_last_entry_name(uint8_t *p_lfn_number_of_entry, uint8_t *p_l
             }                                
         }
         name_length = k;
-        memset(p_lfn_buffer, 0, 32*3);
+        memset(p_lfn_buffer, 0, 32*7);
         *p_lfn_number_of_entry = 0;   
     }
     else
     {
-        /*  Get Name without space between 'name' and extension and remove space in extension if extension_length < 3 chars (example: "MOVIE   IO " becomes "MOVIE.IO"
-            Set all characters to lower case "MOVIE.IO" becomes "movie.io"*/
+        //  Get Name without space between 'name' and 'extension' and remove space in extension if extension_length < 3 chars (example: "MOVIE   IO " becomes "MOVIE.IO"
+        //  Set all characters to lower case "MOVIE.IO" becomes "movie.io"
         for (i = 7 ; i > 0 ; i--)
         {
             if (p_ram_rx_of_last_entry[i] != ' ')
@@ -338,7 +340,7 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
     uint8_t file_attributes = 0;
     
     static uint8_t lfn_number_of_entry = 0;
-    static uint8_t lfn_data_entries[32*3] = {0};        
+    static uint8_t lfn_data_entries[32*7] = {0};        
     
     char last_entry_name[255] = {0};
     uint8_t last_entry_name_length = 0;
@@ -425,9 +427,9 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
                     if (GET_BIT(first_byte, 6))
                     {
                         // Long File Name detected (get the number of entry useful - start with 0x4...)
-                        lfn_number_of_entry = first_byte & 0x0f;
+                        lfn_number_of_entry = first_byte & 0x3f;
                     }    
-                    memcpy(&lfn_data_entries[(lfn_number_of_entry - (first_byte & 0x0f)) * 32], &var->_p_ram_rx[last_entry_index * 32], 32);
+                    memcpy(&lfn_data_entries[(lfn_number_of_entry - (first_byte & 0x3f)) * 32], &var->_p_ram_rx[last_entry_index * 32], 32);
                 }
             }
             
@@ -1352,7 +1354,7 @@ void sd_card_open(fat16_file_system_entry_t *file)
     SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
 }
 
-uint8_t sd_card_read_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t data_length)
+uint8_t sd_card_read_block_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t block_length)
 {
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
     
@@ -1364,10 +1366,10 @@ uint8_t sd_card_read_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint3
 
                 file->buffer.p = p_dst;
                 file->_data_address = data_address;
-                file->_data_length = data_length;
+                file->_data_length = ((file->_data_address + block_length) > file->file_size) ? (file->file_size - file->_data_address) : block_length;
                 file->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
                 SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
-                file->sm_read.index++;
+                file->sm_read.index = 1;
                 break;
 
             case 1:
@@ -1385,7 +1387,7 @@ uint8_t sd_card_read_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint3
     return file->sm_read.index;
 }
 
-uint8_t sd_card_read_all_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period)
+uint8_t sd_card_read_play_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period, uint8_t *progression)
 {    
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
         
@@ -1400,7 +1402,7 @@ uint8_t sd_card_read_all_file(fat16_file_system_entry_t *file, uint8_t *p_dst, u
                 file->_data_length = (block_length > file->file_size) ? file->file_size : block_length;
                 file->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
                 SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
-                file->sm_read.index++;
+                file->sm_read.index = 1;
                 break;
 
             case 1:
@@ -1410,7 +1412,7 @@ uint8_t sd_card_read_all_file(fat16_file_system_entry_t *file, uint8_t *p_dst, u
                     if (mTickCompare(file->sm_read.tick) >= period)
                     {
                         mUpdateTick(file->sm_read.tick);
-                        file->sm_read.index++;                
+                        file->sm_read.index = 2;                
                     }
                 }
                 break;
@@ -1425,6 +1427,7 @@ uint8_t sd_card_read_all_file(fat16_file_system_entry_t *file, uint8_t *p_dst, u
                     file->sm_read.index = 0;
                     file->flags.is_read_file_stopped = true;
                     file->flags.is_read_file_terminated = true;
+                    *progression = 100;
                 }
                 else
                 {
@@ -1436,7 +1439,12 @@ uint8_t sd_card_read_all_file(fat16_file_system_entry_t *file, uint8_t *p_dst, u
                 break;
 
         }
-    }
         
+        if (progression != NULL)
+        {
+            *progression = file->_data_address * 100 / file->file_size;
+        }
+    }
+            
     return file->sm_read.index;
 }
