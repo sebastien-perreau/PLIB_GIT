@@ -4,7 +4,8 @@
   
   * General overview: 
   * -----------------
-  * SD Card driver uses 1 SPI and 2 DMA modules and is compatible ONLY with FAT16 File System.
+  * SD Card driver uses 1 SPI and 2 DMA modules and is compatible ONLY with FAT16 CHS/CHA mode and
+  * FAT32 CHS mode.
   * READ requests are implemented.
   * (WRITE requests are not implemented.)
   * A maximum of 20 files can be opened at same time. 
@@ -21,32 +22,34 @@
   * Maximum number of cluster in a partition with FAT16 is 65536 clusters (maximum SD Card
   * size is 2 Go - minimum is 2 Mo)
   
-  * Memory Description of a SD CARD formated in a FAT16 File System:
-  * ---------------------------------------------------------------
-  *  ---------------    --> Sector 0: Master Boot Record (sd card boot sector)
-  * | MASTER BOOT   |
-  * | RECORD        |
-  *  ---------------
-  * |   ...         |
-  *  ---------------    --> Boot sector of a partition (up to 4 - possible - partitions)
-  * | BOOT SECTOR   |
-  *  ---------------
-  * |   ...         |   reserved sector
-  *  ---------------    --> FAT 1 starts at BOOT SECTOR + Number of reserved sector
-  * | FAT 1         |   File Allocation Table is Number of FAT * Number of sectors per FAT
-  *  ---------------
-  * | FAT N         |
-  *  ---------------    --> ROOT Dir. starts at FAT 1 SECTOR + Size of FATs
-  * |               |
-  * | ROOT DIR.     |   Root Directory is (Number of possible ROOT Dir. * 32 / Number of bytes per sector) length (length = number of sectors)
-  * |               |
-  *  ---------------    --> DATA SPACE starts at CLUSTER 2 (ROOT Dir. SECTOR + Size of ROOT Dir)
-  * |               |
-  * | DATA SPACE    |
-  * |   files...    |
-  * |   folders...  |
-  * |               |
-  *  ---------------
+  * Memory Description of a SD CARD formated in a FAT File System:
+  * -------------------------------------------------------------
+  *     FAT16               FAT32
+  *  ---------------     ---------------    --> Sector 0: Master Boot Record (sd card boot sector)
+  * | MASTER BOOT   |   | MASTER BOOT   |   MBR is common to FAT16 and FAT32
+  * | RECORD        |   | RECORD        |
+  *  ---------------     --------------- 
+  * |   ...         |   |   ...         |
+  *  ---------------     ---------------    --> Boot sector of a partition (up to 4 - possible - partitions)
+  * | BOOT SECTOR   |   | BOOT SECTOR   |
+  * |   FAT16       |   |   FAT32       |
+  *  ---------------     ---------------
+  * |   ...         |   |   ...         |   reserved sector (can include the FSInfo - File System Information - in this area)
+  *  ---------------     ---------------    --> FAT 1 starts at BOOT SECTOR + Number of reserved sector
+  * | FAT 1         |   | FAT 1         |   File Allocation Table is Number of FAT * Number of sectors per FAT
+  *  ---------------     ---------------
+  * | FAT N         |   | FAT N         |
+  *  ---------------     ---------------    --> ROOT Dir. (ONLY FAT16) starts at FAT 1 SECTOR + Size of FATs
+  * |               |   |               |
+  * | ROOT DIR.     |   | DATA SPACE    |   Root Directory (ONLY FAT16) is (Number of possible ROOT Dir. * 32 / Number of bytes per sector) length (length = number of sectors)
+  * |               |   |   files...    |
+  *  ---------------    |   folders...  |   --> DATA SPACE always starts at CLUSTER 2 (ROOT Dir. SECTOR + Size of ROOT Dir in case of FAT16)
+  * |               |   |               |
+  * | DATA SPACE    |   |       &       |
+  * |   files...    |   |               |
+  * |   folders...  |   |   ROOT DIR.   |
+  * |               |   |               |
+  *  ---------------     ---------------
   * 
 *********************************************************************/
 
@@ -54,7 +57,7 @@
 
 #define sd_card_get_cid(var)                    sd_card_get_packet(var, SD_CARD_CMD_10, 0x00000000, SD_CARD_RET_R1, SD_CARD_CID_LENGTH)
 #define sd_card_get_csd(var)                    sd_card_get_packet(var, SD_CARD_CMD_9, 0x00000000, SD_CARD_RET_R1, SD_CARD_CSD_LENGTH)
-#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (sector * 512), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
+#define sd_card_read_single_block(var, sector)  sd_card_get_packet(var, SD_CARD_CMD_17, (var->args_type == SD_CARD_ARGS_TYPE_SECTOR) ? sector : (sector * 512), SD_CARD_RET_R1, SD_CARD_DATA_BLOCK_LENGTH)
 
 static uint8_t sd_card_crc7(uint8_t *buffer, uint8_t length)
 {
@@ -152,7 +155,7 @@ static void _sort_data_array_to_cid_structure(sd_card_params_t *var)
     var->cid.serial_number = (uint32_t) ((var->_p_ram_rx[9] << 24) | (var->_p_ram_rx[10] << 16) | (var->_p_ram_rx[11] << 8) | (var->_p_ram_rx[12] << 0));
     var->cid.manufacturer_data_code = (uint16_t) ((var->_p_ram_rx[13] << 8) | (var->_p_ram_rx[14] << 0)) & 0x0fff;
     var->cid.crc = (var->_p_ram_rx[15] >> 1) & 0x7f;
-
+    
     if (var->is_log_enable) 
     { 
         LOG_BLANCK("\nSD Card get Identifications (CID):\n    Manufacturer ID: %2x", var->cid.manufacturer_id); 
@@ -198,15 +201,36 @@ static void _sort_data_array_to_csd_structure(sd_card_params_t *var)
 
     if (var->is_log_enable) 
     { 
+        uint32_t capacity = (var->csd.device_size + 1) * (pow(2, var->csd.device_size_mult + 2)) * pow(2, var->csd.max_read_data_block_length) / (1024 * 1024);
+        
         LOG_BLANCK("\nSD Card get Specific Data (CSD):\n    TAAC (time unit = %d / time value = %d) - NSAC (%d)", (var->csd.taac & 0x03), ((var->csd.taac >> 3) & 0x0f), var->csd.nsac);        
         LOG_BLANCK("    Transfer Rate: time unit = %d / time value = %d (always tu=2 and tv = 6 to give 25MHz)", (var->csd.transfer_rate & 0x03), ((var->csd.transfer_rate >> 3) & 0x0f));
         LOG_BLANCK("    Command Classes (CCC): %12b", var->csd.command_classes);
         LOG_BLANCK("    Maximum Read Data Block Length: %d bytes", pow(2, var->csd.max_read_data_block_length));
         LOG_BLANCK("    Maximum Write Data Block Length: %d bytes", pow(2, var->csd.max_write_data_block_length));
-        LOG_BLANCK("    Memory Capacity (without protected security area): %d MB", (var->csd.device_size + 1) * (pow(2, var->csd.device_size_mult + 2)) / 1024 * pow(2, var->csd.max_read_data_block_length) / 1024);
+        if (!capacity)
+        {
+            // Impossible to have more than 4 GB in the CSD structure (maximum = 4096 (device size + 1) x 512 (MULT) x 2048 (BLOCK LEN) = 4 GB)
+            LOG_BLANCK("    Memory Capacity (without protected security area): > 4 GB", capacity);
+            var->args_type = SD_CARD_ARGS_TYPE_SECTOR;
+        }
+        else
+        {
+            LOG_BLANCK("    Memory Capacity (without protected security area): %d MB", capacity);
+            var->args_type = SD_CARD_ARGS_TYPE_ADDRESS;
+        }
         LOG_BLANCK("    Max. Read / Write Current @Vdd min: %d / %d and @Vdd max: %d / %d", var->csd.max_read_current_at_vdd_min, var->csd.max_write_current_at_vdd_min, var->csd.max_read_current_at_vdd_max, var->csd.max_write_current_at_vdd_max);        
         LOG_BLANCK("    Erase Single Block Enable: %d - Erase Sector Size: %d write blocks", var->csd.erase_single_block_enable, (var->csd.erase_sector_size + 1));        
         LOG_BLANCK("    File Format Group: %d / File Format: %d", var->csd.file_format_group, var->csd.file_format);
+        
+        if (var->args_type == SD_CARD_ARGS_TYPE_ADDRESS)
+        {
+            LOG_BLANCK("    SD CARD ARGS type: ADDRESS (sector x 512)");
+        }
+        else
+        {
+            LOG_BLANCK("    SD CARD ARGS type: SECTOR");
+        }
     }
 }
 
@@ -218,40 +242,65 @@ static void _sort_data_array_to_master_boot_record_structure(sd_card_params_t *v
         uint8_t i;
         for (i = 0 ; i < 4 ; i++)
         {
-            var->master_boot_record.partition_entry[i].boot_descriptor = var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 0];
-            var->master_boot_record.partition_entry[i].first_partition_sector = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 1] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 2] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 3] << 16);    
-            var->master_boot_record.partition_entry[i].file_system_descriptor = var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 4];
-            var->master_boot_record.partition_entry[i].last_partition_sector = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 5] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 6] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 7] << 16);   
-            var->master_boot_record.partition_entry[i].first_sector_of_the_partition = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 8] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 9] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 10] << 16) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 11] << 24);    
-            var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition = (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 12] << 0) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 13] << 8) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 14] << 16) | (var->_p_ram_rx[FAT16_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 15] << 24);    
-            var->master_boot_record.partition_entry[i].is_existing = (var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition > 0) ? true : false;        
-
+            var->master_boot_record.partition_entry[i].boot_descriptor = var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 0];
+            var->master_boot_record.partition_entry[i].start_partition_head = var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 1];
+            var->master_boot_record.partition_entry[i].start_partition_cyl_sec.value = (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 2] << 0) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 3] << 8);
+            var->master_boot_record.partition_entry[i].file_system_descriptor = var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 4];
+            var->master_boot_record.partition_entry[i].last_partition_head = var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 5];
+            var->master_boot_record.partition_entry[i].last_partition_cyl_sec.value = (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 6] << 0) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 7] << 8);
+            var->master_boot_record.partition_entry[i].first_sector_of_the_partition = (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 8] << 0) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 9] << 8) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 10] << 16) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 11] << 24);    
+            var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition = (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 12] << 0) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 13] << 8) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 14] << 16) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 15] << 24);    
+            
             if (var->is_log_enable)
             {
-                if (var->master_boot_record.partition_entry[i].is_existing)
+                if (var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition > 0)
                 {
-                    LOG_BLANCK("\nPartition %d entry:", i);
+                    LOG_BLANCK("\nPartition %d entry (%d MB):", i, (var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition / 1024 * 512 / 1024));
                     LOG_BLANCK("    Boot descriptor: %2x", var->master_boot_record.partition_entry[i].boot_descriptor);
-                    LOG_BLANCK("    First Partition Sector: %6x", var->master_boot_record.partition_entry[i].first_partition_sector);
                     switch (var->master_boot_record.partition_entry[i].file_system_descriptor)
                     {
-                        case 0x04:
-                            LOG_BLANCK("    File System Descriptor: 16-bit FAT < 32M");
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_UNKNOWN:
+                            LOG_BLANCK("    File System Descriptor: Unknown or nothing");
+                            break;
+                            
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_FAT12:
+                            LOG_BLANCK("    File System Descriptor: FAT12");
+                            break;
+                            
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_LOW:
+                            LOG_BLANCK("    File System Descriptor: FAT16 CHS mode with partition < 32M");
+                            break;
+                            
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_EXTENDED_MSDOS_CHS:
+                            LOG_BLANCK("    File System Descriptor: Extended MS-DOS partition CHS mode");
                             break;
 
-                        case 0x06:
-                            LOG_BLANCK("    File System Descriptor: 16-bit FAT >= 32M");
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_HIGH:
+                            LOG_BLANCK("    File System Descriptor: FAT16 CHS mode with partition >= 32M");
                             break;
 
-                        case 0x0e:
-                            LOG_BLANCK("    File System Descriptor: DOS CHS mapped");
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS:
+                            LOG_BLANCK("    File System Descriptor: FAT32 CHS mode");
+                            break;
+
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_LBA:
+                            LOG_BLANCK("    File System Descriptor: FAT32 LBA mode");
+                            break;
+
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_LBA:
+                            LOG_BLANCK("    File System Descriptor: FAT16 LBA mode");
+                            break;
+                            
+                        case FAT_FILE_SYSTEM_DESCRIPTOR_EXTENDED_MSDOS_LBA:
+                            LOG_BLANCK("    File System Descriptor: Extended MS-DOS partition LBA mode");
                             break;
 
                         default:
                             LOG_BLANCK("    File System Descriptor: %2x", var->master_boot_record.partition_entry[i].file_system_descriptor);
                             break;
                     }
-                    LOG_BLANCK("    Last Partition Sector: %6x", var->master_boot_record.partition_entry[i].last_partition_sector);
+                    LOG_BLANCK("    Start Partition CHS (cylinders: %d / head: %d / sectors: %d)", var->master_boot_record.partition_entry[i].start_partition_cyl_sec.cylinders, var->master_boot_record.partition_entry[i].start_partition_head, var->master_boot_record.partition_entry[i].start_partition_cyl_sec.sectors);
+                    LOG_BLANCK("    Last Partition CHS (cylinders: %d / head: %d / sectors: %d)", var->master_boot_record.partition_entry[i].last_partition_cyl_sec.cylinders, var->master_boot_record.partition_entry[i].last_partition_head, var->master_boot_record.partition_entry[i].last_partition_cyl_sec.sectors);
                     LOG_BLANCK("    First Sector Of The Partition (Boot Sector): %d", var->master_boot_record.partition_entry[i].first_sector_of_the_partition);
                     LOG_BLANCK("    Number Of Sector In The Partition: %d", var->master_boot_record.partition_entry[i].number_of_sector_in_the_partition);                    
                 }
@@ -260,13 +309,28 @@ static void _sort_data_array_to_master_boot_record_structure(sd_card_params_t *v
                     LOG_BLANCK("Partition %d entry not existing...", i);
                 }
             }
-        }    
+        }
+        
+        if (var->master_boot_record.partition_entry[0].number_of_sector_in_the_partition > 0)
+        {
+            if (    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_LOW) &&
+                    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_HIGH) &&
+                    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_LBA) &&
+                    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS))
+            {
+                if (var->is_log_enable)
+                {
+                    LOG_BLANCK("FAT File System Driver not compatible (not FAT 16 nor FAT32 CHS mode)");
+                }
+            }
+        }
+        
     }
     else
     {
         if (var->is_log_enable)
         {
-            LOG_BLANCK("Read Master Boot Record Fail (0xAA55 mismatch)");
+            LOG_BLANCK("\nRead Master Boot Record Fail (0xAA55 mismatch)");
         }
     }
 }
@@ -276,54 +340,113 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
     uint16_t end_of_data_block = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
     if (end_of_data_block == SD_CARD_END_OF_DATA_BLOCK)
     {
-        var->boot_sector.jump_command = (var->_p_ram_rx[0] << 0) | (var->_p_ram_rx[1] << 8) | (var->_p_ram_rx[2] << 16);
-        memcpy((void *) &var->boot_sector.oem_name, &var->_p_ram_rx[3], 8);
-        var->boot_sector.number_of_bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
-        var->boot_sector.number_of_sectors_per_cluster = var->_p_ram_rx[13];
-        var->boot_sector.number_of_reserved_sectors = (var->_p_ram_rx[14] << 0) | (var->_p_ram_rx[15] << 8);
-        var->boot_sector.number_of_file_allocation_tables = var->_p_ram_rx[16];
-        var->boot_sector.number_of_possible_root_directory_entries = (var->_p_ram_rx[17] << 0) | (var->_p_ram_rx[18] << 8);
-        var->boot_sector.small_number_of_sectors = (var->_p_ram_rx[19] << 0) | (var->_p_ram_rx[20] << 8);
-        var->boot_sector.large_number_of_sectors = (var->_p_ram_rx[32] << 0) | (var->_p_ram_rx[33] << 8) | (var->_p_ram_rx[34] << 16) | (var->_p_ram_rx[35] << 24);
-        var->boot_sector.media_descriptor = var->_p_ram_rx[21];
-        var->boot_sector.number_of_sectors_per_fat = (var->_p_ram_rx[22] << 0) | (var->_p_ram_rx[23] << 8);
-        var->boot_sector.number_of_sectors_per_track = (var->_p_ram_rx[24] << 0) | (var->_p_ram_rx[25] << 8);
-        var->boot_sector.number_of_heads = (var->_p_ram_rx[26] << 0) | (var->_p_ram_rx[27] << 8);
-        var->boot_sector.number_of_hidden_sectors = (var->_p_ram_rx[28] << 0) | (var->_p_ram_rx[29] << 8) | (var->_p_ram_rx[30] << 16) | (var->_p_ram_rx[31] << 24);
-        var->boot_sector.physical_drive_number = var->_p_ram_rx[36];
-        var->boot_sector.current_head = var->_p_ram_rx[37];
-        var->boot_sector.boot_signature = var->_p_ram_rx[38];
-        var->boot_sector.volume_id = (var->_p_ram_rx[39] << 0) | (var->_p_ram_rx[40] << 8) | (var->_p_ram_rx[41] << 16) | (var->_p_ram_rx[42] << 24);
-        memcpy((void *) &var->boot_sector.volume_label, &var->_p_ram_rx[43], 11);
-        memcpy((void *) &var->boot_sector.file_system_type, &var->_p_ram_rx[54], 8);
-        
-        var->boot_sector.reserved_region_start = var->master_boot_record.partition_entry[0].first_sector_of_the_partition;
-        var->boot_sector.fat_region_start = var->boot_sector.reserved_region_start + var->boot_sector.number_of_reserved_sectors;
-        var->boot_sector.root_directory_region_start = var->boot_sector.fat_region_start + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat);
-        var->boot_sector.data_space_region_start = var->boot_sector.root_directory_region_start + (var->boot_sector.number_of_possible_root_directory_entries * 32 / var->boot_sector.number_of_bytes_per_sector);
-        
-        if (var->is_log_enable)
+        if (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS)
         {
-            LOG_BLANCK("\nBoot Sector Partition 0:");
-            LOG_BLANCK("        Boot region sector: %d", var->boot_sector.reserved_region_start);
-            LOG_BLANCK("        FAT region sector: %d", var->boot_sector.fat_region_start);
-            LOG_BLANCK("        Root Directory region sector: %d", var->boot_sector.root_directory_region_start);
-            LOG_BLANCK("        Data Space region sector: %d (start at Cluster 2)", var->boot_sector.data_space_region_start);
-            LOG_BLANCK("    Capacity Of The Partition: %d MB", ((var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors)/1024*var->boot_sector.number_of_bytes_per_sector/1024);
-            LOG_BLANCK("    Jump Command: %6x", var->boot_sector.jump_command);
-            LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", (var->boot_sector.small_number_of_sectors > 0) ? var->boot_sector.small_number_of_sectors : var->boot_sector.large_number_of_sectors, var->boot_sector.number_of_bytes_per_sector, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.number_of_sectors_per_track, var->boot_sector.number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
-            LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT) - %d Possible Root Directory Entries", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat, var->boot_sector.number_of_possible_root_directory_entries);
-            LOG_BLANCK("    Media Descriptor: %x - Number of Heads: %d (Current Head: %d) - Physical Drive Number: %x", var->boot_sector.media_descriptor, var->boot_sector.number_of_heads, var->boot_sector.current_head, var->boot_sector.physical_drive_number);
-            LOG_BLANCK("    Boot Signature: %2x - Volume ID: %8x", var->boot_sector.boot_signature, var->boot_sector.volume_id);
-            LOG_BLANCK("    OEM Name: %s - Volume Label: %s", p_string(var->boot_sector.oem_name), p_string(var->boot_sector.volume_label));            
-            LOG_BLANCK("    File System Type: %s", p_string(var->boot_sector.file_system_type));
-        }  
+            var->boot_sector.jump_boot_code = (var->_p_ram_rx[0] << 0) | (var->_p_ram_rx[1] << 8) | (var->_p_ram_rx[2] << 16);
+            memcpy((void *) &var->boot_sector.oem_name, &var->_p_ram_rx[3], 8);
+            var->boot_sector.number_of_bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
+            var->boot_sector.number_of_sectors_per_cluster = var->_p_ram_rx[13];
+            var->boot_sector.number_of_reserved_sectors = (var->_p_ram_rx[14] << 0) | (var->_p_ram_rx[15] << 8);
+            var->boot_sector.number_of_file_allocation_tables = var->_p_ram_rx[16];            
+            var->boot_sector.media_descriptor = var->_p_ram_rx[21];            
+            var->boot_sector.number_of_sectors_per_track = (var->_p_ram_rx[24] << 0) | (var->_p_ram_rx[25] << 8);
+            var->boot_sector.number_of_heads = (var->_p_ram_rx[26] << 0) | (var->_p_ram_rx[27] << 8);
+            var->boot_sector.number_of_hidden_sectors = (var->_p_ram_rx[28] << 0) | (var->_p_ram_rx[29] << 8) | (var->_p_ram_rx[30] << 16) | (var->_p_ram_rx[31] << 24);
+            var->boot_sector.number_of_sectors_in_the_partition = (var->_p_ram_rx[32] << 0) | (var->_p_ram_rx[33] << 8) | (var->_p_ram_rx[34] << 16) | (var->_p_ram_rx[35] << 24);            
+            var->boot_sector.number_of_sectors_per_fat = (var->_p_ram_rx[36] << 0) | (var->_p_ram_rx[37] << 8) | (var->_p_ram_rx[38] << 16) | (var->_p_ram_rx[39] << 24);
+            var->boot_sector.fat_handling_flags.value = (var->_p_ram_rx[40] << 0) | (var->_p_ram_rx[41] << 8);
+            var->boot_sector.fat32_version.value = (var->_p_ram_rx[42] << 0) | (var->_p_ram_rx[43] << 8);
+            var->boot_sector.cluster_number_of_root_directory_table = (var->_p_ram_rx[44] << 0) | (var->_p_ram_rx[45] << 8) | (var->_p_ram_rx[46] << 16) | (var->_p_ram_rx[47] << 24);
+            var->boot_sector.file_system_information_region_start = (var->_p_ram_rx[48] << 0) | (var->_p_ram_rx[49] << 8);
+            var->boot_sector.backup_boot_record_region_start = (var->_p_ram_rx[50] << 0) | (var->_p_ram_rx[51] << 8);            
+            var->boot_sector.physical_drive_number = var->_p_ram_rx[64];
+            var->boot_sector.current_head = var->_p_ram_rx[65];
+            var->boot_sector.boot_signature = var->_p_ram_rx[66];
+            var->boot_sector.volume_id = (var->_p_ram_rx[67] << 0) | (var->_p_ram_rx[68] << 8) | (var->_p_ram_rx[69] << 16) | (var->_p_ram_rx[70] << 24);
+            memcpy((void *) &var->boot_sector.volume_label, &var->_p_ram_rx[71], 11);
+            memcpy((void *) &var->boot_sector.file_system_type, &var->_p_ram_rx[82], 8);
+            
+            var->boot_sector.reserved_region_start = var->master_boot_record.partition_entry[0].first_sector_of_the_partition;
+            var->boot_sector.fat_region_start = var->boot_sector.reserved_region_start + var->boot_sector.number_of_reserved_sectors;
+            var->boot_sector.data_space_region_start = var->boot_sector.fat_region_start + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat);
+            var->boot_sector.root_directory_region_start = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.cluster_number_of_root_directory_table);
+            var->boot_sector.file_system_information_region_start += var->boot_sector.reserved_region_start;
+            var->boot_sector.backup_boot_record_region_start += var->boot_sector.reserved_region_start;
+                    
+            if (var->is_log_enable)
+            {
+                LOG_BLANCK("\nBoot Sector Partition 0 (FAT32):");
+                LOG_BLANCK("        Boot region sector: %d", var->boot_sector.reserved_region_start);
+                LOG_BLANCK("            FSInfo sector: %d", var->boot_sector.file_system_information_region_start);
+                LOG_BLANCK("            Backup Boot Record sector: %d", var->boot_sector.backup_boot_record_region_start);
+                LOG_BLANCK("        FAT region sector: %d", var->boot_sector.fat_region_start);                
+                LOG_BLANCK("        Data Space region sector: %d (start at Cluster 2)", var->boot_sector.data_space_region_start);
+                LOG_BLANCK("        Root Directory region sector: %d", var->boot_sector.root_directory_region_start);
+                LOG_BLANCK("    Capacity Of The Partition: %d MB", var->boot_sector.number_of_sectors_in_the_partition/1024*var->boot_sector.number_of_bytes_per_sector/1024);
+                LOG_BLANCK("    Jump Command: %6x", var->boot_sector.jump_boot_code);
+                LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", var->boot_sector.number_of_sectors_in_the_partition, var->boot_sector.number_of_bytes_per_sector, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.number_of_sectors_per_track, var->boot_sector.number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
+                LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT) - %d Possible Root Directory Entries", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat, var->boot_sector.number_of_possible_root_directory_entries);
+                LOG_BLANCK("    Media Descriptor: %x - Number of Heads: %d (Current Head: %d) - Physical Drive Number: %x", var->boot_sector.media_descriptor, var->boot_sector.number_of_heads, var->boot_sector.current_head, var->boot_sector.physical_drive_number);
+                LOG_BLANCK("    Boot Signature: %2x - Volume ID: %8x", var->boot_sector.boot_signature, var->boot_sector.volume_id);
+                LOG_BLANCK("    Handling flags enable: %1d (active FAT: %d)", var->boot_sector.fat_handling_flags.enable, var->boot_sector.fat_handling_flags.active_fat);
+                LOG_BLANCK("    FAT32 version: %1d.%1d", var->boot_sector.fat32_version.major, var->boot_sector.fat32_version.minor);
+                LOG_BLANCK("    OEM Name: %s - Volume Label: %s", p_string(var->boot_sector.oem_name), p_string(var->boot_sector.volume_label));            
+                LOG_BLANCK("    File System Type: %s", p_string(var->boot_sector.file_system_type));
+            }
+        }
+        else // FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_HIGH or FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_LOW or FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_LBA
+        {
+            uint16_t small_number_of_sectors_in_the_partition;
+            
+            var->boot_sector.jump_boot_code = (var->_p_ram_rx[0] << 0) | (var->_p_ram_rx[1] << 8) | (var->_p_ram_rx[2] << 16);
+            memcpy((void *) &var->boot_sector.oem_name, &var->_p_ram_rx[3], 8);
+            var->boot_sector.number_of_bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
+            var->boot_sector.number_of_sectors_per_cluster = var->_p_ram_rx[13];
+            var->boot_sector.number_of_reserved_sectors = (var->_p_ram_rx[14] << 0) | (var->_p_ram_rx[15] << 8);
+            var->boot_sector.number_of_file_allocation_tables = var->_p_ram_rx[16];
+            var->boot_sector.number_of_possible_root_directory_entries = (var->_p_ram_rx[17] << 0) | (var->_p_ram_rx[18] << 8);
+            small_number_of_sectors_in_the_partition = (var->_p_ram_rx[19] << 0) | (var->_p_ram_rx[20] << 8);            
+            var->boot_sector.media_descriptor = var->_p_ram_rx[21];
+            var->boot_sector.number_of_sectors_per_fat = (var->_p_ram_rx[22] << 0) | (var->_p_ram_rx[23] << 8);
+            var->boot_sector.number_of_sectors_per_track = (var->_p_ram_rx[24] << 0) | (var->_p_ram_rx[25] << 8);
+            var->boot_sector.number_of_heads = (var->_p_ram_rx[26] << 0) | (var->_p_ram_rx[27] << 8);
+            var->boot_sector.number_of_hidden_sectors = (var->_p_ram_rx[28] << 0) | (var->_p_ram_rx[29] << 8) | (var->_p_ram_rx[30] << 16) | (var->_p_ram_rx[31] << 24);
+            var->boot_sector.number_of_sectors_in_the_partition = (small_number_of_sectors_in_the_partition == 0) ? ((var->_p_ram_rx[32] << 0) | (var->_p_ram_rx[33] << 8) | (var->_p_ram_rx[34] << 16) | (var->_p_ram_rx[35] << 24)) : small_number_of_sectors_in_the_partition;
+            var->boot_sector.physical_drive_number = var->_p_ram_rx[36];
+            var->boot_sector.current_head = var->_p_ram_rx[37];
+            var->boot_sector.boot_signature = var->_p_ram_rx[38];
+            var->boot_sector.volume_id = (var->_p_ram_rx[39] << 0) | (var->_p_ram_rx[40] << 8) | (var->_p_ram_rx[41] << 16) | (var->_p_ram_rx[42] << 24);
+            memcpy((void *) &var->boot_sector.volume_label, &var->_p_ram_rx[43], 11);
+            memcpy((void *) &var->boot_sector.file_system_type, &var->_p_ram_rx[54], 8);
+
+            var->boot_sector.reserved_region_start = var->master_boot_record.partition_entry[0].first_sector_of_the_partition;
+            var->boot_sector.fat_region_start = var->boot_sector.reserved_region_start + var->boot_sector.number_of_reserved_sectors;
+            var->boot_sector.root_directory_region_start = var->boot_sector.fat_region_start + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat);
+            var->boot_sector.data_space_region_start = var->boot_sector.root_directory_region_start + (var->boot_sector.number_of_possible_root_directory_entries * 32 / var->boot_sector.number_of_bytes_per_sector);
+        
+            if (var->is_log_enable)
+            {
+                LOG_BLANCK("\nBoot Sector Partition 0 (FAT16):");
+                LOG_BLANCK("        Boot region sector: %d", var->boot_sector.reserved_region_start);
+                LOG_BLANCK("        FAT region sector: %d", var->boot_sector.fat_region_start);
+                LOG_BLANCK("        Root Directory region sector: %d", var->boot_sector.root_directory_region_start);
+                LOG_BLANCK("        Data Space region sector: %d (start at Cluster 2)", var->boot_sector.data_space_region_start);
+                LOG_BLANCK("    Capacity Of The Partition: %d MB", var->boot_sector.number_of_sectors_in_the_partition/1024*var->boot_sector.number_of_bytes_per_sector/1024);
+                LOG_BLANCK("    Jump Command: %6x", var->boot_sector.jump_boot_code);
+                LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", var->boot_sector.number_of_sectors_in_the_partition, var->boot_sector.number_of_bytes_per_sector, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.number_of_sectors_per_track, var->boot_sector.number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
+                LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT) - %d Possible Root Directory Entries", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat, var->boot_sector.number_of_possible_root_directory_entries);
+                LOG_BLANCK("    Media Descriptor: %x - Number of Heads: %d (Current Head: %d) - Physical Drive Number: %x", var->boot_sector.media_descriptor, var->boot_sector.number_of_heads, var->boot_sector.current_head, var->boot_sector.physical_drive_number);
+                LOG_BLANCK("    Boot Signature: %2x - Volume ID: %8x", var->boot_sector.boot_signature, var->boot_sector.volume_id);
+                LOG_BLANCK("    OEM Name: %s - Volume Label: %s", p_string(var->boot_sector.oem_name), p_string(var->boot_sector.volume_label));            
+                LOG_BLANCK("    File System Type: %s", p_string(var->boot_sector.file_system_type));
+            }
+        }
     }
     else
     {
         if (var->is_log_enable)
         {
-            LOG_BLANCK("Boot Sector Fail (0xAA55 mismatch)");
+            LOG_BLANCK("\nBoot Sector Fail (0xAA55 mismatch)");
         }
     }    
 }
@@ -357,12 +480,12 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
         {
             if ((first_byte != 0xe5) && (first_byte != 0x2e))
             {   
-                if (file_attributes != FAT16_FILE_SYSTEME_FA_LFN)    
+                if (file_attributes != FAT_FILE_SYSTEME_FA_LFN)    
                 {
                     
                     last_entry_name_length = _get_last_entry_name(&lfn_number_of_entry, lfn_data_entries, &var->_p_ram_rx[last_entry_index * 32], last_entry_name);
                                                                                 
-                    if (!(file_attributes & FAT16_FILE_SYSTEME_FA_DIRECTORY))
+                    if (!(file_attributes & FAT_FILE_SYSTEME_FA_DIRECTORY))
                     {
                         if (var->is_log_enable)
                         {
@@ -389,16 +512,10 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
                             {
                                 var->p_file[i]->flags.is_found = true;
                                 var->p_file[i]->file_attributes.value = file_attributes;
-                                var->p_file[i]->creation_time_ms = var->_p_ram_rx[last_entry_index * 32 + 0x0d];
-                                var->p_file[i]->creation_time_h_m_s.value = (var->_p_ram_rx[last_entry_index * 32 + 0x0e] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x0e] << 8);
-                                var->p_file[i]->creation_date.value = (var->_p_ram_rx[last_entry_index * 32 + 0x10] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x11] << 8);
-                                var->p_file[i]->last_access_date.value = (var->_p_ram_rx[last_entry_index * 32 + 0x12] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x13] << 8);
-                                var->p_file[i]->extended_address_index = (var->_p_ram_rx[last_entry_index * 32 + 0x14] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x15] << 8);
-                                var->p_file[i]->last_write_time_h_m_s.value = (var->_p_ram_rx[last_entry_index * 32 + 0x16] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x17] << 8);
+                                var->p_file[i]->last_write_time.value = (var->_p_ram_rx[last_entry_index * 32 + 0x16] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x17] << 8);
                                 var->p_file[i]->last_write_date.value = (var->_p_ram_rx[last_entry_index * 32 + 0x18] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x18] << 8);
-                                var->p_file[i]->first_cluster_of_the_file = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8);
+                                var->p_file[i]->first_cluster_of_the_file = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8) | (var->_p_ram_rx[last_entry_index * 32 + 0x14] << 16) | (var->_p_ram_rx[last_entry_index * 32 + 0x15] << 24);
                                 var->p_file[i]->file_size = (var->_p_ram_rx[last_entry_index * 32 + 0x1c] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1d] << 8) | (var->_p_ram_rx[last_entry_index * 32 + 0x1e] << 16) | (var->_p_ram_rx[last_entry_index * 32 + 0x1f] << 24);
-                                var->p_file[i]->first_sector_of_the_file = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[i]->first_cluster_of_the_file);
                             }
                         }
                     }
@@ -517,6 +634,9 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
                 ports_clr_bit(var->spi_cs);
             }
             
+            // Send one dummy byte (essential for some SD CARD - but not for all...)
+            while (spi_write_and_read_8(var->spi_id, 0xff, var->_p_ram_rx));
+               
             var->response_command.is_response_returned = false;
             
             var->dma_tx_params.src_size = 6;
@@ -578,7 +698,7 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
                                     var->response_command.R7.value = (uint32_t) ((var->_p_ram_rx[0] << 24) | (var->_p_ram_rx[1] << 16) | (var->_p_ram_rx[2] << 8) | (var->_p_ram_rx[3] << 0));
                                 }
                             }
-
+                            
                             if (cs_at_end_of_transmission == SPI_CS_SET)
                             {
                                 ports_set_bit(var->spi_cs);
@@ -1099,10 +1219,8 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
                 {
                     if(var->p_file[i]->flags.is_found)
                     {
-                        LOG_BLANCK("\nFile open: %s (%d bytes) - Starting Cluster: %d (Starting Sector: %d)", p_string(&var->p_file[i]->file_name), var->p_file[i]->file_size, var->p_file[i]->first_cluster_of_the_file, var->p_file[i]->first_sector_of_the_file);
-                        LOG_BLANCK("    Creation: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->creation_date.day, var->p_file[i]->creation_date.month, (var->p_file[i]->creation_date.year + 1980), var->p_file[i]->creation_time_h_m_s.hours, var->p_file[i]->creation_time_h_m_s.minutes, var->p_file[i]->creation_time_h_m_s.seconds);
-                        LOG_BLANCK("    Last write: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->last_write_date.day, var->p_file[i]->last_write_date.month, (var->p_file[i]->last_write_date.year + 1980), var->p_file[i]->last_write_time_h_m_s.hours, var->p_file[i]->last_write_time_h_m_s.minutes, var->p_file[i]->last_write_time_h_m_s.seconds);
-                        LOG_BLANCK("    Last access: %2d/%2d/%4d", var->p_file[i]->last_access_date.day, var->p_file[i]->last_access_date.month, (var->p_file[i]->last_access_date.year + 1980));
+                        LOG_BLANCK("\nFile open: %s (%d bytes) - Starting Cluster: %d", p_string(&var->p_file[i]->file_name), var->p_file[i]->file_size, var->p_file[i]->first_cluster_of_the_file);
+                        LOG_BLANCK("    Last write: %2d/%2d/%4d at %2dh:%2dm:%2ds", var->p_file[i]->last_write_date.day, var->p_file[i]->last_write_date.month, (var->p_file[i]->last_write_date.year + 1980), var->p_file[i]->last_write_time.hours, var->p_file[i]->last_write_time.minutes, var->p_file[i]->last_write_time.seconds);
                         LOG_BLANCK("    Read-only: %1d / Hidden: %1d / System: %1d / Volume: %1d / Directory: %1d / Archive: %1d", var->p_file[i]->file_attributes.read_only, var->p_file[i]->file_attributes.hidden, var->p_file[i]->file_attributes.system, var->p_file[i]->file_attributes.volume_name, var->p_file[i]->file_attributes.directory, var->p_file[i]->file_attributes.archive);
                         LOG_BLANCK("    FAT size: %d (number of necessary cluster)", (var->p_file[i]->fat.size - 1));
                     }
@@ -1306,13 +1424,19 @@ void sd_card_deamon(sd_card_params_t *var)
             
         case SM_SD_CARD_PARTITION_BOOT_SECTOR:
                
-            if (var->master_boot_record.partition_entry[0].is_existing)
+            if (var->master_boot_record.partition_entry[0].number_of_sector_in_the_partition > 0)
             {
-                if (!sd_card_read_single_block(var, var->master_boot_record.partition_entry[0].first_sector_of_the_partition))
+                if (    (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_LOW) ||
+                        (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_HIGH) ||
+                        (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_LBA) ||
+                        (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS))
                 {
-                    _sort_data_array_to_boot_sector_structure(var);
-                    CLR_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
-                    var->_sm.index = SM_SD_CARD_HOME;
+                    if (!sd_card_read_single_block(var, var->master_boot_record.partition_entry[0].first_sector_of_the_partition))
+                    {
+                        _sort_data_array_to_boot_sector_structure(var);
+                        CLR_BIT(var->_flags, SM_SD_CARD_PARTITION_BOOT_SECTOR);
+                        var->_sm.index = SM_SD_CARD_HOME;
+                    }
                 }
             }
             break;
@@ -1330,10 +1454,10 @@ void sd_card_deamon(sd_card_params_t *var)
                         
             for (i = (var->current_selected_file == 0xff) ? 0 : (var->current_selected_file + 1) ; i < var->number_of_p_file ; i++)
             {
-                if (var->p_file[i]->flags.is_read_block_op == FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED)
+                if (var->p_file[i]->flags.is_read_block_op == FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED)
                 {
                     var->current_selected_file = i;
-                    var->p_file[i]->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_ON_GOING;
+                    var->p_file[i]->flags.is_read_block_op = FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_ON_GOING;
                     var->_sm.index = SM_SD_CARD_READ_OPERATION;
                     break;
                 }
@@ -1350,7 +1474,7 @@ void sd_card_deamon(sd_card_params_t *var)
             
             if (!sd_card_read_file_data(var))
             {
-                var->p_file[var->current_selected_file]->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED;
+                var->p_file[var->current_selected_file]->flags.is_read_block_op = FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED;
                 var->_sm.index = SM_SD_CARD_READ_OPERATION_PREPARATION;
             }
             break;
@@ -1358,7 +1482,7 @@ void sd_card_deamon(sd_card_params_t *var)
     }
 }
 
-void sd_card_open(fat16_file_system_entry_t *file)
+void sd_card_open(fat_file_system_entry_t *file)
 {
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
     
@@ -1366,7 +1490,7 @@ void sd_card_open(fat16_file_system_entry_t *file)
     SET_BIT(var->_flags, SM_SD_CARD_ROOT_DIRECTORY);
 }
 
-uint8_t sd_card_read_block_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t block_length)
+uint8_t sd_card_read_block_file(fat_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t block_length)
 {
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
     
@@ -1379,14 +1503,14 @@ uint8_t sd_card_read_block_file(fat16_file_system_entry_t *file, uint8_t *p_dst,
                 file->buffer.p = p_dst;
                 file->_data_address = (data_address > file->file_size) ? file->file_size : data_address;
                 file->_data_length = ((file->_data_address + block_length) > file->file_size) ? (file->file_size - file->_data_address) : block_length;
-                file->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
+                file->flags.is_read_block_op = FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
                 SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
                 file->sm_read.index = 1;
                 break;
 
             case 1:
 
-                if (file->flags.is_read_block_op == FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED)
+                if (file->flags.is_read_block_op == FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED)
                 {
                     file->sm_read.index = 0;
                     file->flags.is_read_file_stopped = true;
@@ -1399,7 +1523,7 @@ uint8_t sd_card_read_block_file(fat16_file_system_entry_t *file, uint8_t *p_dst,
     return file->sm_read.index;
 }
 
-uint8_t sd_card_read_play_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period, uint8_t *progression)
+uint8_t sd_card_read_play_file(fat_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period, uint8_t *progression)
 {    
     sd_card_params_t *var = (sd_card_params_t *) file->p_sd_card;
         
@@ -1412,14 +1536,14 @@ uint8_t sd_card_read_play_file(fat16_file_system_entry_t *file, uint8_t *p_dst, 
                 file->buffer.p = p_dst;
                 file->_data_address = 0;
                 file->_data_length = (block_length > file->file_size) ? file->file_size : block_length;
-                file->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
+                file->flags.is_read_block_op = FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
                 SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
                 file->sm_read.index = 1;
                 break;
 
             case 1:
 
-                if (file->flags.is_read_block_op == FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED)
+                if (file->flags.is_read_block_op == FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_TERMINATED)
                 {
                     if (mTickCompare(file->sm_read.tick) >= period)
                     {
@@ -1444,7 +1568,7 @@ uint8_t sd_card_read_play_file(fat16_file_system_entry_t *file, uint8_t *p_dst, 
                 else
                 {
                     file->sm_read.index = 1;
-                    file->flags.is_read_block_op = FAT16_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
+                    file->flags.is_read_block_op = FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED;
                     SET_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
                 }                                
                 

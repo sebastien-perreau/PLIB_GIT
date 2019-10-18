@@ -114,7 +114,7 @@ typedef struct
     unsigned                                    write_block_misalignement:1;        // Defines if the data block to be written by one command can be spread over more than one physical block of the memory device. The size of the memory block is defined in "max_write_data_block_length" (0=invalid, 1=allowed).
     unsigned                                    read_block_misalignement:1;         // Defines if the data block to be read by one command can be spread over more than one physical block of the memory device. The size of the memory block is defined in "max_read_data_block_length" (0=invalid, 1=allowed).
     unsigned                                    dsr_implemented:1;                  // Defines if the configurable driver stage is integrated on the card.
-    unsigned                                    device_size:12;                     // This parameter is used to compute the user?s data card capacity (not include the security protected area). The memory capacity of the card is computed from the entries "device_size", "device_size_mult" and "max_read_data_block_length" as follows: 
+    unsigned                                    device_size:12;                     // This parameter is used to compute the user's data card capacity (not include the security protected area). The memory capacity of the card is computed from the entries "device_size", "device_size_mult" and "max_read_data_block_length" as follows: 
                                                                                     // Memory capacity = BLOCKNR * BLOCK_LEN 
                                                                                     //      BLOCKNR = (device_size + 1) * MULT
                                                                                     //      MULT = pow(2, device_size_mult + 2)
@@ -205,6 +205,12 @@ typedef struct
     sd_card_command_R7_response_t               R7;
 } sd_card_command_responses_t;
 
+typedef enum
+{
+    SD_CARD_ARGS_TYPE_ADDRESS                   = 1,
+    SD_CARD_ARGS_TYPE_SECTOR                    = 2
+} SD_CARD_ARGS_TYPE;
+
 typedef struct
 {
     bool                                        is_init_done;
@@ -220,12 +226,13 @@ typedef struct
     sd_card_command_cid_t                       cid;
     sd_card_command_csd_t                       csd;
     sd_card_command_responses_t                 response_command;
+    SD_CARD_ARGS_TYPE                           args_type;
     
-    fat16_file_system_master_boot_record_t      master_boot_record;
-    fat16_file_system_boot_sector_t             boot_sector;
+    fat_file_system_master_boot_record_t        master_boot_record;
+    fat_file_system_boot_sector_t               boot_sector;
     uint16_t                                    number_of_file;   
     uint16_t                                    number_of_folder;   
-    fat16_file_system_entry_t                   *p_file[SD_CARD_MAXIMUM_FILE];
+    fat_file_system_entry_t                     *p_file[SD_CARD_MAXIMUM_FILE];
     uint8_t                                     number_of_p_file;
     uint8_t                                     current_selected_file;
     
@@ -269,8 +276,8 @@ static uint8_t _name ## _rx_buffer_ram_allocation[512+2];                       
 static sd_card_params_t _name = SD_CARD_INSTANCE(_spi_module, __PORT(_cs_pin), __INDICE(_cs_pin), _enable_log, _name ## _tx_buffer_ram_allocation, _name ## _rx_buffer_ram_allocation)
 
 void sd_card_deamon(sd_card_params_t *var);
-void sd_card_open(fat16_file_system_entry_t *file);
-uint8_t sd_card_read_block_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t block_length);
-uint8_t sd_card_read_play_file(fat16_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period, uint8_t *progression);
+void sd_card_open(fat_file_system_entry_t *file);
+uint8_t sd_card_read_block_file(fat_file_system_entry_t *file, uint8_t *p_dst, uint32_t data_address, uint32_t block_length);
+uint8_t sd_card_read_play_file(fat_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period, uint8_t *progression);
 
 #endif
