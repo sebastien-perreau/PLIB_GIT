@@ -369,9 +369,10 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
             var->boot_sector.reserved_region_start = var->master_boot_record.partition_entry[0].first_sector_of_the_partition;
             var->boot_sector.fat_region_start = var->boot_sector.reserved_region_start + var->boot_sector.number_of_reserved_sectors;
             var->boot_sector.data_space_region_start = var->boot_sector.fat_region_start + (var->boot_sector.number_of_file_allocation_tables * var->boot_sector.number_of_sectors_per_fat);
-            var->boot_sector.root_directory_region_start = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.cluster_number_of_root_directory_table);
+            var->boot_sector.root_directory_region_start = fat_file_system_get_first_sector_of_cluster_N(var->boot_sector.cluster_number_of_root_directory_table);
             var->boot_sector.file_system_information_region_start += var->boot_sector.reserved_region_start;
             var->boot_sector.backup_boot_record_region_start += var->boot_sector.reserved_region_start;
+            var->boot_sector.backup_file_system_information_region_start = var->boot_sector.backup_boot_record_region_start + var->boot_sector.file_system_information_region_start - var->boot_sector.reserved_region_start;
                     
             if (var->is_log_enable)
             {
@@ -379,13 +380,14 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
                 LOG_BLANCK("        Boot region sector: %d", var->boot_sector.reserved_region_start);
                 LOG_BLANCK("            FSInfo sector: %d", var->boot_sector.file_system_information_region_start);
                 LOG_BLANCK("            Backup Boot Record sector: %d", var->boot_sector.backup_boot_record_region_start);
+                LOG_BLANCK("            Backup FSInfo sector: %d", var->boot_sector.backup_file_system_information_region_start);
                 LOG_BLANCK("        FAT region sector: %d", var->boot_sector.fat_region_start);                
                 LOG_BLANCK("        Data Space region sector: %d (start at Cluster 2)", var->boot_sector.data_space_region_start);
                 LOG_BLANCK("        Root Directory region sector: %d", var->boot_sector.root_directory_region_start);
                 LOG_BLANCK("    Capacity Of The Partition: %d MB", var->boot_sector.number_of_sectors_in_the_partition/1024*var->boot_sector.number_of_bytes_per_sector/1024);
                 LOG_BLANCK("    Jump Command: %6x", var->boot_sector.jump_boot_code);
                 LOG_BLANCK("    %d Sectors in the partition - %d Bytes Per Sector - %d Sectors Per Cluster - %d Sectors Per Track - %d Sector(s) Reserved - %d Sector(s) Hidden", var->boot_sector.number_of_sectors_in_the_partition, var->boot_sector.number_of_bytes_per_sector, var->boot_sector.number_of_sectors_per_cluster, var->boot_sector.number_of_sectors_per_track, var->boot_sector.number_of_reserved_sectors, var->boot_sector.number_of_hidden_sectors);            
-                LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT) - %d Possible Root Directory Entries", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat, var->boot_sector.number_of_possible_root_directory_entries);
+                LOG_BLANCK("    %d File Allocation Tables (%d Sectors per FAT)", var->boot_sector.number_of_file_allocation_tables, var->boot_sector.number_of_sectors_per_fat);
                 LOG_BLANCK("    Media Descriptor: %x - Number of Heads: %d (Current Head: %d) - Physical Drive Number: %x", var->boot_sector.media_descriptor, var->boot_sector.number_of_heads, var->boot_sector.current_head, var->boot_sector.physical_drive_number);
                 LOG_BLANCK("    Boot Signature: %2x - Volume ID: %8x", var->boot_sector.boot_signature, var->boot_sector.volume_id);
                 LOG_BLANCK("    Handling flags enable: %1d (active FAT: %d)", var->boot_sector.fat_handling_flags.enable, var->boot_sector.fat_handling_flags.active_fat);
@@ -489,16 +491,16 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
                     {
                         if (var->is_log_enable)
                         {
-                            uint16_t cluster = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8);
-                            uint32_t sector = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, cluster);
+                            uint16_t first_cluster = (var->_p_ram_rx[last_entry_index * 32 + 0x1a] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1b] << 8) | (var->_p_ram_rx[last_entry_index * 32 + 0x14] << 16) | (var->_p_ram_rx[last_entry_index * 32 + 0x15] << 24);
+                            uint32_t first_sector = fat_file_system_get_first_sector_of_cluster_N(first_cluster);
                             uint32_t size = (var->_p_ram_rx[last_entry_index * 32 + 0x1c] << 0) | (var->_p_ram_rx[last_entry_index * 32 + 0x1d] << 8) | (var->_p_ram_rx[last_entry_index * 32 + 0x1e] << 16) | (var->_p_ram_rx[last_entry_index * 32 + 0x1f] << 24);
                             if (save_index > 0)
                             {
-                                LOG_BLANCK("    \\%s%s (sector: %d / size: %d bytes)", p_string(path_name), p_string(last_entry_name), sector, size);
+                                LOG_BLANCK("    \\%s%s (first cluster: %d / first sector: %d / size: %d bytes)", p_string(path_name), p_string(last_entry_name), first_cluster, first_sector, size);
                             }
                             else
                             {
-                                LOG_BLANCK("    \\%s (sector: %d / size: %d bytes)", p_string(last_entry_name), sector, size);
+                                LOG_BLANCK("    \\%s (first cluster: %d / first sector: %d / size: %d bytes)", p_string(last_entry_name), first_cluster, first_sector, size);
                             }
                         }
                         memset(file_name, 0, 255);
@@ -528,7 +530,7 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
                         save_path_name_length[save_index + 1] = save_path_name_length[save_index] + last_entry_name_length + 1;
                         save_address[save_index] = (*current_sector * var->boot_sector.number_of_bytes_per_sector) + ((last_entry_index + 1) * 32);
                         save_index++;
-                        *current_sector = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, first_cluster_of_the_folder);                      
+                        *current_sector = fat_file_system_get_first_sector_of_cluster_N(first_cluster_of_the_folder);                      
                         last_entry_index = 0;
                         
                         if (var->is_log_enable)
@@ -1269,7 +1271,7 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
             {
                 uint16_t fat_index = data_address / (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster);
                 uint8_t index_sector_in_cluster = (data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..63]                                
-                current_data_sector = fat16_file_system_get_first_sector_of_cluster_N(var->boot_sector.data_space_region_start, var->boot_sector.number_of_sectors_per_cluster, var->p_file[var->current_selected_file]->fat.p[fat_index]) + index_sector_in_cluster;
+                current_data_sector = fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->fat.p[fat_index]) + index_sector_in_cluster;
                 index_data_in_sector = data_address % var->boot_sector.number_of_bytes_per_sector;
                 functionState = SM_GET_FILE_DATA;
             }

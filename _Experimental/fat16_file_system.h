@@ -171,6 +171,7 @@ typedef struct
     uint32_t                            data_space_region_start;                    // = root_directory_region_start + (var->boot_sector.number_of_possible_root_directory_entries * 32 / var->boot_sector.bytes_per_sector)                                                                                     
     uint32_t                            file_system_information_region_start;       // N/A FAT16    Sector number of FSInfo from the boot sector of the partition. Usually this exists a second sector (just after the boot sector) for the File System Information.
     uint32_t                            backup_boot_record_region_start;            // N/A FAT16    Sector number of the boot record backup from the boot sector of the partition.  
+    uint32_t                            backup_file_system_information_region_start;// N/A FAT16    Sector number of the FSInfo backup from the boot sector of the partition.  
                                                                             
                     // **** CODE and OS Name ****                                                                    
     uint32_t                            jump_boot_code;                             //              Code to jump to the bootstrap code.
@@ -267,7 +268,7 @@ typedef struct
     fat_file_system_partition_entry_t partition_entry[4];
 } fat_file_system_master_boot_record_t;
 
-#define fat16_file_system_get_first_sector_of_cluster_N(data_space_region_start, sectors_per_cluster, cluster_index)        ((uint32_t) (data_space_region_start + (cluster_index - 2) * sectors_per_cluster))
+#define fat_file_system_get_first_sector_of_cluster_N(cluster_index)        ((uint32_t) (var->boot_sector.data_space_region_start + (cluster_index - 2) * var->boot_sector.number_of_sectors_per_cluster))
 #define fat16_file_system_get_fat_sector_of_cluster_N(fat_region_start, bytes_per_sector, cluster_index)                    ((uint32_t) (fat_region_start + cluster_index * 2 / bytes_per_sector))
 
 #define sd_card_is_read_operation_terminated(file)          ((file.flags.is_read_op == FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED) ? 1 : 0)
