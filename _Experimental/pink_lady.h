@@ -181,6 +181,7 @@ uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_
 PINK_LADY_MANAGER_STATUS pink_lady_get_segment_status(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
 void pink_lady_reset_segment(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
 #define pink_lady_release_segment(var, id)                      pink_lady_reset_segment(var, id)
+#define pink_lady_release_all_segments(var)                     pink_lady_reset_all_segments(var)
 
 uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var);
 #define pink_lady_shift_pattern_stop(var)                       (var.enable = OFF)

@@ -290,6 +290,17 @@ void pink_lady_reset_segment(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIE
     pink_lady_manager_tab[var.spi_id][id].sm.index = 0;
 }
 
+void pink_lady_reset_all_segments(pink_lady_params_t var)
+{
+    uint8_t id = 0;
+    
+    for (id = 0 ; id < PL_ID_MAX ; id++)
+    {
+        pink_lady_manager_tab[var.spi_id][id].status = PL_SEGMENT_FREE;
+        pink_lady_manager_tab[var.spi_id][id].sm.index = 0;
+    }
+}
+
 
 /*******************************************************************************
  * Function: 

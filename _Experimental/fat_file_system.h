@@ -1,8 +1,6 @@
 #ifndef __DEF_FAT_FILE_SYSTEM
 #define __DEF_FAT_FILE_SYSTEM
 
-#define FAT_MAXIMUM_FAT_SIZE          512
-
 typedef enum
 {
     FAT_FILE_SYSTEME_FA_LFN           = 0x0f,                           // Long File Name attribute (always equal to 0x0f if the 32 bytes entry is a part of a Long File Name)
@@ -72,11 +70,10 @@ typedef union
     struct
     {
         bool                            is_found;                       // This bit is set if the file is found on the SD Card
-        bool                            is_fat_updated;                 // This bit is set if the File Allocation Table has been recovering
         FAT_FILE_SYSTEM_FLAGS_READ_OP   is_read_block_op;               // 0: not used, 1: read_block_requested, 2: read_block_on_going, 3: read_block_terminated
         bool                            is_read_file_stopped;           // 0: play / continue, 1: stop / pause
         bool                            is_read_file_terminated;        // 0: no, 1: yes
-        unsigned                        :2;
+        unsigned                        :3;
     };
     struct
     {
@@ -93,11 +90,10 @@ typedef struct
     uint32_t                            first_cluster_of_the_file;      // This 32-bit (16-bit for FAT16 - 32-bit for FAT32) field points to the starting cluster number of entries data. If the entry is a directory this entry point to the cluster which contain the beginning of the sub-directory. If the entry is a file then this entry point to the cluster holding the first chunk of data from the file.
     uint32_t                            file_size;                      // This 32-bit field count the total file size in bytes. For this reason the file system driver must not allow more than 4 GB to be allocated to a file. For other entries than files then file size field should be set to 0.
     
-    fat_file_system_flags_t             flags;                          
-    DYNAMIC_TAB_DWORD                   fat;                            // Contains the File Allocation Table for the file
-    
+    fat_file_system_flags_t             flags;
     state_machine_t                     sm_read;
     DYNAMIC_TAB_BYTE                    buffer;
+    uint32_t                            current_cluster_of_the_file;
     uint32_t                            _data_address;
     uint16_t                            _data_length;
     
@@ -105,7 +101,7 @@ typedef struct
     
 } fat_file_system_entry_t;
 
-#define FAT_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _p_fat_ram, _p_sd_card)     \
+#define FAT_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _p_sd_card)       \
 {                                                                           \
     .file_name = _file_name,                                                \
     .file_attributes = 0,                                                   \
@@ -114,17 +110,16 @@ typedef struct
     .first_cluster_of_the_file = 0,                                         \
     .file_size = 0,                                                         \
     .flags = {0},                                                           \
-    .fat = {_p_fat_ram, 0, 0},                                              \
     .sm_read = {0},                                                         \
     .buffer = {0, 0, 0},                                                    \
+    .current_cluster_of_the_file = 0,                                       \
     ._data_address = 0,                                                     \
     ._data_length = 0,                                                      \
     .p_sd_card = (void*) &_p_sd_card                                        \
 }
 
 #define FILE_DEF(_p_sd_card, _name, _file_name)                             \
-static uint32_t _name ## _fat_ram_allocation[FAT_MAXIMUM_FAT_SIZE];         \
-static fat_file_system_entry_t _name = FAT_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _name ## _fat_ram_allocation, _p_sd_card)
+static fat_file_system_entry_t _name = FAT_FILE_SYSTEM_ENTRY_INSTANCE(_name, _file_name, _p_sd_card)
 
 typedef union
 {
@@ -269,13 +264,15 @@ typedef struct
 } fat_file_system_master_boot_record_t;
 
 #define fat_file_system_get_first_sector_of_cluster_N(cluster_index)        ((uint32_t) (var->boot_sector.data_space_region_start + (cluster_index - 2) * var->boot_sector.number_of_sectors_per_cluster))
-#define fat16_file_system_get_fat_sector_of_cluster_N(fat_region_start, bytes_per_sector, cluster_index)                    ((uint32_t) (fat_region_start + cluster_index * 2 / bytes_per_sector))
-
-#define sd_card_is_read_operation_terminated(file)          ((file.flags.is_read_op == FAT16_FILE_SYSTEM_FLAG_READ_OP_READ_TERMINATED) ? 1 : 0)
 
 #define sd_card_read_file_pause(file)                       (file.flags.is_read_file_stopped = 1)
 #define sd_card_read_file_play(file)                        (file.flags.is_read_file_stopped = 0)
 #define sd_card_read_file_restart_playback(file)            (file.flags.is_read_file_stopped = 0, file.flags.is_read_file_terminated = 0, file.sm_read.index = 0)
 #define sd_card_is_read_file_terminated(file)               (file.flags.is_read_file_terminated)
+
+#define sd_card_read_file_pause_ptr(file)                   (file->flags.is_read_file_stopped = 1)
+#define sd_card_read_file_play_ptr(file)                    (file->flags.is_read_file_stopped = 0)
+#define sd_card_read_file_restart_playback_ptr(file)        (file->flags.is_read_file_stopped = 0, file->flags.is_read_file_terminated = 0, file->sm_read.index = 0)
+#define sd_card_is_read_file_terminated_ptr(file)           (file->flags.is_read_file_terminated)
 
 #endif
