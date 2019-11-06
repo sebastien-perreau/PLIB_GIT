@@ -2,6 +2,10 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group/>
+        <group>
+            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Experimental/sd_card.h</file>
+            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Experimental/sd_card.c</file>
+            <file>file:/Users/sebastienperreau/Documents/Pic32/PLIB_GIT/_Experimental/fat_file_system.h</file>
+        </group>
     </open-files>
 </project-private>

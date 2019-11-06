@@ -541,10 +541,9 @@ static uint8_t e_tps92662_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_
                 var->dma_rx_params.dst_size = (3 + 2 + tps92662_init_param_number_of_bytes[cde_type] + 2);
             }
             
-            dma_abord_transfer(var->dma_rx_id);
-            dma_clear_flags(var->dma_rx_id, DMA_FLAG_BLOCK_TRANSFER_DONE);             
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, true);
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, true, false);
+            dma_abord_transfer(var->dma_rx_id);       
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);
         
             var->state_machine_for_read_write_request.tick = mGetTick();
             var->state_machine_for_read_write_request.index++;

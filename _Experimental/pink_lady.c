@@ -114,7 +114,7 @@ void pink_lady_deamon(pink_lady_params_t *var)
         
         var->p_led_model_mapping = (uint32_t *)sk6812rgbw_ws2812b_mapping;
         var->dma_params.dst_start_addr = (void *) spi_get_tx_reg(var->spi_id);       
-        dma_set_transfer(var->dma_id, &var->dma_params, true, true);
+        dma_set_transfer(var->dma_id, &var->dma_params, true);
         var->is_init_done = true;
     }
     else

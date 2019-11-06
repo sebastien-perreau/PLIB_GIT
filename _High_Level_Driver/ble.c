@@ -155,7 +155,7 @@ void ble_stack_tasks()
                 dma_tx.src_size = 3;
                 dma_tx.dst_size = 1;
                 dma_tx.cell_size = 1;
-                dma_set_transfer(m_dma_id, &dma_tx, true, true);
+                dma_set_transfer(m_dma_id, &dma_tx, true);
             }
             else
             {
@@ -165,7 +165,7 @@ void ble_stack_tasks()
                 dma_tx.src_size = 4;
                 dma_tx.dst_size = 1;
                 dma_tx.cell_size = 1;
-                dma_set_transfer(m_dma_id, &dma_tx, true, true);
+                dma_set_transfer(m_dma_id, &dma_tx, true);
             }            
         }    
         memset(p_ble->uart.buffer, 0, sizeof(p_ble->uart.buffer));
@@ -560,7 +560,7 @@ static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
             dma_tx.src_size = buffer[2] + 5;
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true, true);
+            dma_set_transfer(m_dma_id, &dma_tx, true);
 
 			sm.index++;
 			sm.tick = mGetTick();

@@ -4,7 +4,7 @@
 #define SD_CARD_FREQ_INIT                       250000      // DO NOT MODIFY
 #define SD_CARD_FREQ                            10000000    // Can be set up to 25 MHz
 
-#define SD_CARD_MAXIMUM_FILE                    20
+#define SD_CARD_MAXIMUM_FILE                    60
 
 typedef enum
 {

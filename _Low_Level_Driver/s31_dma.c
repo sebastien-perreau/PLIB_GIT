@@ -90,10 +90,8 @@ void dma_init(  DMA_MODULE id,
           
     // Enable the DMA controller
     p_dma->DMACONSET = _DMACON_ON_MASK;
-    
     // Abord all current operations on the DMA module.
     dma_abord_transfer(id);
-    
     // Set DMA Channel Control Register
     p_dma_channel->DCHCON = (dma_channel_control & ~DMA_CONT_CHANNEL_ENABLE);
     // Set DMA Channel Event Control Register
@@ -187,7 +185,7 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
 
 /*******************************************************************************
   Function:
-    void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer)
+    void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool force_transfer)
 
   Description:
     This routine is used to configure a transfer. It setup all pointers, sizes and
@@ -204,16 +202,21 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
     id                  - The DMA module you want to use.
     channel_transfer*   - The pointer of DMA_CHANNEL_TRANSFER containing all data 
                         require by the DMA channel to initialize a transfer. 
-    enable_channel      - Enable or keep disable the DMA channel after initializing its
-                        parameters for the transmission. 
-                        For example (DMA RAM to UART Tx) if you enable the DMA channel after
-                        the initialization of "set_dma_transfer", the DMA transmission will
-                        occurs even if the "force_transfer" is disable.
-    force_transfer      - If true then force a start transfer just after initializing 
-                        the DMA channel else wait for an event or a manual force 
-                        transfer (dma_force_transfer(id)).
+    force_transfer      - This flag is used to force a DMA transmission. 
+    
+  IMPORTANT:
+        If START_TRANSFER_ON_IRQ and/or ABORD_TRANSFER_ON_IRQ are used by the DMA channel with a 
+        TX irq source (such as UART Tx, SPI Tx...) then WHEN the DMA module is ENABLED, the transmission
+        AUTOMATICALLY and IMMEDIATELY started. This is normal because we want to generate a DMA transfer
+        when the Tx pin is ready to send something.
+        On the other hand if the irq source is something like Rx pin, a timer or any other event then the 
+        DMA transfer will occurs ONLY when the trigger appears. We can force the transfer if we want
+        but it is useless.
+  
+        If we DO NOT use any events to generate a DMA transfer (RAM to RAM copy by example) then we are oblige
+        to force the DMA transfer.
   *****************************************************************************/
-void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool enable_channel, bool force_transfer)
+void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool force_transfer)
 {
     DMA_CHANNEL_REGISTERS * p_dma_channel = (DMA_CHANNEL_REGISTERS *) DmaChannels[id];
     dma_channel_enable(id, OFF);
@@ -225,13 +228,10 @@ void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bo
     p_dma_channel->DCHCSIZ = channel_transfer->cell_size;
     p_dma_channel->DCHDAT = channel_transfer->pattern_data;    
     p_dma_channel->DCHINTCLR = DMA_FLAG_ALL;
-    if (enable_channel)
-    {
-        dma_channel_enable(id, ON);
-    }    
+    dma_channel_enable(id, ON);
     if (force_transfer)
-    {        
-        dma_force_transfer(id);
+    {
+        p_dma_channel->DCHECONSET = DMA_EVT_FORCE_TRANSFER;
     }
 }
 
@@ -267,6 +267,8 @@ uint16_t dma_get_index_cell_pointer(DMA_MODULE id)
   Description:
     This routine is used to force the transfer on a DMA channel. The transfer is
     from source to destination and is cell block length. 
+    It realizes 2 actions: enabling the DMA module (mandatory to use the DMA channel) 
+    AND force the transfer to start.
 
   Parameters:
     id          - The DMA module you want to use.

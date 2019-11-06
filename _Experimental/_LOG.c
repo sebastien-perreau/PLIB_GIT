@@ -247,5 +247,5 @@ void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_ar
     dma_tx.cell_size = 1;
     dma_tx.pattern_data = 0x0000,
     
-    dma_set_transfer(m_dma_id, &dma_tx, true, true);
+    dma_set_transfer(m_dma_id, &dma_tx, true);
 }

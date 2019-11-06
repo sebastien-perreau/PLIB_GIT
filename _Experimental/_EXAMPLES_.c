@@ -1,12 +1,6 @@
  /*********************************************************************
 *	Author : Sébastien PERREAU
 *
-*	Revision history	:
-*		02/06/2017		- Initial release
-*                       - Add E_EEPROM example
-* 
-*   Description:
-*   ------------ 
 *********************************************************************/
 
 #include "../PLIB.h"
@@ -159,7 +153,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
             {
                 buff_src[i] = i;
             }
-            dma_set_transfer(dma_id, &dma_tx, true, true);
+            dma_set_transfer(dma_id, &dma_tx, true);
             sm_example.index = _MAIN;
             break;
             
@@ -233,6 +227,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
  *********************************************************************************************/
 static void _example_dma_uart_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
 {
+    
     if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
     {
         if (id == DMA6)
@@ -267,7 +262,11 @@ void _EXAMPLE_DMA_UART()
             
             mUpdateLedStatusD2(OFF);
             mUpdateLedStatusD3(OFF);
-            uart_init(  uart_id, NULL, IRQ_NONE, UART_BAUDRATE_2M, UART_STD_PARAMS);
+            uart_init(  uart_id, 
+                        NULL, 
+                        IRQ_NONE, 
+                        UART_BAUDRATE_2M, 
+                        UART_STD_PARAMS);
             dma_init(   DMA6, 
                         _example_dma_uart_event_handler, 
                         DMA_CONT_PRIO_2, 
@@ -287,15 +286,25 @@ void _EXAMPLE_DMA_UART()
             for (i = 0 ; i < 200 ; i++)
             {
                 buff_src[i] = i;
-            }
-            dma_set_transfer(DMA6, &dma6_tx, true, true);
-            dma_set_transfer(DMA7, &dma7_rx, true, false);
+            }            
+            dma_set_transfer(DMA6, &dma6_tx, true);
+            dma_set_transfer(DMA7, &dma7_rx, false);
             sm_example.index = _MAIN;
+            mUpdateTick(sm_example.tick);
             break;
             
         case _MAIN:
             
-            // Do what you want...
+            // Do what you want...           
+            if (mTickCompare(sm_example.tick) >= TICK_1S)
+            {
+                mUpdateTick(sm_example.tick);
+                if (!dma_channel_is_enable(DMA6))
+                {
+                    // Re-execute the DMA transfer RAM -> UART TX
+                    dma_force_transfer(DMA6);
+                }
+            }            
             break;
     } 
 }
@@ -319,10 +328,6 @@ static void _example_dma_spi_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
             mSetIO(__PE0);
             mToggleLedStatusD2();
         }
-        else if (id == DMA7)
-        {
-            mToggleLedStatusD3();   
-        }
         dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
     }
     else if ((flags & DMA_FLAG_TRANSFER_ABORD) > 0)
@@ -337,13 +342,15 @@ void _EXAMPLE_DMA_SPI()
     static uint8_t i;
     static uint8_t buff_src[20] = {0};
     static DMA_CHANNEL_TRANSFER dma6_tx = {buff_src, NULL, 20, 1, 1, 0x0000};
-    static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 200, 1, 0x0000};
+    static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 20, 1, 0x0000};
     static state_machine_t sm_example = {0};
     
     switch (sm_example.index)
     {
         case _SETUP:
             
+            mUpdateLedStatusD2(OFF);
+            mUpdateLedStatusD3(OFF);
             // Initialize chip select
             mInitIOAsOutput(__PE0);
             mSetIO(__PE0);
@@ -372,16 +379,18 @@ void _EXAMPLE_DMA_SPI()
             
             dma6_tx.dst_start_addr = (void *) spi_get_tx_reg(SPI1);
             dma7_rx.src_start_addr = (void *) spi_get_rx_reg(SPI1);
-            dma_set_transfer(DMA6, &dma6_tx, true, false);
-            dma_set_transfer(DMA7, &dma7_rx, true, false);
             
             for (i = 0 ; i < 200 ; i++)
             {
                 buff_src[i] = i;
             }
             
+            dma6_tx.src_size = 30;
+            dma7_rx.dst_size = dma6_tx.src_size;
+            
             mClrIO(__PE0);
-            dma_force_transfer(DMA6);
+            dma_set_transfer(DMA6, &dma6_tx, true);
+            dma_set_transfer(DMA7, &dma7_rx, false);
             
             sm_example.index = _MAIN;
             break;
@@ -389,6 +398,11 @@ void _EXAMPLE_DMA_SPI()
         case _MAIN:
             
             // Do what you want...
+            if ((dma_get_flags(DMA7) & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
+            {
+                dma_clear_flags(DMA7, DMA_FLAG_BLOCK_TRANSFER_DONE);  
+                mUpdateLedStatusD3(ON);             
+            }
             break;
     } 
 }
@@ -899,184 +913,26 @@ void _EXAMPLE_LOG(ACQUISITIONS_PARAMS var)
             break;
     } 
 }
-//
-//void _EXAMPLE_WS2812B_SINGLE_SEGMENT()
-//{
-//    WS2812B_DEF(ws2812b_single, SPI1, __PA0, 18, 18);
-//    SWITCH_DEF(sw1, SWITCH1, ACTIVE_LOW);
-//    static WS2812B_ANIMATION animation;
-//    static state_machine_t sm_example = {0};
-//    static bool _execute = false;
-//    static uint64_t tick = 0;
-//    
-//    if (sw1.type_of_push == LONG_PUSH)
-//    {
-//        if (mTickCompare(tick) >= TICK_4S)
-//        {
-//            tick = mGetTick();
-//            sw1.indice++;
-//            _execute = true;
-//            animation.number_of_repetition = 0;
-//        }
-//    }
-//    
-//    switch (sm_example.index)
-//    {
-//        case _SETUP:          
-//      
-//            sm_example.index = _MAIN;
-//            break;
-//            
-//        case _MAIN:
-//            if (sw1.is_updated)
-//            {
-//                sw1.is_updated = false;
-//                _execute = true;
-//            }
-//            
-//            switch (sw1.indice)
-//            {
-//                case 0:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color(ws2812b_single, 0, LED_ALL, COLOR_OFF);
-//                    }
-//                    break;
-//                    
-//                case 1:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color(ws2812b_single, 0, LED_1_3, COLOR_BLUE);
-//                    }
-//                    break;
-//                    
-//                case 2:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color_delay(ws2812b_single, 0, LED_ALL, COLOR_GREEN, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 3:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color_from_to(ws2812b_single, 0, LED_ALL, COLOR_WHITE, 6, 11);
-//                        ws2812b_put_color_from_to(ws2812b_single, 0, LED_ALL, COLOR_RED, 12, 17);
-//                    }
-//                    break;
-//                    
-//                case 4:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color(ws2812b_single, 0, LED_ALL, COLOR_OFF);
-//                        ws2812b_put_gradient(ws2812b_single, 0, LED_1_2, COLOR_RED, COLOR_GREEN);
-//                    }
-//                    break;
-//                    
-//                case 5:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_gradient_delay(ws2812b_single, 0, LED_ALL, COLOR_CYAN, COLOR_RED, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 6:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color_delay(ws2812b_single, 0, LED_ALL, COLOR_WHITE, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 7:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_gradient_from_to(ws2812b_single, 0, LED_ALL, COLOR_RED, COLOR_GREEN, 5, 12);
-//                    }
-//                    break;
-//                    
-//                case 8:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_gradient_from_to_delay(ws2812b_single, 0, LED_ALL, COLOR_GREEN, COLOR_BLUE, 5, 12, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 9:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color_effect(ws2812b_single, 0, LED_ALL, COLOR_BLUE, WS2812B_EFFECT_TRIANGLE | WS2812B_SUPERPOSE_EFFECT, WS2812B_REPETITION_INFINITE, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 10:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color(ws2812b_single, 0, LED_ALL, COLOR_PURPLE);
-//                        ws2812b_put_color_effect_from_to(ws2812b_single, 0, LED_ALL, COLOR_GREEN, 5, 12, WS2812B_EFFECT_GAUSSIAN | WS2812B_RESTORE_COLOR, 20, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 11:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color(ws2812b_single, 0, LED_ALL, COLOR_GREEN);
-//                        ws2812b_put_color_effect_from_to(ws2812b_single, 0, LED_ALL, COLOR_RED, 5, 12, WS2812B_EFFECT_SAWTOOTH, 20, TICK_1S);
-//                        ws2812b_put_color_effect_from_to(ws2812b_single, 0, LED_ALL, COLOR_RED, 13, 17, WS2812B_EFFECT_SAWTOOTH_INV, 20, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 12:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_gradient_effect(ws2812b_single, 0, LED_ALL, COLOR_BLUE, COLOR_GREEN, WS2812B_EFFECT_TRIANGLE, WS2812B_REPETITION_INFINITE, TICK_200MS);
-//                    }
-//                    break;
-//                    
-//                case 13:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color(ws2812b_single, 0, LED_ALL, COLOR_WHITE);
-//                        ws2812b_put_gradient_effect_from_to(ws2812b_single, 0, LED_ALL, COLOR_RED, COLOR_CYAN, 0, 8, WS2812B_EFFECT_GAUSSIAN | WS2812B_RESTORE_COLOR, WS2812B_REPETITION_INFINITE, TICK_1S);
-//                    }
-//                    break;
-//                    
-//                case 14:
-//                    if (_execute)
-//                    {
-//                        _execute = false;
-//                        ws2812b_put_color_delay(ws2812b_single, 0, LED_ALL, COLOR_OFF, TICK_1S);
-//                    }
-//                    if (ws2812b_is_segment_updated(ws2812b_single, 0))
-//                    {
-//                        eWS2812BSetParamsChenillard(0, FIRST_LED, LAST_LED, 4, COLOR_RED, COLOR_RED, 2, 0, 0, WS2812B_REPETITION_INFINITE, -1, TICK_2S, &animation, ws2812b_single);
-//                    }
-//                    break;
-//                    
-//                default:
-//                    sw1.indice = 0;
-//                    break;
-//            }
-//            
-//            fu_switch(&sw1);
-//            eWS2812BAnimation(&animation, &ws2812b_single);
-//            eWS2812BFlush(TICK_100US, &ws2812b_single);
-//            break;
-//    }   
-//}
+
+static void _example_uart_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data)
+{
+    switch (evt_type)
+    {
+        case IRQ_UART_ERROR:
+            
+            break;
+            
+        case IRQ_UART_RX:
+            
+            mToggleLedStatusD2();
+            break;
+            
+        case IRQ_UART_TX:
+            
+            break;
+            
+    }
+}
 
 void _EXAMPLE_UART()
 {
@@ -1089,7 +945,7 @@ void _EXAMPLE_UART()
     {
         case _SETUP:          
       
-            uart_init(UART1, NULL, IRQ_NONE, 115200, UART_STD_PARAMS);
+            uart_init(UART1, _example_uart_event_handler, IRQ_UART_RX, 115200, UART_STD_PARAMS);
             sm_example.index = _MAIN;
             break;
             
