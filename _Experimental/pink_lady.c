@@ -4,7 +4,7 @@
 *	Revision history	:
 *		21/03/2019		- Initial release
 * 
- Electrical characteristics:
+ Electrical characteristics WS2812B:
         DC Voltage = 5V (led in IDLE mode = 400uA)
         I_red = 12mA / I_green = 12mA / I_blue = 12mA
         I_cyan = 24mA / I_orange = 24mA / I_purple = 24mA
@@ -14,7 +14,23 @@
         5V 1A (5W)	: 27 leds
         5V 5A (25W)	: 135 leds
         5V 8A (40W)	: 220 leds
-
+ 
+ Electrical characteristics SK6812RGB Side:
+        DC Voltage = 5V (led in IDLE mode = 457uA)
+        I_red = 13mA / I_green = 13mA / I_blue = 13mA
+        I_cyan = 25mA / I_orange = 25mA / I_purple = 25mA
+        I_white = 39mA
+        P_max (white color) = 195mW 
+ 
+ Electrical characteristics SK6812RGBW:
+        DC Voltage = 5V (led in IDLE mode = 598uA)
+        I_red = 10mA / I_green = 10mA / I_blue = 10mA / I_white = 18mA
+        I_cyan = 19mA / I_orange = 19mA / I_purple = 19mA
+        I_white_rgb = 27mA / I_white_all = 43mA
+        P_max (white RGB color) = 135mW 
+        P_max (white color) = 90mW 
+        P_max (white all color) = 215mW  
+ 
     WS2812B:    RGB colors
         65 FPS for 512 LEDs on ONE SPI bus.
         30 FPS for 1188 LEDs on ONE SPI bus.
@@ -87,8 +103,6 @@ void pink_lady_deamon(pink_lady_params_t *var)
         PINK_LADY_MANAGER_IDENTIFIERS i;
         for (i = 0 ; i < PL_ID_MAX ; i++)
         {
-//            memset(&pink_lady_manager_tab[var->spi_id][i], 0, sizeof(pink_lady_manager_params_t));
-            
             pink_lady_manager_tab[var->spi_id][i].status = PL_SEGMENT_FREE;
             pink_lady_manager_tab[var->spi_id][i].sm.index = 0;
             pink_lady_manager_tab[var->spi_id][i].p_led = var->p_led;
@@ -161,6 +175,43 @@ void pink_lady_deamon(pink_lady_params_t *var)
  *   - i: The LED index (from 1 to N)
  *   - I: The intensity (only for delay > 0) (from 0 to 100)
  */
+/*******************************************************************************
+ * Function: 
+ *      uint8_t pink_lady_set_segment_params(
+ *                  pink_lady_params_t *var, 
+ *                  PINK_LADY_MANAGER_IDENTIFIERS id,
+ *                  uint16_t from, 
+ *                  uint16_t to, 
+ *                  RGBW_COLOR color1, 
+ *                  RGBW_COLOR color2, 
+ *                  PINK_LADY_RESOLUTIONS resolution, 
+ *                  uint32_t deadline_to_appear)
+ * 
+ * Description:
+ *      This routine is used to update a segment (part of leds on a bus) with
+ *      basic parameters (gradient, led resolution, deadline to appear...).
+ *      It returns its state machine index.
+ * 
+ * Parameters:
+ *      *p_seg_params:      A PINK_LADY_SEGMENT_PARAMS pointer used by the 
+ *                          user/driver to manage the segment.
+ *      from:               The first LED index for which the parameters will be apply.
+ *                          This "from" value should be always inferior or equal to "to" value.
+ *      to:                 The last LED index for which the parameters will be apply.
+ *                          This "to" value should be always superior or equal to "from" value.
+ *      color1:             The first color (RGBW model).
+ *      color2:             The second (and last) color (RGBW model).
+ *      resolution:         The step between each LED (see PINK_LADY_RESOLUTIONS for
+ *                          more details on available resolutions). For instance 
+ *                          a value of LED_RESO_1_3 will lit one LED on three.
+ *      deadline_to_appear: The total time for a dynamic change. Set this parameter
+ *                          to zero if you want to apply instantly the new parameters
+ *                          (without dynamic change).
+ * 
+ * Return:
+ *      0:      Home (finish)
+ *      >0:     On going
+ ******************************************************************************/
 uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
 {
     
@@ -301,149 +352,6 @@ void pink_lady_reset_all_segments(pink_lady_params_t var)
         pink_lady_manager_tab[var.spi_id][id].sm.index = 0;
     }
 }
-
-
-/*******************************************************************************
- * Function: 
- *      uint8_t pink_lady_set_segment_params(
- *                  PINK_LADY_SEGMENT_PARAMS *p_seg_params, 
- *                  uint16_t from, 
- *                  uint16_t to, 
- *                  RGBW_COLOR color1, 
- *                  RGBW_COLOR color2, 
- *                  PINK_LADY_RESOLUTIONS resolution, 
- *                  uint32_t deadline_to_appear)
- * 
- * Description:
- *      This routine is used to update a segment (part of leds on a bus) with
- *      basic parameters (gradient, led resolution, deadline to appear...).
- *      It returns its state machine index.
- * 
- * Parameters:
- *      *p_seg_params:      A PINK_LADY_SEGMENT_PARAMS pointer used by the 
- *                          user/driver to manage the segment.
- *      from:               The first LED index for which the parameters will be apply.
- *                          This "from" value should be always inferior or equal to "to" value.
- *      to:                 The last LED index for which the parameters will be apply.
- *                          This "to" value should be always superior or equal to "from" value.
- *      color1:             The first color (RGBW model).
- *      color2:             The second (and last) color (RGBW model).
- *      resolution:         The step between each LED (see PINK_LADY_RESOLUTIONS for
- *                          more details on available resolutions). For instance 
- *                          a value of LED_RESO_1_3 will lit one LED on three.
- *      deadline_to_appear: The total time for a dynamic change. Set this parameter
- *                          to zero if you want to apply instantly the new parameters
- *                          (without dynamic change).
- * 
- * Return:
- *      0:      Home (finish)
- *      >0:     On going
- ******************************************************************************/
-//uint8_t pink_lady_set_segment_params(pink_lady_manager_params_t *p_seg_params, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
-//{
-//    
-//    switch (p_seg_params->sm.index)
-//    {
-//        case 0: // Home            
-//            
-//            //0. Get delta colors between color1 and color2
-//            p_seg_params->delta_color.red = (uint8_t) ((color1.red <= color2.red) ? (color2.red - color1.red) : (color1.red - color2.red));
-//            p_seg_params->delta_color.green = (uint8_t) ((color1.green <= color2.green) ? (color2.green - color1.green) : (color1.green - color2.green));
-//            p_seg_params->delta_color.blue = (uint8_t) ((color1.blue <= color2.blue) ? (color2.blue - color1.blue) : (color1.blue - color2.blue));
-//            p_seg_params->delta_color.white = (uint8_t) ((color1.white <= color2.white) ? (color2.white - color1.white) : (color1.white - color2.white));
-//            
-//            //1. Set color pointers on appropriate indices type (positive or negative)
-//            p_seg_params->p_ind_red = (uint16_t *) ((color1.red <= color2.red) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
-//            p_seg_params->p_ind_green = (uint16_t *) ((color1.green <= color2.green) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
-//            p_seg_params->p_ind_blue = (uint16_t *) ((color1.blue <= color2.blue) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);
-//            p_seg_params->p_ind_white = (uint16_t *) ((color1.white <= color2.white) ? &p_seg_params->ind_pos : &p_seg_params->ind_neg);            
-//            
-//            //2. Get the number of LED to lit
-//            p_seg_params->number_of_led = (uint16_t) (to - from + 1);
-//                
-//            //3. Set the indices
-//            p_seg_params->ind_pos = from;     
-//            p_seg_params->ind_neg = to;   
-//            
-//            p_seg_params->sm.index = (deadline_to_appear > 0) ? 3 : 1;
-//            p_seg_params->sm.tick = mGetTick();
-//            break;
-//            
-//        case 1:// Deadline_to_appear == 0 (part 0: initialization)
-//            
-//            p_seg_params->p_lowest_value_red = (uint8_t *) ((color1.red <= color2.red) ? &color1.red : &color2.red);
-//            p_seg_params->p_lowest_value_green = (uint8_t *) ((color1.green <= color2.green) ? &color1.green : &color2.green);
-//            p_seg_params->p_lowest_value_blue = (uint8_t *) ((color1.blue <= color2.blue) ? &color1.blue : &color2.blue);
-//            p_seg_params->p_lowest_value_white = (uint8_t *) ((color1.white <= color2.white) ? &color1.white : &color2.white);
-//            
-//            p_seg_params->sm.index = 2;
-//            
-//        case 2: // Deadline_to_appear == 0 (part 1: led update)
-//            
-//            p_seg_params->ind_ = p_seg_params->ind_pos - from;
-//            
-//            p_seg_params->p_led[*p_seg_params->p_ind_red].red       = (uint8_t) (((*p_seg_params->p_ind_red % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_red + p_seg_params->ind_ * p_seg_params->delta_color.red / p_seg_params->number_of_led));
-//            p_seg_params->p_led[*p_seg_params->p_ind_green].green   = (uint8_t) (((*p_seg_params->p_ind_green % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_green + p_seg_params->ind_ * p_seg_params->delta_color.green / p_seg_params->number_of_led));
-//            p_seg_params->p_led[*p_seg_params->p_ind_blue].blue     = (uint8_t) (((*p_seg_params->p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_blue + p_seg_params->ind_ * p_seg_params->delta_color.blue / p_seg_params->number_of_led));
-//            p_seg_params->p_led[*p_seg_params->p_ind_white].white   = (uint8_t) (((*p_seg_params->p_ind_white % resolution) > 0) ? 0 : (uint32_t)(*p_seg_params->p_lowest_value_white + p_seg_params->ind_ * p_seg_params->delta_color.white / p_seg_params->number_of_led));
-//
-//            --p_seg_params->ind_neg;
-//            if (++p_seg_params->ind_pos > to)
-//            {
-//                p_seg_params->sm.index = 0;
-//            }
-//            break;
-//           
-//        case 3:// Deadline_to_appear > 0 (part 0: initialization)
-//            
-//            //1. Save current LEDs segment
-//            memcpy(&p_seg_params->p_led_copy[from], &p_seg_params->p_led[from], p_seg_params->number_of_led * sizeof(RGBW_COLOR));            
-//            //2. Set time for intensity
-//            p_seg_params->time_between_increment = (uint32_t) (deadline_to_appear / 100);            
-//            //3. Reset intensity value
-//            p_seg_params->intensity = 0;            
-//            p_seg_params->sm.index = 4;
-//            
-//        case 4: // Deadline_to_appear > 0 (part 1: led update)
-//            
-//            p_seg_params->ind_ = p_seg_params->ind_pos - from;
-//            
-//            p_seg_params->p_led[*p_seg_params->p_ind_red].red    = (uint8_t) (((*p_seg_params->p_ind_red % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_red].red + ((p_seg_params->ind_ * p_seg_params->delta_color.red / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_red].red) * p_seg_params->intensity / 100));
-//            p_seg_params->p_led[*p_seg_params->p_ind_green].green  = (uint8_t) (((*p_seg_params->p_ind_green % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_green].green + ((p_seg_params->ind_ * p_seg_params->delta_color.green / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_green].green) * p_seg_params->intensity / 100));
-//            p_seg_params->p_led[*p_seg_params->p_ind_blue].blue   = (uint8_t) (((*p_seg_params->p_ind_blue % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_blue].blue + ((p_seg_params->ind_ * p_seg_params->delta_color.blue / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_blue].blue) * p_seg_params->intensity / 100));
-//            p_seg_params->p_led[*p_seg_params->p_ind_white].white  = (uint8_t) (((*p_seg_params->p_ind_white % resolution) > 0) ? 0 : (uint32_t)(p_seg_params->p_led_copy[*p_seg_params->p_ind_white].white + ((p_seg_params->ind_ * p_seg_params->delta_color.white / p_seg_params->number_of_led) - p_seg_params->p_led_copy[*p_seg_params->p_ind_white].white) * p_seg_params->intensity / 100));
-//      
-//            --p_seg_params->ind_neg;
-//            if (++p_seg_params->ind_pos > to)
-//            {
-//                p_seg_params->sm.index = (p_seg_params->intensity == 100) ? 0 : 5;
-//            }
-//            break;
-//            
-//        case 5: // Deadline_to_appear > 0 (part 2: intensity update)
-//            
-//            if (mTickCompare(p_seg_params->sm.tick) > p_seg_params->time_between_increment)
-//            {
-//                p_seg_params->sm.tick += p_seg_params->time_between_increment;
-//                if (++p_seg_params->intensity > 100)
-//                {
-//                    p_seg_params->sm.index = 0;
-//                }
-//                else
-//                {
-//                    p_seg_params->sm.index = 4;
-//                    p_seg_params->ind_pos = from; 
-//                    p_seg_params->ind_neg = to;   
-//                }
-//            }
-//            break;
-//            
-//        default:
-//            break;
-//    }
-//    
-//    return p_seg_params->sm.index;
-//}
 
 /*
  * Timings _shift when executing the memcpy:
