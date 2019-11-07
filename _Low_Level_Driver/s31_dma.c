@@ -202,13 +202,16 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
     id                  - The DMA module you want to use.
     channel_transfer*   - The pointer of DMA_CHANNEL_TRANSFER containing all data 
                         require by the DMA channel to initialize a transfer. 
-    force_transfer      - This flag is used to force a DMA transmission. 
+    force_transfer      - This flag is used to force a DMA transmission (for example if the DMA module is configure 
+                        in "DMA_EVT_NONE" to trigger the transfer or simply if the user want to have a transfer without
+                        to wait any event(s). This flag is ignored if the DMA module is configured with at least one of the
+                        three events type (START / ABORD / ABORD ON PATTERN) AND the IRQ source is a PERIPHERAL with TX (see note below)
     
   IMPORTANT:
-        If START_TRANSFER_ON_IRQ and/or ABORD_TRANSFER_ON_IRQ are used by the DMA channel with a 
-        TX irq source (such as UART Tx, SPI Tx...) then WHEN the DMA module is ENABLED, the transmission
-        AUTOMATICALLY and IMMEDIATELY started. This is normal because we want to generate a DMA transfer
-        when the Tx pin is ready to send something.
+        If START_TRANSFER_ON_IRQ and/or ABORD_TRANSFER_ON_IRQ and/or DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH are used by 
+        the DMA channel with a TX irq source (such as UART Tx, SPI Tx...) then WHEN the DMA module is ENABLED, the transmission
+        AUTOMATICALLY and IMMEDIATELY started (no need to force the transfer). This is normal because we want 
+        to generate a DMA transfer when the Tx pin is ready to send something.
         On the other hand if the irq source is something like Rx pin, a timer or any other event then the 
         DMA transfer will occurs ONLY when the trigger appears. We can force the transfer if we want
         but it is useless.

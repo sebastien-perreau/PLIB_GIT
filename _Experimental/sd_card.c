@@ -621,8 +621,8 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
             var->_p_ram_tx[4] = (args >> 0) & 0xff;
             var->_p_ram_tx[5] = sd_card_crc7(&var->_p_ram_tx[0], 5);  
             
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // 'true' or 'false' will generates the first start transfer because the dma_tx_id is configured to send a transfer (RAM to SPI Tx pin) when Tx is ready (see. dma_set_transfer(...)).
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it is automatically done when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
             functionState = SM_GET_RESPONSE;
             break;
             
@@ -721,8 +721,8 @@ static uint8_t sd_card_read_data(sd_card_params_t *var, uint16_t length, SPI_CS_
             memset((void *) var->_p_ram_tx, 0xff, length);
             var->dma_tx_params.src_size = length;
             var->dma_rx_params.dst_size = var->dma_tx_params.src_size;                                    
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // 'true' or 'false' will generates the first start transfer because the dma_tx_id is configured to send a transfer (RAM to SPI Tx pin) when Tx is ready (see. dma_set_transfer(...)).
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it is automatically done when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
             functionState++;
             break;
             

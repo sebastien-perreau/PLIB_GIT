@@ -256,11 +256,8 @@ void spi_enable(SPI_MODULE id, bool enable);
 void spi_set_mode(SPI_MODULE mSpiModule, SPI_CONFIG mode);
 void spi_set_frequency(SPI_MODULE id, uint32_t freq_hz);
 bool spi_write_and_read_8(SPI_MODULE id, uint32_t data_w, uint8_t * data_r);
-
-
-BOOL SPIWriteAndStore(SPI_MODULE mSpiModule, _IO chip_select, uint32_t txData, uint32_t* rxData, bool releaseChipSelect);
-BYTE SPIWriteAndStore8_16_32(SPI_MODULE spi_module, _IO chip_select, uint32_t txData, uint32_t *rxData, SPI_CONFIG confMode);
-BYTE SPIWriteAndStoreByteArray(SPI_MODULE spi_module, _IO chip_select, void *txBuffer, void *rxBuffer, uint32_t size);
+bool spi_write_and_read_16(SPI_MODULE id, uint32_t data_w, uint16_t * data_r);
+bool spi_write_and_read_32(SPI_MODULE id, uint32_t data_w, uint32_t * data_r);
 
 const uint8_t spi_get_tx_irq(SPI_MODULE id);
 const uint8_t spi_get_rx_irq(SPI_MODULE id);

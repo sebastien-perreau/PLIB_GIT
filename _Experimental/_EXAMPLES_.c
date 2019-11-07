@@ -149,11 +149,13 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
                         DMA_EVT_NONE, 
                         0xff, 
                         0xff);
+            
             for (i = 0 ; i < 200 ; i++)
             {
                 buff_src[i] = i;
             }
-            dma_set_transfer(dma_id, &dma_tx, true);
+            
+            dma_set_transfer(dma_id, &dma_tx, true);    // Force the transfer because no EVENT (DMA_EVT_NONE) has been set on dma_id.
             sm_example.index = _MAIN;
             break;
             
@@ -191,13 +193,11 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
     DMA7).
  
     The transmission will be manage by DMA6. We 'attach' a start event transfer to the DMA channel,
-    that is to say that each time a UART1 transmission is done a new DMA cell block is transmitted
-    and so on up to all data source is transmitted. At the end, a DMA_INT_BLOCK_TRANSFER_DONE is
-    set, the event handler is called and the DMA channel turns off automatically (because there is
-    no AUTO_ENABLE option for DMA0 Channel). The 2 events that can generate an interruption are
-    DMA_INT_TRANSFER_ABORD and DMA_INT_BLOCK_TRANSFER_DONE.
-    We have to FORCE the first transmission in order to generate the first _UART1_TX_IRQ event. Thus
-    a new cell block will be automatically transmitted and so on...
+    that is to say that each time a UART1 Tx is free to use a new DMA cell block is transmitted (if 
+    the DMA channel is ENABLE - no need to force the transfer) and so on up to all data source is 
+    transmitted. At the end, a DMA_INT_BLOCK_TRANSFER_DONE is set, the event handler is called and 
+    the DMA channel turns off automatically (because there is no AUTO_ENABLE option for DMA6 Channel). 
+    The 2 events that can generate an interruption are DMA_INT_TRANSFER_ABORD and DMA_INT_BLOCK_TRANSFER_DONE.
  
     The reception will be manage by DMA7. The start event transfer is _UART1_RX_IRQ, that is to say
     that each time a data is received by the UART module, a DMA transfer will operate to store the
@@ -211,18 +211,14 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
     event handler is called...).
     The only events which can generate an interruption are DMA_INT_TRANSFER_ABORD and 
     DMA_INT_BLOCK_TRANSFER_DONE.
-    This DMA Channel is set with DMA_CONT_AUTO_ENABLE in order to keep the channel active even after
+    This DMA Channel is set with DMA_CONT_AUTO_ENABLE in order to keep the channel ENABLE even after
     a Block Transfer Done or a Pattern Match (same behavior as Block Transfer Done). Thus we can
-    continue to receive data and store in the RAM buffer.
+    continue to receive data and store in the RAM buffer (no need to "manually" re-ENABLE the DMA channel).
 
     When using Pattern Match mode and a pattern is detected then a DMA_INT_BLOCK_TRANSFER_DONE
     is set. Interrupt can be called (if enable) and the DMA channel behavior is the same
     as Block Transfer Complete (DMA_INT_BLOCK_TRANSFER_DONE flag is set and DMA channel is
     disable).
-
-    Configure the DMA channel in AUTO_ENABLE mode allow the channel to be always ENABLE even 
-    after a BLOCK_TRANSFER_DONE. Thus it is not necessary to re-configure the channel
-    with the dma_set_transfer routine. 
 
  *********************************************************************************************/
 static void _example_dma_uart_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
@@ -252,7 +248,6 @@ void _EXAMPLE_DMA_UART()
     static state_machine_t sm_example = {0};
     static UART_MODULE uart_id = UART1;
     static uint8_t i;
-    static uint8_t buff_src[200] = {0};
     static DMA_CHANNEL_TRANSFER dma6_tx = {buff_src, NULL, 200, 1, 1, 0x0000};
     static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 200, 1, 0xdead};
     
@@ -262,11 +257,13 @@ void _EXAMPLE_DMA_UART()
             
             mUpdateLedStatusD2(OFF);
             mUpdateLedStatusD3(OFF);
+            
             uart_init(  uart_id, 
                         NULL, 
                         IRQ_NONE, 
                         UART_BAUDRATE_2M, 
                         UART_STD_PARAMS);
+            
             dma_init(   DMA6, 
                         _example_dma_uart_event_handler, 
                         DMA_CONT_PRIO_2, 
@@ -274,6 +271,7 @@ void _EXAMPLE_DMA_UART()
                         DMA_EVT_START_TRANSFER_ON_IRQ, 
                         uart_get_tx_irq(uart_id), 
                         0xff);
+            
             dma_init(   DMA7, 
                         _example_dma_uart_event_handler, 
                         DMA_CONT_PRIO_0 | DMA_CONT_PATTERN_2_BYTES | DMA_CONT_AUTO_ENABLE, 
@@ -281,26 +279,30 @@ void _EXAMPLE_DMA_UART()
                         DMA_EVT_START_TRANSFER_ON_IRQ | DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH, 
                         uart_get_rx_irq(uart_id), 
                         0xff);
+            
             dma6_tx.dst_start_addr = (void *) uart_get_tx_reg(uart_id);
             dma7_rx.src_start_addr = (void *) uart_get_rx_reg(uart_id);
+            
             for (i = 0 ; i < 200 ; i++)
             {
                 buff_src[i] = i;
-            }            
-            dma_set_transfer(DMA6, &dma6_tx, true);
-            dma_set_transfer(DMA7, &dma7_rx, false);
+            }        
+            
+            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+            dma_set_transfer(DMA7, &dma7_rx, false);    // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
+            
             sm_example.index = _MAIN;
             mUpdateTick(sm_example.tick);
             break;
             
         case _MAIN:
             
-            // Do what you want...           
-            if (mTickCompare(sm_example.tick) >= TICK_1S)
+            // Do what you want...  
+            if (!dma_channel_is_enable(DMA6))
             {
-                mUpdateTick(sm_example.tick);
-                if (!dma_channel_is_enable(DMA6))
+                if (mTickCompare(sm_example.tick) >= TICK_1S)
                 {
+                    mUpdateTick(sm_example.tick);
                     // Re-execute the DMA transfer RAM -> UART TX
                     dma_force_transfer(DMA6);
                 }
@@ -324,8 +326,7 @@ static void _example_dma_spi_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
     if ((flags & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
     {
         if (id == DMA6)
-        {
-            mSetIO(__PE0);
+        {            
             mToggleLedStatusD2();
         }
         dma_clear_flags(id, DMA_FLAG_BLOCK_TRANSFER_DONE);
@@ -389,8 +390,8 @@ void _EXAMPLE_DMA_SPI()
             dma7_rx.dst_size = dma6_tx.src_size;
             
             mClrIO(__PE0);
-            dma_set_transfer(DMA6, &dma6_tx, true);
-            dma_set_transfer(DMA7, &dma7_rx, false);
+            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+            dma_set_transfer(DMA7, &dma7_rx, false);    // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
             
             sm_example.index = _MAIN;
             break;
@@ -401,6 +402,7 @@ void _EXAMPLE_DMA_SPI()
             if ((dma_get_flags(DMA7) & DMA_FLAG_BLOCK_TRANSFER_DONE) > 0)
             {
                 dma_clear_flags(DMA7, DMA_FLAG_BLOCK_TRANSFER_DONE);  
+                mSetIO(__PE0);
                 mUpdateLedStatusD3(ON);             
             }
             break;
