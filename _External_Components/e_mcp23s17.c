@@ -46,17 +46,17 @@ BYTE eMCP23S17Deamon(MCP23S17_CONFIG *var)
                 var->spi_params.state_machine.index = SM_MCP23S17_WRITE;
                 break;
             case SM_MCP23S17_WRITE:
-                if(!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)&var->write_registers, NULL, sizeof(var->write_registers)))
-                {
-                    var->spi_params.state_machine.index = SM_MCP23S17_READ;
-                }
+//                if(!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)&var->write_registers, NULL, sizeof(var->write_registers)))
+//                {
+//                    var->spi_params.state_machine.index = SM_MCP23S17_READ;
+//                }
                 break;
             case SM_MCP23S17_READ:
                 var->read_registers.header = 0x0041;
-                if(!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)&var->read_registers, (void*)&var->read_registers, sizeof(var->read_registers)))
-                {
-                    var->spi_params.state_machine.index = SM_MCP23S17_END;
-                }
+//                if(!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)&var->read_registers, (void*)&var->read_registers, sizeof(var->read_registers)))
+//                {
+//                    var->spi_params.state_machine.index = SM_MCP23S17_END;
+//                }
                 break;
             case SM_MCP23S17_END:
                 var->spi_params.state_machine.index = SM_MCP23S17_HOME;

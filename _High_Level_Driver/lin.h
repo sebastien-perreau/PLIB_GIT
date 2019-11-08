@@ -1,6 +1,10 @@
 #ifndef __DEF_LIN2
 #define	__DEF_LIN2
 
+#define LIN_MAXIMUM_FRAME           50
+
+#define LIN_NOT_PERIODIC            0
+
 typedef enum
 {
     LIN_VERSION_1_X                 = 0,
@@ -44,7 +48,6 @@ typedef enum
     _LIN_TIMING_FAIL,
     _LIN_END,
             
-    _LIN_BUS_FRAME_NULL,
     _LIN_BUS_INIT                   = 0xff
 } LIN_STATE_MACHINE;
 
@@ -52,7 +55,7 @@ typedef struct
 {
     bool                        is_data_receive;
     uint8_t                     data;
-} LIN_EVENT;
+} lin_event_t;
 
 typedef struct
 {
@@ -60,26 +63,30 @@ typedef struct
     uint8_t                     current_index;
     uint8_t                     next_index;
     uint64_t                    tick;
-} LIN_STATE_LACHINE_PARAMS;
+} lin_state_machine_params_t;
 
 typedef struct
 {
     uint16_t                    rx_chksm;
     uint16_t                    readback;
     uint16_t                    timing;
-} LIN_FAILS;
+} lin_fails_t;
 
 typedef struct
 {    
     bool                        read_write_type;
     uint8_t                     data_index;
-    LIN_FAILS                   errors;
+    lin_fails_t                 errors;
+    bool                        is_updated;
+    bool                        force_transfer;
+    uint32_t                    periodicity;
+    uint64_t                    tick;
     
     uint8_t                     id;
     uint8_t                     length;
     uint8_t                     data[8];
     uint16_t                    checksum;
-} LIN_FRAME_PARAMS;
+} lin_frame_params_t;
 
 typedef struct
 {
@@ -87,31 +94,47 @@ typedef struct
     UART_MODULE                 uart_module;
     _IO                         chip_enable;
     LIN_VERSION                 lin_version;
-    LIN_FRAME_PARAMS            *frame;
-    LIN_STATE_LACHINE_PARAMS    state_machine;
-    LIN_FAILS                   errors;
-} LIN_PARAMS;
+    lin_frame_params_t          *p_frame[LIN_MAXIMUM_FRAME];
+    uint8_t                     number_of_p_frame;
+    uint8_t                     current_selected_p_frame;
+    lin_state_machine_params_t  state_machine;
+    lin_fails_t                 errors;
+} lin_params_t;
 
-#define LIN_PARAMS_INSTANCE(_uart_module, _version, _io_port, _io_indice)   \
+#define LIN_FRAME_INSTANCE(_rw_type, _id, _period)                          \
+{                                                                           \
+	.read_write_type = _rw_type,                                            \
+    .data_index = 0,                                                        \
+    .errors = {0},                                                          \
+    .is_updated = 0,                                                        \
+    .force_transfer = 0,                                                    \
+    .periodicity = (uint32_t) _period,                                      \
+    .tick = 0,                                                              \
+    .id = _id,                                                              \
+    .length = 0,                                                            \
+    .data = {0},                                                            \
+    .checksum = 0                                                           \
+}
+
+#define LIN_FRAME_DEF(_name, _rw_type, _id, _period)                        \
+static lin_frame_params_t _name = LIN_FRAME_INSTANCE(_rw_type, _id, _period)
+
+#define LIN_PARAMS_INSTANCE(_uart_module, _version, _io_port, _io_indice, _number_of_p_frame, ...)   \
 {                                                                           \
 	.is_init_done = false,                                                  \
 	.uart_module = _uart_module,                                            \
     .chip_enable = { _io_port, _io_indice },                                \
 	.lin_version = _version,                                                \
-	.frame = NULL,                                                          \
-    .state_machine =                                                        \
-    {                                                                       \
-        .data_readback = 0,                                                 \
-        .current_index = 0,                                                 \
-        .next_index = 0,                                                    \
-        .tick = 0                                                           \
-    },                                                                      \
+	.p_frame = { __VA_ARGS__ },                                             \
+    .number_of_p_frame = _number_of_p_frame,                                \
+    .current_selected_p_frame = 0xff,                                       \
+    .state_machine ={0},                                                    \
     .errors = {0}                                                           \
 }
 
-#define LIN_DEF(_name, _uart_module, _chip_enable_pin, _version)            \
-static LIN_PARAMS _name = LIN_PARAMS_INSTANCE(_uart_module, _version, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin))
+#define LIN_DEF(_name, _uart_module, _chip_enable_pin, _version, ...)       \
+static lin_params_t _name = LIN_PARAMS_INSTANCE(_uart_module, _version, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin), COUNT_ARGUMENTS( __VA_ARGS__ ), __VA_ARGS__)
 
-LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var);
+LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var);
 
 #endif

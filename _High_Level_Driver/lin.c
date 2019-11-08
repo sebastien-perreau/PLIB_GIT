@@ -15,7 +15,7 @@
  * data:                This variable contains the data received by the UART module
  *                      in the event handler. It is always 8-bits length. 
  *****************************************************************************/
-static LIN_EVENT lin_event_tab[UART_NUMBER_OF_MODULES] = {0};
+static lin_event_t lin_event_tab[UART_NUMBER_OF_MODULES] = {0};
 
 /*******************************************************************************
  * Function:
@@ -61,15 +61,15 @@ static void lin_event_handler(uint8_t id, IRQ_EVENT_TYPE evt_type, uint32_t data
  *
  * Description:
  *      This local routine is used to complement the ID field with the 2 parity 
- *      bits of the identifier frame. 
- *      The LIN ID frame is always 6-bits length (useful data) with 2 MSB parity 
+ *      bits of the identifier p_frame. 
+ *      The LIN ID p_frame is always 6-bits length (useful data) with 2 MSB parity 
  *      bits (to get the 8-bits data length). 
  *      See the ID field in details (MSB to LSB):
  *      P1 - P0 - id.5 - id.4 - id.3 - id.2 - id.1 - id.0
  *
  * Parameters:
  *      id:     This parameter is the identifier (with or without parity) of
- *              the LIN frame (ex. 0x3d)
+ *              the LIN p_frame (ex. 0x3d)
  *
  * Return:
  *      The value returned is the full identifier (useful data + parity bits).
@@ -94,9 +94,9 @@ static uint8_t lin_get_id_with_parity(uint8_t id)
  * Return:
  *      LIN_STATE_MACHINE (see the enumeration for more details).
  ******************************************************************************/
-LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var)
+LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
 {
-    LIN_STATE_MACHINE ret;
+    uint8_t i = 0;
     
     if (!var->is_init_done)
     {
@@ -110,212 +110,229 @@ LIN_STATE_MACHINE lin_master_deamon(LIN_PARAMS *var)
                 
         var->state_machine.tick = mGetTick();
         var->is_init_done = true;
-        ret = _LIN_BUS_INIT;
     }
-    else
-    {
-        if (var->frame != NULL)
-        {
             
-            if ((var->state_machine.current_index >= _LIN_HEADER_BREAK) && (var->state_machine.current_index <= _LIN_WAIT_AND_READBACK))
+    if ((var->state_machine.current_index >= _LIN_HEADER_BREAK) && (var->state_machine.current_index <= _LIN_WAIT_AND_READBACK))
+    {
+        if (mTickCompare(var->state_machine.tick) >= ((var->p_frame[var->current_selected_p_frame]->length == 2) ? (LIN_BUS_TIMING_MAX_2_BYTES) : ((var->p_frame[var->current_selected_p_frame]->length == 4) ? (LIN_BUS_TIMING_MAX_4_BYTES) : LIN_BUS_TIMING_MAX_8_BYTES)))
+        {
+            var->state_machine.current_index = _LIN_TIMING_FAIL;
+        }
+    }
+
+    switch (var->state_machine.current_index)
+    {
+        case _LIN_HOME:
+
+            for ( ; i < var->number_of_p_frame ; i++)
             {
-                if (mTickCompare(var->state_machine.tick) >= ((var->frame->length == 2) ? (LIN_BUS_TIMING_MAX_2_BYTES) : ((var->frame->length == 4) ? (LIN_BUS_TIMING_MAX_4_BYTES) : LIN_BUS_TIMING_MAX_8_BYTES)))
+                if (var->p_frame[i]->force_transfer)
                 {
-                    var->state_machine.current_index = _LIN_TIMING_FAIL;
+                    var->p_frame[i]->force_transfer = false;
+                    var->current_selected_p_frame = i;
+                    break;
+                }
+                else if (var->p_frame[i]->periodicity > LIN_NOT_PERIODIC)
+                {
+                    if (mTickCompare(var->p_frame[i]->tick) >= var->p_frame[i]->periodicity)
+                    {
+                        mUpdateTick(var->p_frame[i]->tick);
+                        var->current_selected_p_frame = i;
+                        break;
+                    }
                 }
             }
             
-            switch (var->state_machine.current_index)
+            if (i == var->number_of_p_frame)
             {
-                case _LIN_HOME:
-
-                    if (mTickCompare(var->state_machine.tick) >= LIN_BUS_TIMING_SLEEP)
-                    {
-                        var->state_machine.current_index = _LIN_WAKE_UP;
-                    }
-                    else
-                    {
-                        var->state_machine.current_index = _LIN_HEADER_BREAK;
-                    }
-                    lin_event_tab[var->uart_module].is_data_receive = false;
-                    var->state_machine.tick = mGetTick();
-                    break;
-
-                case _LIN_WAKE_UP:
-
-                    if (!uart_send_break(var->uart_module))
-                    {
-                        var->state_machine.current_index = _LIN_WAKE_UP_WAIT_100MS;
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_WAKE_UP_WAIT_100MS:
-
-                    if (mTickCompare(var->state_machine.tick) >= TICK_100MS)
-                    {
-                        lin_event_tab[var->uart_module].is_data_receive = false;
-                        var->state_machine.current_index = _LIN_HEADER_BREAK;
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_HEADER_BREAK:
-
-                    if (!uart_send_break(var->uart_module))
-                    {
-                        var->state_machine.data_readback = 0x00;
-                        var->state_machine.next_index = _LIN_HEADER_SYNC;
-                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_HEADER_SYNC:
-
-                    if (!uart_send_data(var->uart_module, 0x55))
-                    {
-                        var->frame->id = lin_get_id_with_parity(var->frame->id);
-                        var->state_machine.data_readback = 0x55;
-                        var->state_machine.next_index = _LIN_HEADER_ID;
-                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_HEADER_ID:
-
-                    if (!uart_send_data(var->uart_module, var->frame->id))
-                    {
-                        var->state_machine.data_readback = var->frame->id;
-                        var->state_machine.next_index = (var->frame->read_write_type) ? _LIN_TX_DATA : _LIN_RX_DATA;
-                        var->frame->length = (((var->frame->id & 0x3f) <= 0x1f) ? (2) : (((var->frame->id & 0x3f) <= 0x2f) ? (4) : 8));
-                        var->frame->data_index = 0;
-                        var->frame->checksum = (var->lin_version) ? var->frame->id : 0;
-                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
-                        var->state_machine.tick = mGetTick();                    
-                    }
-                    break;
-
-                case _LIN_TX_DATA:
-
-                    if (!uart_send_data(var->uart_module, var->frame->data[var->frame->data_index]))
-                    {
-                        var->state_machine.data_readback = var->frame->data[var->frame->data_index];
-                        var->frame->checksum += var->frame->data[var->frame->data_index];
-                        var->frame->checksum -= (var->frame->checksum > 255) ? 255 : 0;
-                        if (++var->frame->data_index >= var->frame->length)
-                        {
-                            var->frame->checksum ^= 255;
-                            var->state_machine.next_index = _LIN_TX_CHKSM;
-                        }
-                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_RX_DATA:
-                    
-                    if (lin_event_tab[var->uart_module].is_data_receive)
-                    {
-                        lin_event_tab[var->uart_module].is_data_receive = false;
-                        var->frame->data[var->frame->data_index] = lin_event_tab[var->uart_module].data;
-                        var->frame->checksum += var->frame->data[var->frame->data_index];
-                        var->frame->checksum -= (var->frame->checksum > 255) ? 255 : 0;
-                        if (++var->frame->data_index >= var->frame->length)
-                        {
-                            var->frame->checksum ^= 255;
-                            var->state_machine.current_index = _LIN_RX_CHKSM;
-                        }
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_TX_CHKSM:
-
-                    if (!uart_send_data(var->uart_module, var->frame->checksum))
-                    {
-                        var->state_machine.data_readback = var->frame->checksum;
-                        var->state_machine.next_index = _LIN_END;
-                        var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_RX_CHKSM:
-                    
-                    if (lin_event_tab[var->uart_module].is_data_receive)
-                    {
-                        lin_event_tab[var->uart_module].is_data_receive = false;
-                        if (var->frame->checksum == lin_event_tab[var->uart_module].data)
-                        {
-                            var->state_machine.current_index = _LIN_END;
-                        }
-                        else
-                        {
-                            var->state_machine.current_index = _LIN_RX_CHKSM_FAIL;
-                        }
-                        var->state_machine.tick = mGetTick();
-                    }
-                    break;
-
-                case _LIN_WAIT_AND_READBACK:
-
-                    if (lin_event_tab[var->uart_module].is_data_receive)
-                    {
-                        lin_event_tab[var->uart_module].is_data_receive = false;
-                        if (lin_event_tab[var->uart_module].data == var->state_machine.data_readback)
-                        {
-                            var->state_machine.current_index = var->state_machine.next_index;
-                            var->state_machine.tick = mGetTick();
-                        }
-                        else
-                        {
-                            var->state_machine.current_index = _LIN_READBACK_FAIL;
-                        }
-                    }
-                    break;
-                    
-                case _LIN_RX_CHKSM_FAIL:
-                    
-                    var->errors.rx_chksm++;
-                    var->frame->errors.rx_chksm++;
-                    var->state_machine.current_index = _LIN_HOME;
-                    var->state_machine.tick = mGetTick();
-                    var->frame = NULL;
-                    break;
-
-                case _LIN_READBACK_FAIL:
-                    
-                    var->errors.readback++;
-                    var->frame->errors.readback++;
-                    var->state_machine.current_index = _LIN_HOME;
-                    var->state_machine.tick = mGetTick();
-                    var->frame = NULL;
-                    break;
-
-                case _LIN_TIMING_FAIL:
-
-                    var->errors.timing++;
-                    var->frame->errors.timing++;
-                    var->state_machine.current_index = _LIN_HOME;
-                    var->state_machine.tick = mGetTick();
-                    var->frame = NULL;
-                    break;
-
-                case _LIN_END:
-
-                    var->state_machine.current_index = _LIN_HOME;
-                    var->state_machine.tick = mGetTick();
-                    var->frame = NULL;
-                    break;
+                i = 0;
             }
-            ret = var->state_machine.current_index;
-        }
-        else
-        {
-            ret = _LIN_BUS_FRAME_NULL;
-        }
+            
+            if (var->current_selected_p_frame != 0xff)
+            {
+                if (mTickCompare(var->state_machine.tick) >= LIN_BUS_TIMING_SLEEP)
+                {
+                    var->state_machine.current_index = _LIN_WAKE_UP;
+                }
+                else
+                {
+                    var->state_machine.current_index = _LIN_HEADER_BREAK;
+                }
+                lin_event_tab[var->uart_module].is_data_receive = false;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_WAKE_UP:
+
+            if (!uart_send_break(var->uart_module))
+            {
+                var->state_machine.current_index = _LIN_WAKE_UP_WAIT_100MS;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_WAKE_UP_WAIT_100MS:
+
+            if (mTickCompare(var->state_machine.tick) >= TICK_100MS)
+            {
+                lin_event_tab[var->uart_module].is_data_receive = false;
+                var->state_machine.current_index = _LIN_HEADER_BREAK;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_HEADER_BREAK:
+
+            if (!uart_send_break(var->uart_module))
+            {
+                var->state_machine.data_readback = 0x00;
+                var->state_machine.next_index = _LIN_HEADER_SYNC;
+                var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_HEADER_SYNC:
+
+            if (!uart_send_data(var->uart_module, 0x55))
+            {
+                var->p_frame[var->current_selected_p_frame]->id = lin_get_id_with_parity(var->p_frame[var->current_selected_p_frame]->id);
+                var->state_machine.data_readback = 0x55;
+                var->state_machine.next_index = _LIN_HEADER_ID;
+                var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_HEADER_ID:
+
+            if (!uart_send_data(var->uart_module, var->p_frame[var->current_selected_p_frame]->id))
+            {
+                var->state_machine.data_readback = var->p_frame[var->current_selected_p_frame]->id;
+                var->state_machine.next_index = (var->p_frame[var->current_selected_p_frame]->read_write_type) ? _LIN_TX_DATA : _LIN_RX_DATA;
+                var->p_frame[var->current_selected_p_frame]->length = (((var->p_frame[var->current_selected_p_frame]->id & 0x3f) <= 0x1f) ? (2) : (((var->p_frame[var->current_selected_p_frame]->id & 0x3f) <= 0x2f) ? (4) : 8));
+                var->p_frame[var->current_selected_p_frame]->data_index = 0;
+                var->p_frame[var->current_selected_p_frame]->checksum = (var->lin_version == LIN_VERSION_2_X) ? var->p_frame[var->current_selected_p_frame]->id : 0;
+                var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                var->state_machine.tick = mGetTick();                    
+            }
+            break;
+
+        case _LIN_TX_DATA:
+
+            if (!uart_send_data(var->uart_module, var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index]))
+            {
+                var->state_machine.data_readback = var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index];
+                var->p_frame[var->current_selected_p_frame]->checksum += var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index];
+                var->p_frame[var->current_selected_p_frame]->checksum -= (var->p_frame[var->current_selected_p_frame]->checksum > 255) ? 255 : 0;
+                if (++var->p_frame[var->current_selected_p_frame]->data_index >= var->p_frame[var->current_selected_p_frame]->length)
+                {
+                    var->p_frame[var->current_selected_p_frame]->checksum ^= 255;
+                    var->state_machine.next_index = _LIN_TX_CHKSM;
+                }
+                var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_RX_DATA:
+
+            if (lin_event_tab[var->uart_module].is_data_receive)
+            {
+                lin_event_tab[var->uart_module].is_data_receive = false;
+                var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index] = lin_event_tab[var->uart_module].data;
+                var->p_frame[var->current_selected_p_frame]->checksum += var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index];
+                var->p_frame[var->current_selected_p_frame]->checksum -= (var->p_frame[var->current_selected_p_frame]->checksum > 255) ? 255 : 0;
+                if (++var->p_frame[var->current_selected_p_frame]->data_index >= var->p_frame[var->current_selected_p_frame]->length)
+                {
+                    var->p_frame[var->current_selected_p_frame]->checksum ^= 255;
+                    var->state_machine.current_index = _LIN_RX_CHKSM;
+                }
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_TX_CHKSM:
+
+            if (!uart_send_data(var->uart_module, var->p_frame[var->current_selected_p_frame]->checksum))
+            {
+                var->state_machine.data_readback = var->p_frame[var->current_selected_p_frame]->checksum;
+                var->state_machine.next_index = _LIN_END;
+                var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_RX_CHKSM:
+
+            if (lin_event_tab[var->uart_module].is_data_receive)
+            {
+                lin_event_tab[var->uart_module].is_data_receive = false;
+                if (var->p_frame[var->current_selected_p_frame]->checksum == lin_event_tab[var->uart_module].data)
+                {
+                    var->p_frame[var->current_selected_p_frame]->is_updated = true;
+                    var->state_machine.current_index = _LIN_END;
+                }
+                else
+                {
+                    var->state_machine.current_index = _LIN_RX_CHKSM_FAIL;
+                }
+                var->state_machine.tick = mGetTick();
+            }
+            break;
+
+        case _LIN_WAIT_AND_READBACK:
+
+            if (lin_event_tab[var->uart_module].is_data_receive)
+            {
+                lin_event_tab[var->uart_module].is_data_receive = false;
+                if (lin_event_tab[var->uart_module].data == var->state_machine.data_readback)
+                {
+                    var->state_machine.current_index = var->state_machine.next_index;
+                    var->state_machine.tick = mGetTick();
+                }
+                else
+                {
+                    var->state_machine.current_index = _LIN_READBACK_FAIL;
+                }
+            }
+            break;
+
+        case _LIN_RX_CHKSM_FAIL:
+
+            var->errors.rx_chksm++;
+            var->p_frame[var->current_selected_p_frame]->errors.rx_chksm++;
+            var->state_machine.current_index = _LIN_HOME;
+            var->state_machine.tick = mGetTick();
+            var->current_selected_p_frame = 0xff;
+            break;
+
+        case _LIN_READBACK_FAIL:
+
+            var->errors.readback++;
+            var->p_frame[var->current_selected_p_frame]->errors.readback++;
+            var->state_machine.current_index = _LIN_HOME;
+            var->state_machine.tick = mGetTick();
+            var->current_selected_p_frame = 0xff;
+            break;
+
+        case _LIN_TIMING_FAIL:
+
+            var->errors.timing++;
+            var->p_frame[var->current_selected_p_frame]->errors.timing++;
+            var->state_machine.current_index = _LIN_HOME;
+            var->state_machine.tick = mGetTick();
+            var->current_selected_p_frame = 0xff;
+            break;
+
+        case _LIN_END:
+
+            var->state_machine.current_index = _LIN_HOME;
+            var->state_machine.tick = mGetTick();
+            var->current_selected_p_frame = 0xff;
+            break;
     }
-    return ret;
+
+    return var->state_machine.current_index;
 }

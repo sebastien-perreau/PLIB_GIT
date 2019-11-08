@@ -68,11 +68,11 @@ void e_25lc512_deamon(_25LC512_CONFIG *var)
                 }
                 break;
             case SM_25LC512_WRITE_STATUS_REGISTER:
-                if(!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_WRSR << 8) | _25LC512_DISABLE_ALL_SECTOR_PROTECTION, NULL, SPI_CONF_MODE16))
-                {
-                    CLR_BIT(var->spi_params.flags, var->spi_params.state_machine.index);
-                    if(!var->spi_params.flags){var->spi_params.state_machine.index = SM_25LC512_END;}else{var->spi_params.state_machine.index = SM_25LC512_HOME;}
-                }
+//                if(!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_WRSR << 8) | _25LC512_DISABLE_ALL_SECTOR_PROTECTION, NULL, SPI_CONF_MODE16))
+//                {
+//                    CLR_BIT(var->spi_params.flags, var->spi_params.state_machine.index);
+//                    if(!var->spi_params.flags){var->spi_params.state_machine.index = SM_25LC512_END;}else{var->spi_params.state_machine.index = SM_25LC512_HOME;}
+//                }
                 break;
             case SM_25LC512_PAGE_ERASE:
                 if(!e_25lc512_erase_sequences(var, 0))
@@ -153,25 +153,25 @@ static char e_25lc512_read_sequences(_25LC512_CONFIG *var)
             
             functionState[var->spi_params.spi_module] = SM_GET_STATUS;
         case SM_GET_STATUS:
-            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_RDSR << 8), &readingDwordValue[var->spi_params.spi_module], SPI_CONF_MODE16))
-            {
-                var->registers.status_bit.w = (BYTE) (readingDwordValue[var->spi_params.spi_module] & 0xFF);
-                if (!var->registers.status_bit.WIP)
-                {
-                    functionState[var->spi_params.spi_module] = SM_DATA_READ;
-                }
-            }
+//            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_RDSR << 8), &readingDwordValue[var->spi_params.spi_module], SPI_CONF_MODE16))
+//            {
+//                var->registers.status_bit.w = (BYTE) (readingDwordValue[var->spi_params.spi_module] & 0xFF);
+//                if (!var->registers.status_bit.WIP)
+//                {
+//                    functionState[var->spi_params.spi_module] = SM_DATA_READ;
+//                }
+//            }
             break;
         case SM_DATA_READ:
-            if (!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)var->registers.dR.p, (void*)var->registers.dR.p, (var->registers.dR.size + 3)))
-            {
-                WORD i = 0;
-                for (i = 0 ; i < var->registers.dR.size ; i++)
-                {
-                    var->registers.dR.p[i] = var->registers.dR.p[i + 3];
-                }
-                functionState[var->spi_params.spi_module] = SM_FREE;
-            }
+//            if (!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)var->registers.dR.p, (void*)var->registers.dR.p, (var->registers.dR.size + 3)))
+//            {
+//                WORD i = 0;
+//                for (i = 0 ; i < var->registers.dR.size ; i++)
+//                {
+//                    var->registers.dR.p[i] = var->registers.dR.p[i + 3];
+//                }
+//                functionState[var->spi_params.spi_module] = SM_FREE;
+//            }
             break;
     }
     
@@ -216,42 +216,42 @@ static char e_25lc512_erase_sequences(_25LC512_CONFIG *var, uint8_t typeOfErase)
             tHeader[var->spi_params.spi_module][2] = (var->registers.aW >> 0);
             functionState[var->spi_params.spi_module] = SM_GET_STATUS;
         case SM_GET_STATUS:
-            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_RDSR << 8), &readingDwordValue[var->spi_params.spi_module], SPI_CONF_MODE16))
-            {
-                var->registers.status_bit.w = (BYTE) (readingDwordValue[var->spi_params.spi_module] & 0xFF);
-                if (!var->registers.status_bit.WIP)
-                {
-                    if (!var->registers.status_bit.WEL)
-                    {
-                        functionState[var->spi_params.spi_module] = SM_WREN;
-                    }
-                    else
-                    {
-                        functionState[var->spi_params.spi_module] = SM_ERASE;
-                    }
-                }
-            }
+//            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_RDSR << 8), &readingDwordValue[var->spi_params.spi_module], SPI_CONF_MODE16))
+//            {
+//                var->registers.status_bit.w = (BYTE) (readingDwordValue[var->spi_params.spi_module] & 0xFF);
+//                if (!var->registers.status_bit.WIP)
+//                {
+//                    if (!var->registers.status_bit.WEL)
+//                    {
+//                        functionState[var->spi_params.spi_module] = SM_WREN;
+//                    }
+//                    else
+//                    {
+//                        functionState[var->spi_params.spi_module] = SM_ERASE;
+//                    }
+//                }
+//            }
             break;
         case SM_WREN:
-            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, _25LC512_INST_WREN, NULL, SPI_CONF_MODE8))
-            {
-                functionState[var->spi_params.spi_module] = SM_ERASE;
-            }
+//            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, _25LC512_INST_WREN, NULL, SPI_CONF_MODE8))
+//            {
+//                functionState[var->spi_params.spi_module] = SM_ERASE;
+//            }
             break;
         case SM_ERASE:
             if (typeOfErase < 2)
             {
-                if (!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)&tHeader[var->spi_params.spi_module][0], NULL, 3))
-                {
-                    functionState[var->spi_params.spi_module] = SM_FREE;
-                }
+//                if (!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)&tHeader[var->spi_params.spi_module][0], NULL, 3))
+//                {
+//                    functionState[var->spi_params.spi_module] = SM_FREE;
+//                }
             }
             else
             {
-                if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, _25LC512_INST_CHIP_ERASE, NULL, SPI_CONF_MODE8))
-                {
-                    functionState[var->spi_params.spi_module] = SM_FREE;
-                }
+//                if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, _25LC512_INST_CHIP_ERASE, NULL, SPI_CONF_MODE8))
+//                {
+//                    functionState[var->spi_params.spi_module] = SM_FREE;
+//                }
             }
             break;
     }
@@ -313,43 +313,43 @@ static char e_25lc512_write_sequences(_25LC512_CONFIG *var, bool writeOrErase)
             }
             functionState[var->spi_params.spi_module] = SM_GET_STATUS;
         case SM_GET_STATUS:
-            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_RDSR << 8), &readingDwordValue[var->spi_params.spi_module], SPI_CONF_MODE16))
-            {
-                var->registers.status_bit.w = (BYTE) (readingDwordValue[var->spi_params.spi_module] & 0xFF);
-                if (!var->registers.status_bit.WIP)
-                {
-                    if (!var->registers.status_bit.WEL)
-                    {
-                        functionState[var->spi_params.spi_module] = SM_WREN;
-                    }
-                    else
-                    {
-                        functionState[var->spi_params.spi_module] = SM_WRITE;
-                    }
-                }
-            }
+//            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, (_25LC512_INST_RDSR << 8), &readingDwordValue[var->spi_params.spi_module], SPI_CONF_MODE16))
+//            {
+//                var->registers.status_bit.w = (BYTE) (readingDwordValue[var->spi_params.spi_module] & 0xFF);
+//                if (!var->registers.status_bit.WIP)
+//                {
+//                    if (!var->registers.status_bit.WEL)
+//                    {
+//                        functionState[var->spi_params.spi_module] = SM_WREN;
+//                    }
+//                    else
+//                    {
+//                        functionState[var->spi_params.spi_module] = SM_WRITE;
+//                    }
+//                }
+//            }
             break;
         case SM_WREN:
-            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, _25LC512_INST_WREN, NULL, SPI_CONF_MODE8))
-            {
-                functionState[var->spi_params.spi_module] = SM_WRITE;
-            }
+//            if (!SPIWriteAndStore8_16_32(var->spi_params.spi_module, var->spi_params.chip_select, _25LC512_INST_WREN, NULL, SPI_CONF_MODE8))
+//            {
+//                functionState[var->spi_params.spi_module] = SM_WRITE;
+//            }
             break;
         case SM_WRITE:
-            if (!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)var->registers.dW.p, NULL, (maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module] + 3)))
-            {
-                if (var->registers.dW.size > maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module])
-                {
-                    var->registers.dW.size -= maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module];
-                    var->registers.aW += maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module];
-                    functionState[var->spi_params.spi_module] = SM_MEMORY_ORGANIZATION;
-                }
-                else
-                {
-                    var->registers.dW.size = 0;
-                    functionState[var->spi_params.spi_module] = SM_FREE;
-                }
-            }
+//            if (!SPIWriteAndStoreByteArray(var->spi_params.spi_module, var->spi_params.chip_select, (void*)var->registers.dW.p, NULL, (maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module] + 3)))
+//            {
+//                if (var->registers.dW.size > maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module])
+//                {
+//                    var->registers.dW.size -= maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module];
+//                    var->registers.aW += maximumNumberOfByteToWriteInCurrentPage[var->spi_params.spi_module];
+//                    functionState[var->spi_params.spi_module] = SM_MEMORY_ORGANIZATION;
+//                }
+//                else
+//                {
+//                    var->registers.dW.size = 0;
+//                    functionState[var->spi_params.spi_module] = SM_FREE;
+//                }
+//            }
             break;
     }
     

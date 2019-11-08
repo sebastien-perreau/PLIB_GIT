@@ -19,10 +19,9 @@
     #define MUX0                        __PD5
     #define MUX1                        __PD9
 
-    #define CAN1_ENABLE                 __PC1
-    #define CAN2_ENABLE                 __PC2
-    #define LIN1_ENABLE                 __PC13
-    #define LIN2_ENABLE                 __PC14
+    #define CAN1_ENABLE_PIN             __PC1
+    #define CAN2_ENABLE_PIN             __PC2
+    #define LIN_ENABLE_PIN              __PC13
 
     // level: OFF/ON/BLINK/BLINK_INV
     #define mToggleLedStatusD2()        INV_BIT(_ledStatus, 2)

@@ -1209,9 +1209,17 @@ void _EXAMPLE_BLE(ble_params_t * p_ble)
 
 void _EXAMPLE_LIN()
 {
-    LIN_DEF(lin1, UART2, LIN1_ENABLE, LIN_VERSION_2_X);
-    static LIN_FRAME_PARAMS lin_frame1 = {0};
-    static LIN_FRAME_PARAMS lin_frame2 = {0};
+    LIN_FRAME_DEF(lin_frame1, LIN_WRITE_REQUEST, 0x3c, TICK_100MS);
+    LIN_FRAME_DEF(lin_frame2, LIN_WRITE_REQUEST, 0x31, TICK_50MS);
+    LIN_FRAME_DEF(lin_frame3, LIN_WRITE_REQUEST, 0x32, TICK_50MS);
+    LIN_FRAME_DEF(lin_frame4, LIN_WRITE_REQUEST, 0x33, TICK_100MS);
+    LIN_FRAME_DEF(lin_frame5, LIN_READ_REQUEST, 0x22, TICK_100MS);
+    LIN_FRAME_DEF(lin_frame6, LIN_WRITE_REQUEST, 0x34, LIN_NOT_PERIODIC);
+    
+    LIN_DEF(lin_bus, UART2, LIN_ENABLE_PIN, LIN_VERSION_2_X, &lin_frame1, &lin_frame2, &lin_frame3, &lin_frame4, &lin_frame5, &lin_frame6);    
+     
+    SWITCH_DEF(sw2, SWITCH2, ACTIVE_LOW);
+    
     static state_machine_t sm_example = {0};
     static state_machine_t sm = {0};
     
@@ -1219,56 +1227,38 @@ void _EXAMPLE_LIN()
     {
         case _SETUP:          
             
-            lin_frame1.read_write_type = LIN_WRITE_REQUEST;
-            lin_frame1.id = 0x30;
-            
-            lin_frame2.read_write_type = LIN_READ_REQUEST;
-            lin_frame2.id = 0x22;
-            
             sm_example.index = _MAIN;
             break;
             
         case _MAIN:
             
-            if (lin1.frame == NULL) 
-            {
-                if (mTickCompare(sm.tick) >= TICK_10MS)
-                {
-                    switch (sm.index)
-                    {
-                        case 0:
-
-                            lin_frame1.data[0] = lin_frame2.errors.timing >> 8;
-                            lin_frame1.data[1] = lin_frame2.errors.timing >> 0;
-                            lin_frame1.data[2] = lin_frame2.errors.readback >> 8;
-                            lin_frame1.data[3] = lin_frame2.errors.readback >> 0;
-                            lin_frame1.data[4] = sm.tick >> 24;
-                            lin_frame1.data[5] = sm.tick >> 16;
-                            lin_frame1.data[6] = sm.tick >> 8;
-                            lin_frame1.data[7] = sm.tick >> 0;
-
-                            lin1.frame = &lin_frame1;
-                            sm.index++;
-                            sm.tick = mGetTick();
-                            break;
-                        case 1:
-                            lin1.frame = &lin_frame2;
-                            sm.index = 0;
-                            sm.tick = mGetTick();
-                            break;
-                        default:
-                            sm.index = 0;
-                            sm.tick = mGetTick();
-                            break;
-                    }
-                }
-            }
-            else
-            {
-                sm.tick = mGetTick();
-            }            
+            mUpdateTick(sm.tick);
             
-            lin_master_deamon(&lin1);
+            if (sw2.is_updated)
+            {
+                sw2.is_updated = false;
+                lin_frame1.force_transfer = true;
+                lin_frame5.force_transfer = true;
+                lin_frame6.force_transfer = true;
+            }
+            
+            if (lin_frame5.is_updated)
+            {
+                lin_frame5.is_updated = false;
+                // Read bytes...
+            }
+                            
+            lin_frame1.data[0] = lin_frame5.errors.timing >> 8;
+            lin_frame1.data[1] = lin_frame5.errors.timing >> 0;
+            lin_frame1.data[2] = lin_frame5.errors.readback >> 8;
+            lin_frame1.data[3] = lin_frame5.errors.readback >> 0;
+            lin_frame1.data[4] = sm.tick >> 24;
+            lin_frame1.data[5] = sm.tick >> 16;
+            lin_frame1.data[6] = sm.tick >> 8;
+            lin_frame1.data[7] = sm.tick >> 0;
+            
+            lin_master_deamon(&lin_bus);
+            fu_switch(&sw2);
             
             break;
     } 
