@@ -11,8 +11,9 @@
 #define ID_GET_VERSION                      0x04
 #define ID_ADV_INTERVAL                     0x05
 #define ID_ADV_TIMEOUT                      0x06
-#define ID_GET_CONN_STATUS                  0x07
+#define ID_GET_CONNECTION_STATUS            0x07
 #define ID_GET_BLE_PARAMS                   0x08
+#define ID_GET_CHARACTERISTICS_PROPERTIES   0x09
 #define ID_SOFTWARE_RESET                   0xff
 
 #define ID_CHAR_BUFFER                      0x30
@@ -47,141 +48,169 @@ typedef enum
 
 typedef struct
 {
-    BLE_UART_MESSAGE_TYPE           message_type;
-	bool                            receive_in_progress;
-	uint8_t                         buffer[MAXIMUM_SIZE_EXTENDED_BUFFER + 4];
-	uint16_t                        index;
-    uint16_t                        old_index;
-	uint64_t                        tick;
+    BLE_UART_MESSAGE_TYPE               message_type;
+	bool                                receive_in_progress;
+	uint8_t                             buffer[MAXIMUM_SIZE_EXTENDED_BUFFER + 4];
+	uint16_t                            index;
+    uint16_t                            old_index;
+	uint64_t                            tick;
 } ble_uart_t;
 
 typedef struct
 {
-	uint8_t                         id;
-	uint8_t                         type;
-	uint8_t                         length;
-	uint8_t                         data[242];
+	uint8_t                             id;
+	uint8_t                             type;
+	uint8_t                             length;
+	uint8_t                             data[242];
 } ble_serial_message_t;
 
 typedef union
 {
     struct
     {
-        unsigned                    pa_lna:1;
-        unsigned                    led_status:1;
-        unsigned                    set_name:1;
-        unsigned                    get_version:1;
-        unsigned                    adv_interval:1;
-        unsigned                    adv_timeout:1;
-        unsigned                    send_reset_ble_pickit:1;
-        unsigned                    send_reset_all:1;
-        unsigned                    exec_reset:1;
+        unsigned                        pa_lna:1;
+        unsigned                        led_status:1;
+        unsigned                        set_name:1;
+        unsigned                        get_version:1;
+        unsigned                        adv_interval:1;
+        unsigned                        adv_timeout:1;
+        unsigned                        send_reset_ble_pickit:1;
+        unsigned                        send_reset_all:1;
+        unsigned                        exec_reset:1;
         
-        unsigned                    send_buffer:1;
+        unsigned                        send_buffer:1;
         
-        unsigned                    set_conn_params:1;
-        unsigned                    set_phy_params:1;
-        unsigned                    set_att_size_params:1;
+        unsigned                        set_conn_params:1;
+        unsigned                        set_phy_params:1;
+        unsigned                        set_att_size_params:1;
     };
     struct
     {
-        uint32_t                    w;
+        uint32_t                        w;
     };
 } ble_flags_t;
 
 typedef struct
 {
-    uint16_t                        min_conn_interval;
-    uint16_t                        max_conn_interval;
-    uint16_t                        slave_latency;
-    uint16_t                        conn_sup_timeout;
+    uint16_t                            min_conn_interval;
+    uint16_t                            max_conn_interval;
+    uint16_t                            slave_latency;
+    uint16_t                            conn_sup_timeout;
 } ble_gap_conn_params_t;
 
 typedef struct
 {
-    uint16_t                        max_tx_octets;
-    uint16_t                        max_rx_octets;
+    uint16_t                            max_tx_octets;
+    uint16_t                            max_rx_octets;
 } ble_gap_data_length_params_t;
 
 typedef struct
 {
-	ble_gap_conn_params_t 			conn_params;
-	uint8_t                         phys_params;
-	ble_gap_data_length_params_t	mtu_size_params;
-	uint32_t						adv_interval;
-	uint32_t						adv_timeout;
+	ble_gap_conn_params_t               conn_params;
+	uint8_t                             phys_params;
+	ble_gap_data_length_params_t        mtu_size_params;
+	uint32_t                            adv_interval;
+	uint32_t                            adv_timeout;
 } ble_pickit_gap_params;
 
 typedef struct
 {
-    ble_pickit_gap_params           preferred_gap_params;
-    bool                            pa_lna_enable;
-    bool                            led_status_enable;
+    ble_pickit_gap_params               preferred_gap_params;
+    bool                                pa_lna_enable;
+    bool                                led_status_enable;
 } ble_pickit_params;
 
 typedef struct
 {
-    char                            vsd_version[8];
-    char                            device_name[20];
+    char                                vsd_version[8];
+    char                                device_name[20];
 } ble_device_infos_t;
 
 typedef struct
 {
-    bool                            is_pa_lna_enabled;
-    bool                            is_led_status_enabled;
+    bool                                is_pa_lna_enabled;
+    bool                                is_led_status_enabled;
 } ble_hardware_status_t;
 
 typedef struct
 {
-    bool                            is_conn_status_updated;
-    bool                            is_connected_to_a_central;
-    bool                            is_in_advertising_mode;
-} ble_conn_status_t;
+    bool                                is_connection_status_updated;
+    bool                                is_connected_to_a_central;
+    bool                                is_in_advertising_mode;
+} ble_connection_status_t;
+
+typedef union
+{    
+    struct
+    {
+        unsigned                        broadcast:1;
+        unsigned                        read:1;
+        unsigned                        write_without_response:1;
+        unsigned                        write:1;
+        unsigned                        notify:1;
+        unsigned                        indicate:1;
+        unsigned                        signed_write_command:1;
+        unsigned                        :1;
+    };
+    struct
+    {
+        uint8_t                         value;
+    };
+} ble_characteristic_properties_t;
 
 typedef struct
 {
-    bool                            is_gap_params_updated;
-    ble_pickit_gap_params			current_gap_params;  
+    bool                                is_characteristics_properties_updated;
+    ble_characteristic_properties_t     _0x1501;
+    ble_characteristic_properties_t     _0x1502;
+    ble_characteristic_properties_t     _0x1503;
+} ble_characteristics_properties_t;
+
+typedef struct
+{
+    bool                                is_gap_params_updated;
+    ble_pickit_gap_params               current_gap_params;  
 } ble_gap_status_t;
 
 typedef struct
 {
-    ble_device_infos_t              infos;
-    ble_flags_t                     flags;
-    ble_hardware_status_t           hardware;
-    ble_conn_status_t               connection;
-    ble_gap_status_t                gap;    
+    ble_device_infos_t                  infos;
+    ble_flags_t                         flags;
+    ble_hardware_status_t               hardware;
+    ble_connection_status_t             connection;
+    ble_characteristics_properties_t    characteristics;
+    ble_gap_status_t                    gap;    
 } ble_status_t;
 
 typedef struct
 {
-    uint8_t                         in_data[242];
-    uint8_t                         in_length;
-    bool                            in_is_updated;
-    uint8_t                         out_data[242];
-    uint8_t                         out_length;
+    uint8_t                             in_data[242];
+    uint8_t                             in_length;
+    bool                                in_is_updated;
+    uint8_t                             out_data[242];
+    uint8_t                             out_length;
 } ble_char_buffer_t;
 
 typedef struct
 {
-    uint8_t                         in_data[MAXIMUM_SIZE_EXTENDED_BUFFER];
-    uint16_t                        in_length;
-    bool                            in_is_updated;
+    uint8_t                             in_data[MAXIMUM_SIZE_EXTENDED_BUFFER];
+    uint16_t                            in_length;
+    bool                                in_is_updated;
 } ble_char_extended_buffer_t;
 
 typedef struct
 {
-    ble_char_buffer_t               buffer;
-    ble_char_extended_buffer_t      extended_buffer;
+    ble_char_buffer_t                   buffer;
+    ble_char_extended_buffer_t          extended_buffer;
 } ble_characteristics_t;
 
 typedef struct
 {
-	ble_uart_t                      uart;
-	ble_serial_message_t            incoming_message_uart; 
-    ble_status_t                    status;
-    ble_pickit_params               params;
-    ble_characteristics_t           service;
+	ble_uart_t                          __uart;
+	ble_serial_message_t                __incoming_message_uart; 
+    ble_status_t                        status;
+    ble_pickit_params                   params;
+    ble_characteristics_t               service;
 } ble_params_t;
 
 #define BLE_DEVICE_INFOS_INSTANCE(_name)                        \
@@ -219,6 +248,7 @@ typedef struct
     .flags = {{0}},                                             \
     .hardware = {0},                                            \
     .connection = {0},                                          \
+    .characteristics = {0},                                     \
     .gap = {0, {{0}, 0, {0}, 0, 0}},                            \
 }
 
@@ -231,8 +261,8 @@ typedef struct
 
 #define BLE_PARAMS_INSTANCE(_name)                              \
 {                                                               \
-	.uart = {0},                                                \
-	.incoming_message_uart = {0},                               \
+	.__uart = {0},                                              \
+	.__incoming_message_uart = {0},                             \
 	.status = BLE_PICKIT_STATUS_INSTANCE(_name),                \
     .params = BLE_PICKIT_PARAMS_INSTANCE(),                     \
     .service = {0},                                             \

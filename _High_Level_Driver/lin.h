@@ -1,5 +1,5 @@
-#ifndef __DEF_LIN2
-#define	__DEF_LIN2
+#ifndef __DEF_LIN
+#define	__DEF_LIN
 
 #define LIN_MAXIMUM_FRAME           50
 
@@ -51,11 +51,30 @@ typedef enum
     _LIN_BUS_INIT                   = 0xff
 } LIN_STATE_MACHINE;
 
+typedef enum
+{
+    LIN_AUTO_DATA_LENGTH            = 0,
+    LIN_1_DATA_BYTE                 = 1,
+    LIN_2_DATA_BYTE                 = 2,
+    LIN_3_DATA_BYTE                 = 3,
+    LIN_4_DATA_BYTE                 = 4,
+    LIN_5_DATA_BYTE                 = 5,
+    LIN_6_DATA_BYTE                 = 6,
+    LIN_7_DATA_BYTE                 = 7,
+    LIN_8_DATA_BYTE                 = 8,
+} LIN_DATA_LENGTH;
+
 typedef struct
 {
     bool                        is_data_receive;
     uint8_t                     data;
 } lin_event_t;
+
+typedef struct
+{
+    bool                        execute;
+    state_machine_t             sm;
+} lin_force_transfer_t;
 
 typedef struct
 {
@@ -67,6 +86,7 @@ typedef struct
 
 typedef struct
 {
+    bool                        is_occurs;
     uint16_t                    rx_chksm;
     uint16_t                    readback;
     uint16_t                    timing;
@@ -74,18 +94,21 @@ typedef struct
 
 typedef struct
 {    
-    bool                        read_write_type;
-    uint8_t                     data_index;
+    bool                        read_write_type;    
     lin_fails_t                 errors;
+    bool                        is_busy;
     bool                        is_updated;
-    bool                        force_transfer;
-    uint32_t                    periodicity;
-    uint64_t                    tick;
+    lin_force_transfer_t        force_transfer;
+    LIN_DATA_LENGTH             data_length;
+    uint32_t                    periodicity;    
     
     uint8_t                     id;
     uint8_t                     length;
     uint8_t                     data[8];
     uint16_t                    checksum;
+    
+    uint8_t                     __data_index;
+    uint64_t                    __tick;
 } lin_frame_params_t;
 
 typedef struct
@@ -101,23 +124,25 @@ typedef struct
     lin_fails_t                 errors;
 } lin_params_t;
 
-#define LIN_FRAME_INSTANCE(_rw_type, _id, _period)                          \
+#define LIN_FRAME_INSTANCE(_rw_type, _id, _data_length, _period)            \
 {                                                                           \
 	.read_write_type = _rw_type,                                            \
-    .data_index = 0,                                                        \
     .errors = {0},                                                          \
+    .is_busy = 0,                                                           \
     .is_updated = 0,                                                        \
-    .force_transfer = 0,                                                    \
+    .force_transfer = {0},                                                  \
+    .data_length = _data_length,                                            \
     .periodicity = (uint32_t) _period,                                      \
-    .tick = 0,                                                              \
     .id = _id,                                                              \
     .length = 0,                                                            \
     .data = {0},                                                            \
-    .checksum = 0                                                           \
+    .checksum = 0,                                                          \
+    .__data_index = 0,                                                      \
+    .__tick = 0                                                             \
 }
 
-#define LIN_FRAME_DEF(_name, _rw_type, _id, _period)                        \
-static lin_frame_params_t _name = LIN_FRAME_INSTANCE(_rw_type, _id, _period)
+#define LIN_FRAME_DEF(_name, _rw_type, _id, _data_length, _period)          \
+static lin_frame_params_t _name = LIN_FRAME_INSTANCE(_rw_type, _id, _data_length, _period)
 
 #define LIN_PARAMS_INSTANCE(_uart_module, _version, _io_port, _io_indice, _number_of_p_frame, ...)   \
 {                                                                           \
@@ -136,5 +161,6 @@ static lin_frame_params_t _name = LIN_FRAME_INSTANCE(_rw_type, _id, _period)
 static lin_params_t _name = LIN_PARAMS_INSTANCE(_uart_module, _version, __PORT(_chip_enable_pin), __INDICE(_chip_enable_pin), COUNT_ARGUMENTS( __VA_ARGS__ ), __VA_ARGS__)
 
 LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var);
+uint8_t lin_force_transfer(lin_frame_params_t *frame);
 
 #endif

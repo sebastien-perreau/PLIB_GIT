@@ -1209,12 +1209,12 @@ void _EXAMPLE_BLE(ble_params_t * p_ble)
 
 void _EXAMPLE_LIN()
 {
-    LIN_FRAME_DEF(lin_frame1, LIN_WRITE_REQUEST, 0x3c, TICK_100MS);
-    LIN_FRAME_DEF(lin_frame2, LIN_WRITE_REQUEST, 0x31, TICK_50MS);
-    LIN_FRAME_DEF(lin_frame3, LIN_WRITE_REQUEST, 0x32, TICK_50MS);
-    LIN_FRAME_DEF(lin_frame4, LIN_WRITE_REQUEST, 0x33, TICK_100MS);
-    LIN_FRAME_DEF(lin_frame5, LIN_READ_REQUEST, 0x22, TICK_100MS);
-    LIN_FRAME_DEF(lin_frame6, LIN_WRITE_REQUEST, 0x34, LIN_NOT_PERIODIC);
+    LIN_FRAME_DEF(lin_frame1, LIN_WRITE_REQUEST, 0x3c, LIN_AUTO_DATA_LENGTH, TICK_100MS);
+    LIN_FRAME_DEF(lin_frame2, LIN_WRITE_REQUEST, 0x31, LIN_1_DATA_BYTE, TICK_50MS);
+    LIN_FRAME_DEF(lin_frame3, LIN_WRITE_REQUEST, 0x32, LIN_2_DATA_BYTE, TICK_50MS);
+    LIN_FRAME_DEF(lin_frame4, LIN_WRITE_REQUEST, 0x33, LIN_5_DATA_BYTE, TICK_100MS);
+    LIN_FRAME_DEF(lin_frame5, LIN_READ_REQUEST, 0x22, LIN_6_DATA_BYTE, TICK_100MS);
+    LIN_FRAME_DEF(lin_frame6, LIN_WRITE_REQUEST, 0x34, LIN_AUTO_DATA_LENGTH, LIN_NOT_PERIODIC);
     
     LIN_DEF(lin_bus, UART2, LIN_ENABLE_PIN, LIN_VERSION_2_X, &lin_frame1, &lin_frame2, &lin_frame3, &lin_frame4, &lin_frame5, &lin_frame6);    
      
@@ -1222,6 +1222,7 @@ void _EXAMPLE_LIN()
     
     static state_machine_t sm_example = {0};
     static state_machine_t sm = {0};
+    static uint64_t tick_force_transfer = 0;
     
     switch (sm_example.index)
     {
@@ -1237,15 +1238,35 @@ void _EXAMPLE_LIN()
             if (sw2.is_updated)
             {
                 sw2.is_updated = false;
-                lin_frame1.force_transfer = true;
-                lin_frame5.force_transfer = true;
-                lin_frame6.force_transfer = true;
+                lin_frame1.force_transfer.execute = true;
+                lin_frame5.force_transfer.execute = true;
             }
             
             if (lin_frame5.is_updated)
             {
                 lin_frame5.is_updated = false;
                 // Read bytes...
+            }
+            else if (lin_frame5.errors.is_occurs)
+            {
+                lin_frame5.errors.is_occurs = false;
+                // Do something...
+            }
+            
+            if (mTickCompare(tick_force_transfer) >= TICK_40MS)
+            {
+                if (!lin_force_transfer(&lin_frame6))
+                {
+                    mUpdateTick(tick_force_transfer);
+                    if (lin_frame6.is_updated)
+                    {
+                        // Frame is transmitted
+                    }
+                    else if (lin_frame6.errors.is_occurs)
+                    {
+                        // You can check which error(s) occur(s) ...
+                    }
+                }
             }
                             
             lin_frame1.data[0] = lin_frame5.errors.timing >> 8;

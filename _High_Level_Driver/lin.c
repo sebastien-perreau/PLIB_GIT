@@ -89,7 +89,7 @@ static uint8_t lin_get_id_with_parity(uint8_t id)
  *      by the user directly. 
  * 
  * Parameters:
- *      *var: A LIN_PARAMS pointer used by the user/driver to manage the state machine.
+ *      *var: A lin_params_t pointer used by the user/driver to manage the state machine.
  * 
  * Return:
  *      LIN_STATE_MACHINE (see the enumeration for more details).
@@ -126,17 +126,19 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
 
             for ( ; i < var->number_of_p_frame ; i++)
             {
-                if (var->p_frame[i]->force_transfer)
+                if (var->p_frame[i]->force_transfer.execute)
                 {
-                    var->p_frame[i]->force_transfer = false;
+                    var->p_frame[i]->force_transfer.execute = false;
+                    var->p_frame[i]->is_busy = true;
                     var->current_selected_p_frame = i;
                     break;
                 }
                 else if (var->p_frame[i]->periodicity > LIN_NOT_PERIODIC)
                 {
-                    if (mTickCompare(var->p_frame[i]->tick) >= var->p_frame[i]->periodicity)
+                    if (mTickCompare(var->p_frame[i]->__tick) >= var->p_frame[i]->periodicity)
                     {
-                        mUpdateTick(var->p_frame[i]->tick);
+                        mUpdateTick(var->p_frame[i]->__tick);
+                        var->p_frame[i]->is_busy = true;
                         var->current_selected_p_frame = i;
                         break;
                     }
@@ -211,9 +213,16 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
             {
                 var->state_machine.data_readback = var->p_frame[var->current_selected_p_frame]->id;
                 var->state_machine.next_index = (var->p_frame[var->current_selected_p_frame]->read_write_type) ? _LIN_TX_DATA : _LIN_RX_DATA;
-                var->p_frame[var->current_selected_p_frame]->length = (((var->p_frame[var->current_selected_p_frame]->id & 0x3f) <= 0x1f) ? (2) : (((var->p_frame[var->current_selected_p_frame]->id & 0x3f) <= 0x2f) ? (4) : 8));
-                var->p_frame[var->current_selected_p_frame]->data_index = 0;
-                var->p_frame[var->current_selected_p_frame]->checksum = (var->lin_version == LIN_VERSION_2_X) ? var->p_frame[var->current_selected_p_frame]->id : 0;
+                if (var->p_frame[var->current_selected_p_frame]->data_length != LIN_AUTO_DATA_LENGTH)
+                {
+                    var->p_frame[var->current_selected_p_frame]->length = var->p_frame[var->current_selected_p_frame]->data_length;
+                }
+                else
+                {
+                    var->p_frame[var->current_selected_p_frame]->length = (((var->p_frame[var->current_selected_p_frame]->id & 0x3f) <= 0x1f) ? (2) : (((var->p_frame[var->current_selected_p_frame]->id & 0x3f) <= 0x2f) ? (4) : (8)));
+                }                
+                var->p_frame[var->current_selected_p_frame]->__data_index = 0;
+                var->p_frame[var->current_selected_p_frame]->checksum = ((var->lin_version == LIN_VERSION_2_X) && ((var->p_frame[var->current_selected_p_frame]->id & 0x3f) < 60)) ? (var->p_frame[var->current_selected_p_frame]->id) : 0;
                 var->state_machine.current_index = _LIN_WAIT_AND_READBACK;
                 var->state_machine.tick = mGetTick();                    
             }
@@ -221,12 +230,12 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
 
         case _LIN_TX_DATA:
 
-            if (!uart_send_data(var->uart_module, var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index]))
+            if (!uart_send_data(var->uart_module, var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->__data_index]))
             {
-                var->state_machine.data_readback = var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index];
-                var->p_frame[var->current_selected_p_frame]->checksum += var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index];
+                var->state_machine.data_readback = var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->__data_index];
+                var->p_frame[var->current_selected_p_frame]->checksum += var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->__data_index];
                 var->p_frame[var->current_selected_p_frame]->checksum -= (var->p_frame[var->current_selected_p_frame]->checksum > 255) ? 255 : 0;
-                if (++var->p_frame[var->current_selected_p_frame]->data_index >= var->p_frame[var->current_selected_p_frame]->length)
+                if (++var->p_frame[var->current_selected_p_frame]->__data_index >= var->p_frame[var->current_selected_p_frame]->length)
                 {
                     var->p_frame[var->current_selected_p_frame]->checksum ^= 255;
                     var->state_machine.next_index = _LIN_TX_CHKSM;
@@ -241,10 +250,10 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
             if (lin_event_tab[var->uart_module].is_data_receive)
             {
                 lin_event_tab[var->uart_module].is_data_receive = false;
-                var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index] = lin_event_tab[var->uart_module].data;
-                var->p_frame[var->current_selected_p_frame]->checksum += var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->data_index];
+                var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->__data_index] = lin_event_tab[var->uart_module].data;
+                var->p_frame[var->current_selected_p_frame]->checksum += var->p_frame[var->current_selected_p_frame]->data[var->p_frame[var->current_selected_p_frame]->__data_index];
                 var->p_frame[var->current_selected_p_frame]->checksum -= (var->p_frame[var->current_selected_p_frame]->checksum > 255) ? 255 : 0;
-                if (++var->p_frame[var->current_selected_p_frame]->data_index >= var->p_frame[var->current_selected_p_frame]->length)
+                if (++var->p_frame[var->current_selected_p_frame]->__data_index >= var->p_frame[var->current_selected_p_frame]->length)
                 {
                     var->p_frame[var->current_selected_p_frame]->checksum ^= 255;
                     var->state_machine.current_index = _LIN_RX_CHKSM;
@@ -270,8 +279,7 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
             {
                 lin_event_tab[var->uart_module].is_data_receive = false;
                 if (var->p_frame[var->current_selected_p_frame]->checksum == lin_event_tab[var->uart_module].data)
-                {
-                    var->p_frame[var->current_selected_p_frame]->is_updated = true;
+                {                    
                     var->state_machine.current_index = _LIN_END;
                 }
                 else
@@ -302,6 +310,8 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
         case _LIN_RX_CHKSM_FAIL:
 
             var->errors.rx_chksm++;
+            var->p_frame[var->current_selected_p_frame]->is_busy = false;
+            var->p_frame[var->current_selected_p_frame]->errors.is_occurs = true;
             var->p_frame[var->current_selected_p_frame]->errors.rx_chksm++;
             var->state_machine.current_index = _LIN_HOME;
             var->state_machine.tick = mGetTick();
@@ -311,6 +321,8 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
         case _LIN_READBACK_FAIL:
 
             var->errors.readback++;
+            var->p_frame[var->current_selected_p_frame]->is_busy = false;
+            var->p_frame[var->current_selected_p_frame]->errors.is_occurs = true;
             var->p_frame[var->current_selected_p_frame]->errors.readback++;
             var->state_machine.current_index = _LIN_HOME;
             var->state_machine.tick = mGetTick();
@@ -320,6 +332,8 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
         case _LIN_TIMING_FAIL:
 
             var->errors.timing++;
+            var->p_frame[var->current_selected_p_frame]->is_busy = false;
+            var->p_frame[var->current_selected_p_frame]->errors.is_occurs = true;
             var->p_frame[var->current_selected_p_frame]->errors.timing++;
             var->state_machine.current_index = _LIN_HOME;
             var->state_machine.tick = mGetTick();
@@ -328,6 +342,8 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
 
         case _LIN_END:
 
+            var->p_frame[var->current_selected_p_frame]->is_busy = false;
+            var->p_frame[var->current_selected_p_frame]->is_updated = true;
             var->state_machine.current_index = _LIN_HOME;
             var->state_machine.tick = mGetTick();
             var->current_selected_p_frame = 0xff;
@@ -335,4 +351,53 @@ LIN_STATE_MACHINE lin_master_deamon(lin_params_t *var)
     }
 
     return var->state_machine.current_index;
+}
+
+/*******************************************************************************
+ * Function:
+ *      uint8_t lin_force_transfer(lin_frame_params_t *frame)
+ *
+ * Description:
+ *      This routine can be used when a "force_transfer" is requested AND also 
+ *      when we want to have a feedback on its status ( >0: "on going" / 0: Finished).
+ *      This is not mandatory to use it. A "force_transfer" can be executed just by
+ *      setting the flag "force_transfer.execute" to '1' of a LIN frame (Tx or Rx). 
+ *
+ * Parameters:
+ *      *frame: This is a pointer of the frame for which you want to execute 
+ *              a "force_transfer".
+ *
+ * Return:
+ *      It returns the status of the "force_transfer": ( >0: "on going" / 0: Finished).
+ ******************************************************************************/
+uint8_t lin_force_transfer(lin_frame_params_t *frame)
+{  
+    
+    switch (frame->force_transfer.sm.index)
+    {       
+        case 0:
+            
+            frame->force_transfer.sm.index = 1;
+            
+        case 1:
+            
+            if (!frame->is_busy)
+            {
+                frame->force_transfer.execute = true;
+                frame->is_updated = false;
+                frame->errors.is_occurs = false;
+                frame->force_transfer.sm.index = 2;
+            }
+            break;
+            
+        case 2:
+            
+            if (frame->is_updated || frame->errors.is_occurs)
+            {
+                frame->force_transfer.sm.index = 0;
+            }
+            break;
+    }
+    
+    return frame->force_transfer.sm.index;
 }
