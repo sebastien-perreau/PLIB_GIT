@@ -2,8 +2,7 @@
 *	BLE driver
 *	Author : Sébastien PERREAU
 *
-*	Revision history	:
-*		08/11/2018		- Initial release
+*	version: 5.19.47
 *********************************************************************/
 
 #include "../PLIB.h"
@@ -182,26 +181,33 @@ void ble_stack_tasks()
                 }                
                 break;
                 
+            case ID_PA_LNA:
+                if ((p_ble->__incoming_message_uart.data[0] & 1) != p_ble->params.pa_lna_enable)
+                {
+                    p_ble->params.pa_lna_enable = p_ble->__incoming_message_uart.data[0];
+                    p_ble->status.flags.send_reset_ble_pickit = 1;
+                }
+                break;
+                
             case ID_GET_VERSION:
                 memcpy(p_ble->status.infos.vsd_version, p_ble->__incoming_message_uart.data, p_ble->__incoming_message_uart.length);
                 p_ble->status.infos.vsd_version[i] = '\0';
                 break;
                 
-            case ID_GET_CONNECTION_STATUS:                
+            case ID_GET_HARDWARE_STATUS:
+                p_ble->status.hardware.is_hardware_status_updated = true;
+                p_ble->status.hardware.is_pa_lna_enabled = GET_BIT(p_ble->__incoming_message_uart.data[0], 0);
+                p_ble->status.hardware.is_led_status_enabled = GET_BIT(p_ble->__incoming_message_uart.data[0], 1);
+                break;
+                
+            case ID_GET_BLE_CONNECTION_STATUS:                
                 p_ble->status.connection.is_connection_status_updated = true;
-                p_ble->status.connection.is_connected_to_a_central = ((p_ble->__incoming_message_uart.data[0] >> 1) & 0x01);
-                p_ble->status.connection.is_in_advertising_mode = ((p_ble->__incoming_message_uart.data[0] >> 0) & 0x01);
+                p_ble->status.connection.is_connected_to_a_central = GET_BIT(p_ble->__incoming_message_uart.data[0], 1);
+                p_ble->status.connection.is_in_advertising_mode = GET_BIT(p_ble->__incoming_message_uart.data[0], 0);
                 break;
                 
-            case ID_GET_CHARACTERISTICS_PROPERTIES:
-                p_ble->status.characteristics.is_characteristics_properties_updated = true;
-                p_ble->status.characteristics._0x1501.value = p_ble->__incoming_message_uart.data[0];
-                p_ble->status.characteristics._0x1502.value = p_ble->__incoming_message_uart.data[1];
-                p_ble->status.characteristics._0x1503.value = p_ble->__incoming_message_uart.data[2];
-                break;
-                
-            case ID_GET_BLE_PARAMS:
-                p_ble->status.gap.is_gap_params_updated = true;
+            case ID_GET_BLE_GAP_STATUS:     
+                p_ble->status.gap.is_gap_status_updated = true;
                 
                 p_ble->status.gap.current_gap_params.conn_params.min_conn_interval = (p_ble->__incoming_message_uart.data[0] << 8) | (p_ble->__incoming_message_uart.data[1] << 0);
                 p_ble->status.gap.current_gap_params.conn_params.max_conn_interval = (p_ble->__incoming_message_uart.data[2] << 8) | (p_ble->__incoming_message_uart.data[3] << 0);
@@ -215,17 +221,13 @@ void ble_stack_tasks()
                 
                 p_ble->status.gap.current_gap_params.adv_timeout = p_ble->params.preferred_gap_params.adv_timeout;
                 p_ble->status.gap.current_gap_params.adv_interval = p_ble->params.preferred_gap_params.adv_interval;
-                
-                p_ble->status.hardware.is_pa_lna_enabled = p_ble->__incoming_message_uart.data[11];
-                p_ble->status.hardware.is_led_status_enabled = p_ble->__incoming_message_uart.data[12];
                 break;
                 
-            case ID_PA_LNA:
-                if ((p_ble->__incoming_message_uart.data[0] & 1) != p_ble->params.pa_lna_enable)
-                {
-                    p_ble->params.pa_lna_enable = p_ble->__incoming_message_uart.data[0];
-                    p_ble->status.flags.send_reset_ble_pickit = 1;
-                }
+            case ID_GET_CHARACTERISTICS_PROPERTIES:
+                p_ble->status.characteristics.is_characteristics_properties_updated = true;
+                p_ble->status.characteristics._0x1501.value = (p_ble->__incoming_message_uart.data[0] << 0) | (p_ble->__incoming_message_uart.data[1] << 8);
+                p_ble->status.characteristics._0x1502.value = (p_ble->__incoming_message_uart.data[2] << 0) | (p_ble->__incoming_message_uart.data[3] << 8);
+                p_ble->status.characteristics._0x1503.value = (p_ble->__incoming_message_uart.data[4] << 0) | (p_ble->__incoming_message_uart.data[5] << 8);
                 break;
                 
             case ID_CHAR_BUFFER:
@@ -335,7 +337,7 @@ void ble_stack_tasks()
         }
         else if (p_ble->status.flags.send_buffer)
         {
-            if (p_ble->status.characteristics._0x1501.notify)
+            if (p_ble->status.characteristics._0x1501.is_notify_enabled)
             {                
                 if (!vsd_outgoing_message_uart(_buffer))
                 {

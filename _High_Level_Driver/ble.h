@@ -5,24 +5,26 @@
 
 #define ID_NONE                             0xfe
 #define ID_BOOT_MODE                        0x00
+// Characteristic Parameters (0x1503)
 #define ID_PA_LNA                           0x01
 #define ID_LED_STATUS                       0x02
 #define ID_SET_NAME                         0x03
 #define ID_GET_VERSION                      0x04
 #define ID_ADV_INTERVAL                     0x05
 #define ID_ADV_TIMEOUT                      0x06
-#define ID_GET_CONNECTION_STATUS            0x07
-#define ID_GET_BLE_PARAMS                   0x08
-#define ID_GET_CHARACTERISTICS_PROPERTIES   0x09
+#define ID_GET_HARDWARE_STATUS              0x07
+#define ID_GET_BLE_CONNECTION_STATUS        0x08
+#define ID_GET_BLE_GAP_STATUS               0x09
+#define ID_GET_CHARACTERISTICS_PROPERTIES   0x0a
+// Characteristic Application (0x1501)
 #define ID_SOFTWARE_RESET                   0xff
-
+#define ID_SPC_STATUS                       0x10
 #define ID_CHAR_BUFFER                      0x30
 #define ID_CHAR_EXTENDED_BUFFER_NO_CRC      0x41
-
+// Characteristic Parameters (0x1503)
 #define ID_SET_BLE_CONN_PARAMS              0x20
 #define ID_SET_BLE_PHY_PARAMS               0x21
 #define ID_SET_BLE_ATT_SIZE_PARAMS          0x22
-
 
 #define MSEC_TO_UNITS(TIME, RESOLUTION)     (((TIME) * 1000) / (RESOLUTION))
 #define UNIT_0_625_MS                       625
@@ -118,7 +120,7 @@ typedef struct
     ble_pickit_gap_params               preferred_gap_params;
     bool                                pa_lna_enable;
     bool                                led_status_enable;
-} ble_pickit_params;
+} ble_pickit_params_t;
 
 typedef struct
 {
@@ -128,6 +130,7 @@ typedef struct
 
 typedef struct
 {
+    bool                                is_hardware_status_updated;
     bool                                is_pa_lna_enabled;
     bool                                is_led_status_enabled;
 } ble_hardware_status_t;
@@ -150,11 +153,13 @@ typedef union
         unsigned                        notify:1;
         unsigned                        indicate:1;
         unsigned                        signed_write_command:1;
-        unsigned                        :1;
+        unsigned                        :7;
+        unsigned                        is_notify_enabled:1;
+        unsigned                        is_indicate_enabled:1;
     };
     struct
     {
-        uint8_t                         value;
+        uint16_t                        value;
     };
 } ble_characteristic_properties_t;
 
@@ -168,7 +173,7 @@ typedef struct
 
 typedef struct
 {
-    bool                                is_gap_params_updated;
+    bool                                is_gap_status_updated;
     ble_pickit_gap_params               current_gap_params;  
 } ble_gap_status_t;
 
@@ -209,7 +214,7 @@ typedef struct
 	ble_uart_t                          __uart;
 	ble_serial_message_t                __incoming_message_uart; 
     ble_status_t                        status;
-    ble_pickit_params                   params;
+    ble_pickit_params_t                 params;
     ble_characteristics_t               service;
 } ble_params_t;
 
