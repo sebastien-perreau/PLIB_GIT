@@ -10,7 +10,7 @@
 static ble_params_t * p_ble;
 static UART_MODULE m_uart_id;
 static DMA_MODULE m_dma_id;
-static DMA_CHANNEL_TRANSFER dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
+static dma_channel_transfer_t dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
 
 static const char _ack[] = "ACK";
 static const char _nack[] = "NACK";

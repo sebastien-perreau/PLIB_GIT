@@ -218,8 +218,8 @@ typedef struct
     _IO                                         spi_cs;
     DMA_MODULE                                  dma_tx_id;
     DMA_MODULE                                  dma_rx_id;
-    DMA_CHANNEL_TRANSFER                        dma_tx_params;
-    DMA_CHANNEL_TRANSFER                        dma_rx_params;
+    dma_channel_transfer_t                      dma_tx_params;
+    dma_channel_transfer_t                      dma_rx_params;
     bool                                        is_log_enable;
     
     SD_CARD_VERSION                             card_version;  

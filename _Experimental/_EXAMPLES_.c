@@ -5,6 +5,11 @@
 
 #include "../PLIB.h"
 
+/*
+ * IMPORTANT: The X value of "if (mTickCompare(tick) >= X)" can not exceed (2^32 - 1)
+ * So with a frequency of 80 MHz, the maximum of "tick compare" is: (2^32 - 1) / TICK_1MS = 53,687 sec
+ * The 'if' function can not compare values greater than 32 bits.
+ */
 void _EXAMPLE_TICK_FUNCTIONS()
 {
     static uint8_t count;
@@ -128,7 +133,7 @@ static void _example_dma_ram_to_ram_event_handler(uint8_t id, DMA_CHANNEL_FLAGS 
 void _EXAMPLE_DMA_RAM_TO_RAM()
 {
     static state_machine_t sm_example = {0};
-    static DMA_CHANNEL_TRANSFER dma_tx = {buff_src, buff_dst, 200, 200, 20, 0x0000};
+    static dma_channel_transfer_t dma_tx = {buff_src, buff_dst, 200, 200, 20, 0x0000};
     static uint8_t loop_counter = 1;
     static uint8_t i;
     static DMA_MODULE dma_id;
@@ -248,8 +253,8 @@ void _EXAMPLE_DMA_UART()
     static state_machine_t sm_example = {0};
     static UART_MODULE uart_id = UART1;
     static uint8_t i;
-    static DMA_CHANNEL_TRANSFER dma6_tx = {buff_src, NULL, 200, 1, 1, 0x0000};
-    static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 200, 1, 0xdead};
+    static dma_channel_transfer_t dma6_tx = {buff_src, NULL, 200, 1, 1, 0x0000};
+    static dma_channel_transfer_t dma7_rx = {NULL, buff_src, 1, 200, 1, 0xdead};
     
     switch (sm_example.index)
     {
@@ -288,8 +293,8 @@ void _EXAMPLE_DMA_UART()
                 buff_src[i] = i;
             }        
             
-            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
             dma_set_transfer(DMA7, &dma7_rx, false);    // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
+            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
             
             sm_example.index = _MAIN;
             mUpdateTick(sm_example.tick);
@@ -318,7 +323,7 @@ void _EXAMPLE_DMA_UART()
  * Start of _EXAMPLE_DMA_SPI()
  * -------------------------------------------------------------------------------------------
 
- 
+ ALWAYS CONFIGURE DMA RX BEFORE DMA TX !!! Otherwise the DMA RX can missed one byte.
 
  *********************************************************************************************/
 static void _example_dma_spi_event_handler(uint8_t id, DMA_CHANNEL_FLAGS flags)
@@ -342,8 +347,8 @@ void _EXAMPLE_DMA_SPI()
 {
     static uint8_t i;
     static uint8_t buff_src[20] = {0};
-    static DMA_CHANNEL_TRANSFER dma6_tx = {buff_src, NULL, 20, 1, 1, 0x0000};
-    static DMA_CHANNEL_TRANSFER dma7_rx = {NULL, buff_src, 1, 20, 1, 0x0000};
+    static dma_channel_transfer_t dma6_tx = {buff_src, NULL, 20, 1, 1, 0x0000};
+    static dma_channel_transfer_t dma7_rx = {NULL, buff_src, 1, 20, 1, 0x0000};
     static state_machine_t sm_example = {0};
     
     switch (sm_example.index)
@@ -390,8 +395,8 @@ void _EXAMPLE_DMA_SPI()
             dma7_rx.dst_size = dma6_tx.src_size;
             
             mClrIO(__PE0);
-            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
             dma_set_transfer(DMA7, &dma7_rx, false);    // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
             
             sm_example.index = _MAIN;
             break;
@@ -631,105 +636,194 @@ void _EXAMPLE_AVERAGE_AND_NTC()
 
 void _EXAMPLE_25LC512()
 {
-    _25LC512_DEF(e_25lc512, SPI2, __PD3, TICK_20MS, 150, 150);
-    BUS_MANAGEMENT_DEF(bm_spi, &e_25lc512.spi_params.bus_management_params);
-    static state_machine_t sm_example = {0};
-    static uint64_t tickAntiFloodSw1 = 0;
-    static uint64_t tickAntiFloodSw2 = 0;
-    static uint64_t tickRead = 0;
-    
-    switch (sm_example.index)
-    {
-        case _SETUP:
-            e_25lc512_check_for_erasing_memory(&e_25lc512, &bm_spi);
-            sm_example.index = _MAIN;
-            break;
-            
-        case _MAIN:
-            if (!mGetIO(SWITCH1) && (mTickCompare(tickAntiFloodSw1) > TICK_200MS))
-            {
-                tickAntiFloodSw1 = mGetTick();
-                if (!e_25lc512_is_write_in_progress(e_25lc512))
-                {
-                    // !! BE SURE TO HAVE ENOUGH SPACE INTO THE BUFFER !!
-                    uint8_t i = 0;
-                    e_25lc512.registers.dW.size = 5;
-                    for(i = 0 ; i < (e_25lc512.registers.dW.size) ; i++)
-                    {
-                        e_25lc512.registers.dW.p[i] = 0x44+i;
-                    }
-                    e_25lc512_write_bytes(e_25lc512, 127);
-                }
-            }
-
-            if (!mGetIO(SWITCH2) && (mTickCompare(tickAntiFloodSw2) > TICK_200MS))
-            {
-                tickAntiFloodSw2 = mGetTick();
-                e_25lc512_chip_erase(e_25lc512);
-            }
-
-            if (mTickCompare(tickRead) >= TICK_100MS)
-            {
-                tickRead = mGetTick();
-                e_25lc512_read_bytes(e_25lc512, 127, 5);
-            }
-
-            if (!e_25lc512_is_read_in_progress(e_25lc512))
-            {
-                if (e_25lc512.registers.dR.p[0] == 0x44)
-                {
-                    mUpdateLedStatusD2(ON);
-                }
-                else
-                {
-                    mUpdateLedStatusD2(OFF);
-                }
-            }
-            
-            fu_bus_management_task(&bm_spi);
-            e_25lc512_deamon(&e_25lc512);
-            break;
-            
-    }
+//    _25LC512_DEF(e_25lc512, SPI2, __PD3, TICK_20MS, 150, 150);
+//    BUS_MANAGEMENT_DEF(bm_spi, &e_25lc512.spi_params.bus_management_params);
+//    static state_machine_t sm_example = {0};
+//    static uint64_t tickAntiFloodSw1 = 0;
+//    static uint64_t tickAntiFloodSw2 = 0;
+//    static uint64_t tickRead = 0;
+//    
+//    switch (sm_example.index)
+//    {
+//        case _SETUP:
+//            e_25lc512_check_for_erasing_memory(&e_25lc512, &bm_spi);
+//            sm_example.index = _MAIN;
+//            break;
+//            
+//        case _MAIN:
+//            if (!mGetIO(SWITCH1) && (mTickCompare(tickAntiFloodSw1) > TICK_200MS))
+//            {
+//                tickAntiFloodSw1 = mGetTick();
+//                if (!e_25lc512_is_write_in_progress(e_25lc512))
+//                {
+//                    // !! BE SURE TO HAVE ENOUGH SPACE INTO THE BUFFER !!
+//                    uint8_t i = 0;
+//                    e_25lc512.registers.dW.size = 5;
+//                    for(i = 0 ; i < (e_25lc512.registers.dW.size) ; i++)
+//                    {
+//                        e_25lc512.registers.dW.p[i] = 0x44+i;
+//                    }
+//                    e_25lc512_write_bytes(e_25lc512, 127);
+//                }
+//            }
+//
+//            if (!mGetIO(SWITCH2) && (mTickCompare(tickAntiFloodSw2) > TICK_200MS))
+//            {
+//                tickAntiFloodSw2 = mGetTick();
+//                e_25lc512_chip_erase(e_25lc512);
+//            }
+//
+//            if (mTickCompare(tickRead) >= TICK_100MS)
+//            {
+//                tickRead = mGetTick();
+//                e_25lc512_read_bytes(e_25lc512, 127, 5);
+//            }
+//
+//            if (!e_25lc512_is_read_in_progress(e_25lc512))
+//            {
+//                if (e_25lc512.registers.dR.p[0] == 0x44)
+//                {
+//                    mUpdateLedStatusD2(ON);
+//                }
+//                else
+//                {
+//                    mUpdateLedStatusD2(OFF);
+//                }
+//            }
+//            
+//            fu_bus_management_task(&bm_spi);
+//            e_25lc512_deamon(&e_25lc512);
+//            break;
+//            
+//    }
 }
 
 void _EXAMPLE_MCP23S17()
 {
-    MCP23S17_DEF(e_mcp23s17, SPI2, __PD3, TICK_20MS);
-    BUS_MANAGEMENT_DEF(bm, &e_mcp23s17.spi_params.bus_management_params);
-    static bool isInitDone = false;
-    static uint64_t tickAntiFloodSw1 = 0;
+    static state_machine_t sm_example = {0};
+    static uint8_t pwm[16] = {0};
+    static uint8_t counter = 0;
+    static uint64_t tick_counter = 0;
+    MCP23S17_DEF(mcp23s17, SPI4, __PB14, 0x00, 0x01);
+    LED_DEF(led1, &pwm[0], OFF, 255, TICK_5MS, TICK_5MS);
+    LED_DEF(led2, &pwm[1], ON, 10, TICK_5MS, TICK_5MS);
+    LED_DEF(led3, &pwm[2], ON, 30, TICK_5MS, TICK_5MS);
+    LED_DEF(led4, &pwm[3], ON, 50, TICK_5MS, TICK_5MS);
+    LED_DEF(led5, &pwm[4], ON, 70, TICK_5MS, TICK_5MS);
+    LED_DEF(led6, &pwm[5], ON, 90, TICK_5MS, TICK_5MS);
+    LED_DEF(led7, &pwm[6], ON, 110, TICK_5MS, TICK_5MS);
+    LED_DEF(led8, &pwm[7], ON, 130, TICK_5MS, TICK_5MS);
+    LED_DEF(led9, &pwm[8], OFF, 150, TICK_5MS, TICK_5MS);
+    LED_DEF(led10, &pwm[9], ON, 170, TICK_5MS, TICK_5MS);
+    LED_DEF(led11, &pwm[10], ON, 190, TICK_5MS, TICK_5MS);
+    LED_DEF(led12, &pwm[11], ON, 210, TICK_5MS, TICK_5MS);
+    LED_DEF(led13, &pwm[12], ON, 230, TICK_5MS, TICK_5MS);
+    LED_DEF(led14, &pwm[13], ON, 250, TICK_5MS, TICK_5MS);
+    LED_DEF(led15, &pwm[14], ON, 0, TICK_5MS, TICK_5MS);
+    LED_DEF(led16, &pwm[15], ON, 255, TICK_5MS, TICK_5MS);    
     
-    if (!isInitDone)
+    switch (sm_example.index)
     {
-        e_mcp23s17.write_registers.IODIRA = 0x00; 
-        isInitDone = true;
-    }
-    else
-    {
-        if (!mGetIO(SWITCH1) && (mTickCompare(tickAntiFloodSw1) > TICK_200MS))
-        {
-            tickAntiFloodSw1 = mGetTick();
+        case _SETUP:
             
-            e_mcp23s17.write_registers.OLATA = !e_mcp23s17.read_registers.GPIOA;
-        }
-        else
-        {
-            e_mcp23s17.write_registers.OLATA = 0x00;
-        }
-        
-        if (GET_BIT(e_mcp23s17.read_registers.GPIOA, 0))
-        {
-            mUpdateLedStatusD2(ON);
-        }
-        else
-        {
-            mUpdateLedStatusD2(OFF);
-        }
-        
-        fu_bus_management_task(&bm);
-        eMCP23S17Deamon(&e_mcp23s17);
-    }
+            mcp23s17.write[0].IODIRA = 0x00;
+            mcp23s17.write[0].IODIRB = 0x00;
+            mcp23s17.write[1].IODIRB = 0x00;
+            
+            sm_example.index = _MAIN;
+            break;
+            
+        case _MAIN:
+            
+            if (mTickCompare(tick_counter) >= TICK_100US)
+            {
+                mUpdateTick(tick_counter);
+                
+                uint8_t i = 0, ind;
+                for (i = 0 ; i < 16 ; i++)
+                {
+                    uint8_t t_pwm = pwm[i] / 4;
+                    ind = i%8;
+                    if (t_pwm >= 63)
+                    {
+                        if (i < 8)
+                        {
+                            SET_BIT(mcp23s17.write[0].OLATA, ind);
+                            SET_BIT(mcp23s17.write[0].GPIOA, ind);
+                        }
+                        else
+                        {
+                            SET_BIT(mcp23s17.write[0].OLATB, ind);
+                            SET_BIT(mcp23s17.write[0].GPIOB, ind);
+                        }
+                    }
+                    else if (t_pwm > (counter & 0x3f))
+                    {
+                        if (i < 8)
+                        {
+                            SET_BIT(mcp23s17.write[0].OLATA, ind);
+                            SET_BIT(mcp23s17.write[0].GPIOA, ind);
+                        }
+                        else
+                        {
+                            SET_BIT(mcp23s17.write[0].OLATB, ind);
+                            SET_BIT(mcp23s17.write[0].GPIOB, ind);
+                        }
+                    }
+                    else
+                    {
+                        if (i < 8)
+                        {
+                            CLR_BIT(mcp23s17.write[0].OLATA, ind);
+                            CLR_BIT(mcp23s17.write[0].GPIOA, ind);
+                        }
+                        else
+                        {
+                            CLR_BIT(mcp23s17.write[0].OLATB, ind);
+                            CLR_BIT(mcp23s17.write[0].GPIOB, ind);
+                        }                    
+                    }
+                }
+                counter++;
+            }
+            
+            if (fu_turn_indicator(ON, TICK_1S, TICK_1S))
+            {
+                led1.enable = ON;
+                
+                mcp23s17.write[1].OLATB = 0x55;
+                mcp23s17.write[1].GPIOB = 0x55;
+            }
+            else
+            {
+                led1.enable = OFF;
+                
+                mcp23s17.write[1].OLATB = 0xaa;
+                mcp23s17.write[1].GPIOB = 0xaa;
+            }
+
+            mUpdateLedStatusD2(GET_BIT(mcp23s17.read[0].GPIOA, 0));
+            
+            fu_led(&led1);
+            fu_led(&led2);
+            fu_led(&led3);
+            fu_led(&led4);
+            fu_led(&led5);
+            fu_led(&led6);
+            fu_led(&led7);
+            fu_led(&led8);
+            fu_led(&led9);
+            fu_led(&led10);
+            fu_led(&led11);
+            fu_led(&led12);
+            fu_led(&led13);
+            fu_led(&led14);
+            fu_led(&led15);
+            fu_led(&led16);
+            e_mcp23s17_deamon(&mcp23s17);
+            
+            break;
+    } 
 }
 
 #define VALEO   "1MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\n\r"\

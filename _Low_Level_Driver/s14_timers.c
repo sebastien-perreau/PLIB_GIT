@@ -13,6 +13,8 @@
 
 #include "../PLIB.h"
 
+#warning "The X value of 'mTickCompare() >= X' can not exceed (2^32 - 1) "
+
 extern const TIMER_REGISTERS * TimerModules[];
 const TIMER_REGISTERS * TimerModules[] =
 {

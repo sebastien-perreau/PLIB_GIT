@@ -141,7 +141,7 @@ typedef struct
     bool                        is_init_done;
     SPI_MODULE                  spi_id;
     DMA_MODULE                  dma_id;
-    DMA_CHANNEL_TRANSFER        dma_params;
+    dma_channel_transfer_t      dma_params;
     PINK_LADY_MODELS            led_model;
     uint16_t                    number_of_leds;
     RGBW_COLOR                  *p_led;

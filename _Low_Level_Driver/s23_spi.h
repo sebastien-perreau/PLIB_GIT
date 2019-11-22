@@ -205,7 +205,7 @@ typedef struct
     volatile UINT32 SPIxBRGCLR;
     volatile UINT32 SPIxBRGSET;
     volatile UINT32 SPIxBRGINV;
-} SPI_REGISTERS;
+} spi_registers_t;
 
 typedef struct
 {
@@ -213,7 +213,7 @@ typedef struct
     _IO SDO;
     _IO SDI;
     _IO SS;
-} SPI_IO;
+} spi_io_t;
 
 #define SPI_IO_INSTANCE2(_sck_io_port, _sck_io_indice, _sdo_io_port, _sdo_io_indice, _sdi_io_port, _sdi_io_indice, _ss_io_port, _ss_io_indice)             \
 {                                               \
@@ -224,31 +224,6 @@ typedef struct
 }
 #define SPI_IO_INSTANCE(_sck, _sdo, _sdi, _ss)         SPI_IO_INSTANCE2(__PORT(_sck), __INDICE(_sck), __PORT(_sdo), __INDICE(_sdo), __PORT(_sdi), __INDICE(_sdi), __PORT(_ss), __INDICE(_ss))
     
-typedef struct
-{
-    SPI_MODULE              spi_module;
-    _IO                     chip_select;
-    bool                    is_chip_select_initialize;
-    BUS_MANAGEMENT_PARAMS   bus_management_params;
-    uint32_t                flags;
-    state_machine_t         state_machine;
-} SPI_PARAMS;
-
-#define SPI_PARAMS_INSTANCE(_spi_module, _io_port, _io_indice, _periodic_time, _flags)             \
-{                                                   \
-    .spi_module = _spi_module,                      \
-    .chip_select = { _io_port, _io_indice },        \
-    .is_chip_select_initialize = false,             \
-    .bus_management_params =                        \
-    {                                               \
-        .is_running = false,                        \
-        .waiting_period = _periodic_time,           \
-        .tick = -1                                  \
-    },                                              \
-    .flags = _flags,                                \
-    .state_machine = {0}                            \
-}
-
 typedef void (*spi_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
 
 void spi_init(SPI_MODULE id, spi_event_handler_t evt_handler, IRQ_EVENT_TYPE event_type_enable, uint32_t freq_hz, SPI_CONFIG config);

@@ -297,8 +297,8 @@ typedef struct
     DMA_MODULE              dma_rx_id;
     _IO                     chip_enable;
     uint32_t                uart_baudrate;    
-    DMA_CHANNEL_TRANSFER    dma_tx_params;
-    DMA_CHANNEL_TRANSFER    dma_rx_params;
+    dma_channel_transfer_t  dma_tx_params;
+    dma_channel_transfer_t  dma_rx_params;
     
     uint8_t                 number_of_device;
     uint8_t                 *p_device_id;    

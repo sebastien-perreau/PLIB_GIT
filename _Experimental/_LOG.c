@@ -11,7 +11,7 @@
 
 static UART_MODULE m_uart_id;
 static DMA_MODULE m_dma_id;
-static DMA_CHANNEL_TRANSFER dma_tx = {0};
+static dma_channel_transfer_t dma_tx = {0};
 
 void log_init(UART_MODULE id_uart, uint32_t data_rate)
 {

@@ -86,7 +86,7 @@ typedef struct
     uint16_t        dst_size;
     uint16_t        cell_size;
     uint16_t        pattern_data;
-} DMA_CHANNEL_TRANSFER;
+} dma_channel_transfer_t;
 
 typedef struct 
 {
@@ -119,7 +119,7 @@ typedef struct
     volatile UINT32 DCRCXORCLR;
     volatile UINT32 DCRCXORSET;
     volatile UINT32 DCRCXORINV;
-} DMA_REGISTERS;
+} dma_registers_t;
 
 typedef struct
 {
@@ -182,7 +182,7 @@ typedef struct
     volatile UINT32 DCHDATCLR;
     volatile UINT32 DCHDATSET;
     volatile UINT32 DCHDATINV;
-} DMA_CHANNEL_REGISTERS;
+} dma_channel_registers_t;
 
 typedef void (*dma_event_handler_t)(uint8_t id, DMA_CHANNEL_FLAGS flags);
 
@@ -202,7 +202,7 @@ DMA_MODULE dma_get_free_channel();
 void dma_channel_enable(DMA_MODULE id, bool enable);
 bool dma_channel_is_enable(DMA_MODULE id);
 void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_event);
-void dma_set_transfer(DMA_MODULE id, DMA_CHANNEL_TRANSFER * channel_transfer, bool force_transfer);
+void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer);
 uint16_t dma_get_index_cell_pointer(DMA_MODULE id);
 void dma_force_transfer(DMA_MODULE id);
 void dma_abord_transfer(DMA_MODULE id);
