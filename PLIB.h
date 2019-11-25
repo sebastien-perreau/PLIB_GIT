@@ -21,6 +21,10 @@
 
 #include "_Low_Level_Driver/s08_interrupt_mapping.h"
 #include "_Low_Level_Driver/s12_ports.h"
+
+#include "_High_Level_Driver/utilities.h"
+#include "_High_Level_Driver/string_advance.h"
+
 #include "_Low_Level_Driver/s14_timers.h"
 #include "_Low_Level_Driver/s16_output_compare.h"
 #include "_Low_Level_Driver/s17_adc.h"
@@ -36,8 +40,6 @@
 #include "_Low_Level_Driver/s35_ethernet_OSI-5_ApplicationLayer.h"
 #include "_Low_Level_Driver/s35_ethernet_Applications.h"
 
-#include "_High_Level_Driver/utilities.h"
-#include "_High_Level_Driver/string_advance.h"
 #include "_High_Level_Driver/one_wire_communication.h"
 #include "_High_Level_Driver/software_pwm.h"
 #include "_High_Level_Driver/lin.h"

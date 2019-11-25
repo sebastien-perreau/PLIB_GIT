@@ -121,6 +121,10 @@ DMA_MODULE dma_get_free_channel()
             break;
         }
     }
+    if (i == DMA_NUMBER_OF_MODULES)
+    {
+        do {} while(1);
+    }
     return i;
 }
 

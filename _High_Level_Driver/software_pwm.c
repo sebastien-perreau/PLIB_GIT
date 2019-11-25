@@ -20,15 +20,15 @@
 #include "../PLIB.h"
 
 static SOFTWAPRE_PWM_PARAMS  * p_software_pwm = NULL;
-const PORTS_REGISTERS * p_ports_registers_array[] =
+const ports_registers_t * p_ports_registers_array[] =
 {
-	(PORTS_REGISTERS*)_PORTA_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTB_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTC_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTD_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTE_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTF_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTG_BASE_ADDRESS
+	(ports_registers_t*)_PORTA_BASE_ADDRESS,
+	(ports_registers_t*)_PORTB_BASE_ADDRESS,
+	(ports_registers_t*)_PORTC_BASE_ADDRESS,
+	(ports_registers_t*)_PORTD_BASE_ADDRESS,
+	(ports_registers_t*)_PORTE_BASE_ADDRESS,
+	(ports_registers_t*)_PORTF_BASE_ADDRESS,
+	(ports_registers_t*)_PORTG_BASE_ADDRESS
 };
 
 /*******************************************************************************
@@ -49,7 +49,7 @@ static void software_pwm_event_handler(uint8_t id)
     
     for (i = 0 ; i < p_software_pwm->number_of_pwm_used ; i++)
     {
-        PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) p_ports_registers_array[p_software_pwm->io[i]._port - 1];
+        ports_registers_t * pPorts = (ports_registers_t *) p_ports_registers_array[p_software_pwm->io[i]._port - 1];
         
         if (p_software_pwm->pwm[i] == 255)
         {

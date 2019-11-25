@@ -8,16 +8,16 @@
 
 #include "../PLIB.h"
 
-extern const PORTS_REGISTERS * PortsModules[];
-const PORTS_REGISTERS * PortsModules[] =
+extern const ports_registers_t * PortsModules[];
+const ports_registers_t * PortsModules[] =
 {
-	(PORTS_REGISTERS*)_PORTA_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTB_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTC_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTD_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTE_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTF_BASE_ADDRESS,
-	(PORTS_REGISTERS*)_PORTG_BASE_ADDRESS
+	(ports_registers_t*)_PORTA_BASE_ADDRESS,
+	(ports_registers_t*)_PORTB_BASE_ADDRESS,
+	(ports_registers_t*)_PORTC_BASE_ADDRESS,
+	(ports_registers_t*)_PORTD_BASE_ADDRESS,
+	(ports_registers_t*)_PORTE_BASE_ADDRESS,
+	(ports_registers_t*)_PORTF_BASE_ADDRESS,
+	(ports_registers_t*)_PORTG_BASE_ADDRESS
 };
 static ports_event_handler_t ports_event_handler = NULL;
 
@@ -59,11 +59,11 @@ void ports_change_notice_init(uint32_t cn_pull_up, uint32_t cn_pins_enable, port
   *****************************************************************************/
 void ports_reset_all_pins_input()
 {
-    PORTS_REGISTERS * pPorts;
+    ports_registers_t * pPorts;
     uint8_t i;
-    for (i = 0 ; i < (sizeof(PortsModules)/sizeof(PORTS_REGISTERS)) ; i++)
+    for (i = 0 ; i < (sizeof(PortsModules)/sizeof(ports_registers_t)) ; i++)
     {
-        pPorts = (PORTS_REGISTERS *) PortsModules[i];
+        pPorts = (ports_registers_t *) PortsModules[i];
         pPorts->TRISSET =  0xffffffff;
         pPorts->LATCLR = 0xffffffff;
     }
@@ -71,104 +71,104 @@ void ports_reset_all_pins_input()
 
 /*******************************************************************************
   Function:
-    void ports_reset_pin_input(_IO io)
+    void ports_reset_pin_input(_io_t io)
 
   Description:
     This routine is used to initialize ONE pin as input 
     (tris.pin = input & port.pin = 0).
 
   Parameters:
-    io  - The _IO parameter (PORT & INDICE).
+    io  - The _io_t parameter (PORT & INDICE).
   *****************************************************************************/
-void ports_reset_pin_input(_IO io)
+void ports_reset_pin_input(_io_t io)
 {
-    PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) PortsModules[io._port - 1];
+    ports_registers_t * pPorts = (ports_registers_t *) PortsModules[io._port - 1];
     pPorts->TRISSET =  (uint32_t) (1 << io._indice);
     pPorts->LATCLR = (uint32_t) (1 << io._indice);
 }
 
 /*******************************************************************************
   Function:
-    void ports_reset_pin_output(_IO io)
+    void ports_reset_pin_output(_io_t io)
 
   Description:
     This routine is used to initialize ONE pin as output 
     (tris.pin = output & port.pin = 0).
 
   Parameters:
-    io  - The _IO parameter (PORT & INDICE).
+    io  - The _io_t parameter (PORT & INDICE).
   *****************************************************************************/
-void ports_reset_pin_output(_IO io)
+void ports_reset_pin_output(_io_t io)
 {
-    PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) PortsModules[io._port - 1];
+    ports_registers_t * pPorts = (ports_registers_t *) PortsModules[io._port - 1];
     pPorts->TRISCLR =  (uint32_t) (1 << io._indice);
     pPorts->LATCLR = (uint32_t) (1 << io._indice);
 }
 
 /*******************************************************************************
   Function:
-    bool ports_get_bit(_IO io)
+    bool ports_get_bit(_io_t io)
 
   Description:
     This routine is used to get a ONE pin's value (1 or 0).
 
   Parameters:
-    io  - The _IO parameter (PORT & INDICE).
+    io  - The _io_t parameter (PORT & INDICE).
  
   Return:
     1 if bit as a high level, 0 if bit as a low level. 
   *****************************************************************************/
-bool ports_get_bit(_IO io)
+bool ports_get_bit(_io_t io)
 {
-    PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) PortsModules[io._port - 1];
+    ports_registers_t * pPorts = (ports_registers_t *) PortsModules[io._port - 1];
     return ((pPorts->PORT & (1 << io._indice)) >> io._indice);
 }
 
 /*******************************************************************************
   Function:
-    void ports_set_bit(_IO io)
+    void ports_set_bit(_io_t io)
 
   Description:
     This routine is used to set (1) a ONE pin's bit.
 
   Parameters:
-    io  - The _IO parameter (PORT & INDICE).
+    io  - The _io_t parameter (PORT & INDICE).
   *****************************************************************************/
-void ports_set_bit(_IO io)
+void ports_set_bit(_io_t io)
 {
-    PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) PortsModules[io._port - 1];
+    ports_registers_t * pPorts = (ports_registers_t *) PortsModules[io._port - 1];
     pPorts->LATSET = (uint32_t) (1 << io._indice);
 }
 
 /*******************************************************************************
   Function:
-    void ports_clr_bit(_IO io)
+    void ports_clr_bit(_io_t io)
 
   Description:
     This routine is used to clear (0) a ONE pin's bit.
 
   Parameters:
-    io  - The _IO parameter (PORT & INDICE).
+    io  - The _io_t parameter (PORT & INDICE).
   *****************************************************************************/
-void ports_clr_bit(_IO io)
+void ports_clr_bit(_io_t io)
 {
-    PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) PortsModules[io._port - 1];
+    ports_registers_t * pPorts = (ports_registers_t *) PortsModules[io._port - 1];
     pPorts->LATCLR = (uint32_t) (1 << io._indice);
 }
 
 /*******************************************************************************
   Function:
-    void ports_toggle_bit(_IO io)
+    void ports_toggle_bit(_io_t io)
 
   Description:
     This routine is used to toggle (!pin) a ONE pin's bit.
 
   Parameters:
-    io  - The _IO parameter (PORT & INDICE).
+    io  - The _io_t parameter (PORT & INDICE).
   *****************************************************************************/
-void ports_toggle_bit(_IO io)
+void ports_toggle_bit(_io_t io)
 {
-    PORTS_REGISTERS * pPorts = (PORTS_REGISTERS *) PortsModules[io._port - 1];
+    ports_registers_t * pPorts = (ports_registers_t *) PortsModules[io._port - 1];
     pPorts->LATINV = (uint32_t) (1 << io._indice);
 }
 

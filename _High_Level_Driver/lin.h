@@ -115,7 +115,7 @@ typedef struct
 {
     bool                        is_init_done;
     UART_MODULE                 uart_module;
-    _IO                         chip_enable;
+    _io_t                       chip_enable;
     LIN_VERSION                 lin_version;
     lin_frame_params_t          *p_frame[LIN_MAXIMUM_FRAME];
     uint8_t                     number_of_p_frame;

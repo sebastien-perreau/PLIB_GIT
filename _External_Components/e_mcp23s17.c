@@ -105,7 +105,7 @@ uint8_t e_mcp23s17_deamon(mcp23s17_params_t *var)
                     NULL, 
                     IRQ_NONE, 
                     MCP23S17_FREQ, 
-                    SPI_CONF_MSTEN | SPI_CONF_FRMPOL_LOW | SPI_CONF_SMP_MIDDLE | SPI_CONF_MODE8 | SPI_CONF_CKP_HIGH | SPI_CONF_CKE_OFF);
+                    SPI_STD_MASTER_CONFIG);
         
         dma_init(   var->dma_tx_id, 
                     NULL, 

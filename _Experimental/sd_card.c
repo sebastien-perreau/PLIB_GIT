@@ -1318,7 +1318,7 @@ void sd_card_deamon(sd_card_params_t *var)
                     NULL, 
                     IRQ_NONE, 
                     SD_CARD_FREQ_INIT, 
-                    SPI_CONF_MSTEN | SPI_CONF_FRMPOL_LOW | SPI_CONF_SMP_MIDDLE | SPI_CONF_MODE8 | SPI_CONF_CKP_HIGH | SPI_CONF_CKE_OFF);
+                    SPI_STD_MASTER_CONFIG);
                 
         dma_init(   var->dma_tx_id, 
                     NULL, 

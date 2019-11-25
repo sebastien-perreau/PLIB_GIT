@@ -11,7 +11,7 @@ typedef enum
 
 typedef struct
 {
-    _IO                     io;
+    _io_t                   io;
     _IO_ACTIVE_STATE        active_state;
     _SWITCH_TYPE_OF_PUSH    type_of_push;
     uint8_t                 indice;
@@ -42,7 +42,7 @@ static SWITCH_PARAMS _name = SWITCH_INSTANCE(__PORT(_io), __INDICE(_io), _active
 // **** MACRO AND STRUCTURE FOR THE ENCODER FUNCTION ****
 typedef struct
 {
-    _IO                 io[2];
+    _io_t               io[2];
     _IO_ACTIVE_STATE    active_state;
     int32_t             indice;
     int8_t              last_direction;

@@ -24,7 +24,7 @@ typedef enum
 typedef struct
 {
     TIMER_MODULE                timer_module;
-    _IO                         io[SOFTWARE_PWM_MAX];
+    _io_t                       io[SOFTWARE_PWM_MAX];
     uint8_t                     pwm[SOFTWARE_PWM_MAX];
     uint8_t                     number_of_pwm_used;
     uint8_t                     resolution;

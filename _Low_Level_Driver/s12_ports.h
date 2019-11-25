@@ -206,7 +206,7 @@ typedef struct
 {
     uint8_t             _port;
     uint8_t             _indice;
-} _IO;
+} _io_t;
 
 typedef struct
 {
@@ -224,18 +224,18 @@ typedef struct
 	volatile uint32_t	LATCLR;
 	volatile uint32_t	LATSET;
 	volatile uint32_t	LATINV;
-} PORTS_REGISTERS;
+} ports_registers_t;
 
 typedef void (*ports_event_handler_t)();
 
 void ports_change_notice_init(uint32_t cn_pull_up, uint32_t cn_pins_enable, ports_event_handler_t evt_handler);
 void ports_reset_all_pins_input();
-void ports_reset_pin_input(_IO io);
-void ports_reset_pin_output(_IO io);
-bool ports_get_bit(_IO io);
-void ports_set_bit(_IO io);
-void ports_clr_bit(_IO io);
-void ports_toggle_bit(_IO io);
+void ports_reset_pin_input(_io_t io);
+void ports_reset_pin_output(_io_t io);
+bool ports_get_bit(_io_t io);
+void ports_set_bit(_io_t io);
+void ports_clr_bit(_io_t io);
+void ports_toggle_bit(_io_t io);
 void ports_interrupt_handler();
 
 #endif

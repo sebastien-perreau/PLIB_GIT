@@ -116,7 +116,7 @@ void pink_lady_deamon(pink_lady_params_t *var)
                     NULL, 
                     IRQ_NONE, 
                     ((var->led_model & SK6812RGBW_INDICE_MASK) > 0) ? SK6812RGBW_TIMING : (((var->led_model & SK6812RGB_INDICE_MASK) > 0) ? SK6812RGB_TIMING : WS2812B_TIMING), 
-                    SPI_CONF_MSTEN | SPI_CONF_FRMPOL_LOW | SPI_CONF_SMP_MIDDLE | SPI_CONF_MODE8 | SPI_CONF_CKP_HIGH | SPI_CONF_CKE_OFF);
+                    SPI_STD_MASTER_CONFIG);
         
         dma_init(   var->dma_id, 
                     NULL, 

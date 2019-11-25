@@ -116,7 +116,7 @@ typedef struct
 	volatile uint32_t	BRGCLR;
 	volatile uint32_t	BRGSET;
 	volatile uint32_t	BRGINV;
-} UART_REGISTERS;
+} uart_registers_t;
 
 typedef void (*uart_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
 

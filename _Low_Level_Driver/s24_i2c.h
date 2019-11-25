@@ -165,103 +165,95 @@ typedef struct
 
 typedef union 
 {
-  struct 
-  {
-    unsigned SEN:1;
-    unsigned RSEN:1;
-    unsigned PEN:1;
-    unsigned RCEN:1;
-    unsigned ACKEN:1;
-    unsigned ACKDT:1;
-    unsigned STREN:1;
-    unsigned GCEN:1;
-    unsigned SMEN:1;
-    unsigned DISSLW:1;
-    unsigned A10M:1;
-    unsigned STRICT:1;
-    unsigned SCLREL:1;
-    unsigned SIDL:1;
-    unsigned :1;
-    unsigned BUS_ON:1;
-    unsigned :16;
-  };
-  struct 
-  {
-    unsigned w:32;
-  };
-} __I2CxCONbits_t;
+    struct 
+    {
+        unsigned            SEN:1;
+        unsigned            RSEN:1;
+        unsigned            PEN:1;
+        unsigned            RCEN:1;
+        unsigned            ACKEN:1;
+        unsigned            ACKDT:1;
+        unsigned            STREN:1;
+        unsigned            GCEN:1;
+        unsigned            SMEN:1;
+        unsigned            DISSLW:1;
+        unsigned            A10M:1;
+        unsigned            STRICT:1;
+        unsigned            SCLREL:1;
+        unsigned            SIDL:1;
+        unsigned            :1;
+        unsigned            BUS_ON:1;
+        unsigned            :16;
+    };
+    struct 
+    {
+        uint32_t            value;
+    };
+} i2c_con_reg_t;
 
 typedef union 
 {
-  struct 
-  {
-    unsigned TBF:1;
-    unsigned RBF:1;
-    unsigned R_W:1;
-    unsigned S:1;
-    unsigned P:1;
-    unsigned D_A:1;
-    unsigned I2COV:1;
-    unsigned IWCOL:1;
-    unsigned ADD10:1;
-    unsigned GCSTAT:1;
-    unsigned BCL:1;
-    unsigned :3;
-    unsigned TRSTAT:1;
-    unsigned ACKSTAT:1;
-    unsigned :16;
-  };
-  struct 
-  {
-    unsigned w:32;
-  };
-} __I2CxSTATbits_t;
+    struct 
+    {
+        unsigned            TBF:1;
+        unsigned            RBF:1;
+        unsigned            R_W:1;
+        unsigned            S:1;
+        unsigned            P:1;
+        unsigned            D_A:1;
+        unsigned            I2COV:1;
+        unsigned            IWCOL:1;
+        unsigned            ADD10:1;
+        unsigned            GCSTAT:1;
+        unsigned            BCL:1;
+        unsigned            :3;
+        unsigned            TRSTAT:1;
+        unsigned            ACKSTAT:1;
+        unsigned            :16;
+    };
+    struct 
+    {
+        uint32_t            value;
+    };
+} i2c_stat_reg_t;
 
 typedef struct
 {
-    union 
-    {
-        volatile uint32_t	I2CCON;
-        volatile __I2CxCONbits_t I2CCONbits;
-    };
-	volatile uint32_t	I2CCONCLR;
-	volatile uint32_t	I2CCONSET;
-	volatile uint32_t	I2CCONINV;
+    volatile i2c_con_reg_t  I2CCON;
+	volatile uint32_t       I2CCONCLR;
+	volatile uint32_t       I2CCONSET;
+	volatile uint32_t       I2CCONINV;
     
-    union 
-    {
-        volatile uint32_t	I2CSTAT;
-        volatile __I2CxSTATbits_t I2CSTATbits;
-    };
-	volatile uint32_t	I2CSTATCLR;
-	volatile uint32_t	I2CSTATSET;
-	volatile uint32_t	I2CSTATINV;
+    volatile i2c_stat_reg_t I2CSTAT;
+	volatile uint32_t       I2CSTATCLR;
+	volatile uint32_t       I2CSTATSET;
+	volatile uint32_t       I2CSTATINV;
     
-	volatile uint32_t	I2CADD;
-	volatile uint32_t	I2CADDCLR;
-	volatile uint32_t	I2CADDSET;
-	volatile uint32_t	I2CADDINV;
+	volatile uint32_t       I2CADD;
+	volatile uint32_t       I2CADDCLR;
+	volatile uint32_t       I2CADDSET;
+	volatile uint32_t       I2CADDINV;
     
-    volatile uint32_t	I2CMSK;
-	volatile uint32_t	I2CMSKCLR;
-	volatile uint32_t	I2CMSKSET;
-	volatile uint32_t	I2CMSKINV;
+    volatile uint32_t       I2CMSK;
+	volatile uint32_t       I2CMSKCLR;
+	volatile uint32_t       I2CMSKSET;
+	volatile uint32_t       I2CMSKINV;
     
-    volatile uint32_t	I2CBRG;
-	volatile uint32_t	I2CBRGCLR;
-	volatile uint32_t	I2CBRGSET;
-	volatile uint32_t	I2CBRGINV;
+    volatile uint32_t       I2CBRG;
+	volatile uint32_t       I2CBRGCLR;
+	volatile uint32_t       I2CBRGSET;
+	volatile uint32_t       I2CBRGINV;
     
-    volatile uint32_t	I2CTX;
-	volatile uint32_t	I2CTXCLR;
-	volatile uint32_t	I2CTXSET;
-	volatile uint32_t	I2CTXINV;
+    volatile uint32_t       I2CTX;
+	volatile uint32_t       I2CTXCLR;
+	volatile uint32_t       I2CTXSET;
+	volatile uint32_t       I2CTXINV;
     
-    volatile uint32_t	I2CRX;
-	volatile uint32_t	I2CRXCLR;
-	volatile uint32_t	I2CRXSET;
-	volatile uint32_t	I2CRXINV;
-} I2C_REGISTERS;
+    volatile uint32_t       I2CRX;
+	volatile uint32_t       I2CRXCLR;
+	volatile uint32_t       I2CRXSET;
+	volatile uint32_t       I2CRXINV;
+} i2c_registers_t;
 
 typedef void (*i2c_event_handler_t)(uint8_t id, IRQ_EVENT_TYPE event_type, uint32_t event_value);
 

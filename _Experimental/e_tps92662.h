@@ -295,7 +295,7 @@ typedef struct
     UART_MODULE             uart_id;
     DMA_MODULE              dma_tx_id;
     DMA_MODULE              dma_rx_id;
-    _IO                     chip_enable;
+    _io_t                   chip_enable;
     uint32_t                uart_baudrate;    
     dma_channel_transfer_t  dma_tx_params;
     dma_channel_transfer_t  dma_rx_params;

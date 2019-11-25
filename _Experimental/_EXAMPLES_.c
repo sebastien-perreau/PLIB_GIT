@@ -365,7 +365,7 @@ void _EXAMPLE_DMA_SPI()
                         NULL, 
                         IRQ_NONE, 
                         10000000, 
-                        SPI_CONF_MSTEN | SPI_CONF_FRMPOL_LOW | SPI_CONF_SMP_MIDDLE | SPI_CONF_MODE8 | SPI_CONF_CKP_HIGH | SPI_CONF_CKE_OFF);
+                        SPI_STD_MASTER_CONFIG);
 
             dma_init(   DMA6, 
                         _example_dma_spi_event_handler, 
