@@ -14,18 +14,18 @@
 
 /*******************************************************************************
  * Function: 
- *      void fu_switch(SWITCH_PARAMS *var)
+ *      void fu_switch(switch_params_t *var)
  * 
  * Description:
  *      This routine is used to manage a switch (debounce & type of push included).
  * 
  * Parameters:
- *      *var: The pointer of SWITCH_PARAMS.
+ *      *var: The pointer of switch_params_t.
  * 
  * Return:
  *      none
  ******************************************************************************/
-void fu_switch(SWITCH_PARAMS *var)
+void fu_switch(switch_params_t *var)
 {
     if (!var->is_initialization_done)
     {
@@ -61,7 +61,7 @@ void fu_switch(SWITCH_PARAMS *var)
 
 /*******************************************************************************
  * Function: 
- *      void fu_encoder(ENCODER_PARAMS *var)
+ *      void fu_encoder(encoder_params_t *var)
  * 
  * Description:
  *      This routine is used to manage an encoder. You can either use pull_up or 
@@ -69,12 +69,12 @@ void fu_switch(SWITCH_PARAMS *var)
  *      active_state you want to use.
  * 
  * Parameters:
- *      *var: The pointer of ENCODER_PARAMS.
+ *      *var: The pointer of encoder_params_t.
  * 
  * Return:
  *      none
  ******************************************************************************/
-void fu_encoder(ENCODER_PARAMS *var)
+void fu_encoder(encoder_params_t *var)
 {
     if (!var->is_initialization_done)
     {
@@ -159,18 +159,18 @@ bool fu_turn_indicator(bool enable, uint32_t time_on, uint32_t time_off)
 
 /*******************************************************************************
  * Function: 
- *      void fu_led(LED_PARAMS *var)
+ *      void fu_led(led_params_t *var)
  * 
  * Description:
  *      This routine is used for managing a LED (pwm value, time up, time down...).
  * 
  * Parameters:
- *      *var: A pointer of LED_PARAMS.
+ *      *var: A pointer of led_params_t.
  * 
  * Return:
  *      none.
  ******************************************************************************/
-void fu_led(LED_PARAMS *var)
+void fu_led(led_params_t *var)
 {
     if (var->enable)
     {
@@ -330,7 +330,7 @@ RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
 
 /*******************************************************************************
  * Function: 
- *      SLIDER_STATUS fu_slider(SLIDER_PARAMS *var)
+ *      SLIDER_STATUS fu_slider(slider_params_t *var)
  * 
  * Description:
  *      This routine is used to manage a slider object. 
@@ -338,12 +338,12 @@ RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
  *      as most "generic" as possible. Thus you can use it anywhere.
  * 
  * Parameters:
- *      *var: The pointer of SLIDER_PARAMS.
+ *      *var: The pointer of slider_params_t.
  * 
  * Return:
  *      It returns the status of the slider routine (See. SLIDER_STATUS enumeration).
  ******************************************************************************/
-SLIDER_STATUS fu_slider(SLIDER_PARAMS *var)
+SLIDER_STATUS fu_slider(slider_params_t *var)
 {    
     SLIDER_STATUS ret;
     
@@ -398,215 +398,14 @@ SLIDER_STATUS fu_slider(SLIDER_PARAMS *var)
 }
 
 /*******************************************************************************
-  Function:
-    void fUtilitiesSlider(LED_SLIDER_CONFIG *config)
-
-  Description:
-    This routine is used for managing a SLIDER.
-
-  Parameters:
-    *config     - Pointer containing all parameters of the slider (led ptr, timing, modes...).
-
-  Returns:
-
-
-  Example:
-    <code>
-
-    LED_CONFIG leds[] =
-    {
-        {OFF, &f_PWM1, 80, TICK_INIT, TICK_2MS, TICK_2MS},
-        {OFF, &f_PWM2, 80, TICK_INIT, TICK_2MS, TICK_2MS},
-        {OFF, &f_PWM3, 80, TICK_INIT, TICK_2MS, TICK_2MS}
-    };
-    LED_SLIDER_CONFIG slider = INIT_SLIDER(leds, DIR_LEFT, DIR_LEFT, TICK_200MS, TICK_200MS);
-
-    while(1) {
-    ...
-    fUtilitiesSlider(&slider);
-
-    fUtilitiesLed(&leds[0]);
-    fUtilitiesLed(&leds[1]);
-    fUtilitiesLed(&leds[2]);
-    ...
-    slider.enable = ON;
-    }
-
-    </code>
-  *****************************************************************************/
-//void fUtilitiesSlider(LED_SLIDER_CONFIG *config)
-//{
-//    BYTE i = 0;
-//
-//    if(config->enable)
-//    {
-//        switch(config->modeSlidingOn)
-//        {
-//            case DIR_RIGHT:
-//                if(!config->previousState)
-//                {
-//                    config->currentIndice = 0;
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice < (config->sizeTab - 1))
-//                    {
-//                        config->currentIndice++;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = ON;
-//                break;
-//            case DIR_LEFT:
-//                if(!config->previousState)
-//                {
-//                    config->currentIndice = config->sizeTab - 1;
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice > 0)
-//                    {
-//                        config->currentIndice--;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = ON;
-//                break;
-//            case DIR_EXTERNAL:
-//                if(!config->previousState)
-//                {
-//                    config->currentIndice = (config->sizeTab / 2);
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice > 0)
-//                    {
-//                        config->currentIndice--;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = ON;
-//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = ON;
-//                break;
-//            case DIR_CENTER:
-//                if(!config->previousState)
-//                {
-//                    config->currentIndice = 0;
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOn/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice < config->sizeTab/2)
-//                    {
-//                        config->currentIndice++;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = ON;
-//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = ON;
-//                break;
-//            default:
-//                break;
-//        }
-//        config->previousState = 1;
-//    }
-//    else
-//    {
-//        switch(config->modeSlidingOff)
-//        {
-//            case DIR_NONE:
-//                while(i < config->sizeTab)
-//                {
-//                    (config->ptrLed)[i].enable = OFF;
-//                    i++;
-//                }
-//                config->currentIndice = 0xFF;
-//                break;
-//            case DIR_RIGHT:
-//                if(config->previousState)
-//                {
-//                    config->currentIndice = 0;
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice < (config->sizeTab - 1))
-//                    {
-//                        config->currentIndice++;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = OFF;
-//                break;
-//            case DIR_LEFT:
-//                if(config->previousState)
-//                {
-//                    config->currentIndice = config->sizeTab - 1;
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice > 0)
-//                    {
-//                        config->currentIndice--;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = OFF;
-//                break;
-//            case DIR_EXTERNAL:
-//                if(config->previousState)
-//                {
-//                    config->currentIndice = (config->sizeTab / 2);
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice > 0)
-//                    {
-//                        config->currentIndice--;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = OFF;
-//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = OFF;
-//                break;
-//            case DIR_CENTER:
-//                if(config->previousState)
-//                {
-//                    config->currentIndice = 0;
-//                    config->tickSlider = mGetTick();
-//                }
-//                if(mTickCompare(config->tickSlider) >= (config->tSliderOff/(config->sizeTab - 1)))
-//                {
-//                    config->tickSlider = mGetTick();
-//                    if(config->currentIndice < config->sizeTab/2)
-//                    {
-//                        config->currentIndice++;
-//                    }
-//                }
-//                (config->ptrLed)[config->currentIndice].enable = OFF;
-//                (config->ptrLed)[config->sizeTab - config->currentIndice - 1].enable = OFF;
-//                break;
-//            default:
-//                break;
-//        }
-//        config->previousState = 0;
-//    }
-//}
-
-/*******************************************************************************
  * Function: 
- *      void fu_adc_average(AVERAGE_PARAMS *var)
+ *      void fu_adc_average(average_params_t *var)
  * 
  * Description:
  *      This routine is used to get the average of an ADC acquisition.
  * 
  * Parameters:
- *      *var: The pointer of AVERAGE_PARAMS.
+ *      *var: The pointer of average_params_t.
  * 
  * Return:
  *      true: if new acquisition and new average calculated.
@@ -615,7 +414,7 @@ SLIDER_STATUS fu_slider(SLIDER_PARAMS *var)
  * Example:
  *      See. _EXAMPLE_NTC()
  ******************************************************************************/
-bool fu_adc_average(AVERAGE_PARAMS *var)
+bool fu_adc_average(average_params_t *var)
 {    
     if(mTickCompare(var->tick) >= var->period)
     {
@@ -635,14 +434,14 @@ bool fu_adc_average(AVERAGE_PARAMS *var)
 
 /*******************************************************************************
  * Function: 
- *      NTC_STATUS fu_adc_ntc(NTC_VAR *var)
+ *      NTC_STATUS fu_adc_ntc(ntc_params_t *var)
  * 
  * Description:
  *      This routine is used to get the temperature of a NTC over an ADC.
  *      It uses the AVERAGE function for the acquisitions.
  * 
  * Parameters:
- *      *var: The pointer of NTC_VAR.
+ *      *var: The pointer of ntc_params_t.
  * 
  * Return:
  *      It returns the status of the NTC acquisition (See. NTC_STATUS enumeration).
@@ -650,7 +449,7 @@ bool fu_adc_average(AVERAGE_PARAMS *var)
  * Example:
  *      See. _EXAMPLE_NTC()
  ******************************************************************************/
-NTC_STATUS fu_adc_ntc(NTC_VAR *var)
+NTC_STATUS fu_adc_ntc(ntc_params_t *var)
 {
     bool ret = fu_adc_average(&var->average);
     
@@ -666,7 +465,7 @@ NTC_STATUS fu_adc_ntc(NTC_VAR *var)
 
 /*******************************************************************************
  * Function: 
- *      NTC_STATUS fu_calc_ntc(NTC_PARAMS ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
+ *      NTC_STATUS fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
  * 
  * Description:
  *      This routine is used to get the temperature of a NTC from global parameters.
@@ -686,7 +485,7 @@ NTC_STATUS fu_adc_ntc(NTC_VAR *var)
  * Example:
  *      See. _EXAMPLE_NTC()
  ******************************************************************************/
-NTC_STATUS fu_calc_ntc(NTC_PARAMS ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
+NTC_STATUS fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
 {
     if (!v_adc)
     {
@@ -874,7 +673,7 @@ float fu_get_float_value(uint32_t integer, uint8_t decimal)
  * Example:
  *      none
  ******************************************************************************/
-void background_tasks(ACQUISITIONS_PARAMS *var)
+void background_tasks(acquisitions_params_t *var)
 {
     static uint8_t index_tab_speed = 0;
     static uint64_t tab_speed[20] = {0};

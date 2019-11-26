@@ -19,7 +19,7 @@ void _EXAMPLE_ENCODER();
 void _EXAMPLE_AVERAGE_AND_NTC();
 void _EXAMPLE_25LC512();
 void _EXAMPLE_MCP23S17();
-void _EXAMPLE_LOG(ACQUISITIONS_PARAMS var);
+void _EXAMPLE_LOG(acquisitions_params_t var);
 void _EXAMPLE_UART();
 void _EXAMPLE_PCA9685();
 void _EXAMPLE_AT42QT2120();

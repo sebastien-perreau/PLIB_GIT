@@ -16,7 +16,7 @@
     		 freed at the end of the function. MAX_UDP_SOCKETS may need to be
     		 increased if other modules use UDP sockets.
   ****************************************************************************************************/
-BYTE Discovery(BOOL loop, QWORD waitingPeriod, ACQUISITIONS_PARAMS acquisitions)
+BYTE Discovery(BOOL loop, QWORD waitingPeriod, acquisitions_params_t acquisitions)
 {
     static enum
     {
