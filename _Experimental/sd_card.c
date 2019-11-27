@@ -1503,9 +1503,11 @@ uint8_t sd_card_read_block_file(fat_file_system_entry_t *file, uint8_t *p_dst, u
                 }
                 break;
         }   
+        
+        return file->sm_read.index;
     }
         
-    return file->sm_read.index;
+    return 0xff;
 }
 
 uint8_t sd_card_read_play_file(fat_file_system_entry_t *file, uint8_t *p_dst, uint16_t block_length, uint32_t period, uint8_t *progression)
@@ -1568,7 +1570,9 @@ uint8_t sd_card_read_play_file(fat_file_system_entry_t *file, uint8_t *p_dst, ui
         {
             *progression = file->_data_address * 100 / file->file_size;
         }
-    }
-            
-    return file->sm_read.index;
+        
+        return file->sm_read.index;
+    }     
+    
+    return 0xff;
 }
