@@ -224,6 +224,14 @@ static average_params_t _name = AVERAGE_INSTANCE(_adc_module, _name ## _buffer_r
 
 // ---------------------------------------------------
 // ********** STRUCTURE FOR THE NTC ROUTINE **********
+typedef enum
+{
+    NTC_SUCCESS                         = 0,
+    NTC_WAIT,
+    NTC_FAIL_SHORT_CIRCUIT_GND,
+    NTC_FAIL_SHORT_CIRCUIT_VREF
+} NTC_STATUS;
+
 typedef struct
 {
     uint8_t             t0;
@@ -239,14 +247,6 @@ typedef struct
     float               temperature;
 } ntc_params_t;
 
-typedef enum
-{
-    NTC_SUCCESS                         = 0,
-    NTC_WAIT,
-    NTC_FAIL_SHORT_CIRCUIT_GND,
-    NTC_FAIL_SHORT_CIRCUIT_VREF
-} NTC_STATUS;
-
 #define NTC_INSTANCE(_adc_module, _buffer, _t0, _r0, _b, _r_pull_up)        \
 {                                                                           \
     .average = AVERAGE_INSTANCE(_adc_module, _buffer, TICK_10MS),           \
@@ -257,6 +257,34 @@ typedef enum
 #define NTC_DEF(_name, _adc_module, _t0, _r0, _b, _r_pull_up)           \
 static float _name ## _buffer_ram_allocation[20] = {0.0};                   \
 static ntc_params_t _name = NTC_INSTANCE(_adc_module, _name ## _buffer_ram_allocation, _t0, _r0, _b, _r_pull_up)
+
+
+
+
+typedef struct
+{
+    bool                is_updated;
+    uint8_t             current_threshold;    
+    uint8_t             hysteresis_gap;
+    uint8_t             *p_input_value;
+    uint8_t             *p_tipping_threshold;
+    uint8_t             number_of_tipping_threshold;
+} hysteresis_params_t;
+
+#define HYSTERESIS_INSTANCE(_p_input_value, _hysteresis_gap, _p_tipping_threshold, _number_of_tipping_threshold)    \
+{                                                                                                                   \
+    .is_updated = 0,                                                                                                \
+    .current_threshold = 0,                                                                                         \
+    .hysteresis_gap = _hysteresis_gap,                                                                              \
+    .p_input_value = _p_input_value,                                                                                \
+    .p_tipping_threshold = _p_tipping_threshold,                                                                    \
+    .number_of_tipping_threshold = _number_of_tipping_threshold                                                     \
+}
+#define HYSTERESIS_DEF(_name, _p_input_value, _hysteresis_gap, ...)                             \
+static uint8_t _name ## _ram_allocation[1 + COUNT_ARGUMENTS( __VA_ARGS__ )] = { 0, __VA_ARGS__ };      \
+static hysteresis_params_t _name = HYSTERESIS_INSTANCE(_p_input_value, _hysteresis_gap, _name ## _ram_allocation, COUNT_ARGUMENTS( __VA_ARGS__ ));
+
+void fu_hysteresis(hysteresis_params_t *var);
 
 // ---------------------------------------------------
 // ***** STRUCTURE FOR THE DEAMON PARENT ROUTINE *****

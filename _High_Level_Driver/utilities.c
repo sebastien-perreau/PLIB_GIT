@@ -463,6 +463,40 @@ NTC_STATUS fu_adc_ntc(ntc_params_t *var)
     }
 }
 
+
+
+void fu_hysteresis(hysteresis_params_t *var)
+{
+    uint8_t i;
+    
+    // ----- TIPPING AREA -----
+    for (i = 0 ; i < var->number_of_tipping_threshold ; i++)
+    {
+        if ((*var->p_input_value >= (var->p_tipping_threshold[i])) && (*var->p_input_value <= (var->p_tipping_threshold[i+1] - var->hysteresis_gap)))
+        {
+            if (var->current_threshold != i)
+            {
+                var->is_updated = true;
+                var->current_threshold = i;                
+            }
+            return;
+        }
+    }
+    
+    if ((i == var->number_of_tipping_threshold) && (*var->p_input_value >= (var->p_tipping_threshold[i])))
+    {
+        if (var->current_threshold != i)
+        {
+            var->is_updated = true;
+            var->current_threshold = i;                
+        }
+        return;
+    }
+    
+    // ----- HYSTERESIS AREA -----
+}
+
+
 /*******************************************************************************
  * Function: 
  *      NTC_STATUS fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
