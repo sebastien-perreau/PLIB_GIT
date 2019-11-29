@@ -202,7 +202,7 @@ DMA_MODULE dma_get_free_channel();
 void dma_channel_enable(DMA_MODULE id, bool enable);
 bool dma_channel_is_enable(DMA_MODULE id);
 void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_event);
-void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer);
+void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer, bool enable_module);
 uint16_t dma_get_index_cell_pointer(DMA_MODULE id);
 void dma_force_transfer(DMA_MODULE id);
 void dma_abord_transfer(DMA_MODULE id);

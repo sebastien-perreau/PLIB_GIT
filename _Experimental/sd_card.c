@@ -242,6 +242,7 @@ static void _sort_data_array_to_master_boot_record_structure(sd_card_params_t *v
         uint8_t i;
         for (i = 0 ; i < 4 ; i++)
         {
+            var->master_boot_record.partition_entry[i]._is_fat_32_partition = false;
             var->master_boot_record.partition_entry[i].boot_descriptor = var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 0];
             var->master_boot_record.partition_entry[i].start_partition_head = var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 1];
             var->master_boot_record.partition_entry[i].start_partition_cyl_sec.value = (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 2] << 0) | (var->_p_ram_rx[FAT_FILE_SYSTEM_MBR_PARTITION_ENTRY_1_OFFSET + i*16 + 3] << 8);
@@ -316,7 +317,8 @@ static void _sort_data_array_to_master_boot_record_structure(sd_card_params_t *v
             if (    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_LOW) &&
                     (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_HIGH) &&
                     (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_LBA) &&
-                    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS))
+                    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) &&
+                    (var->master_boot_record.partition_entry[0].file_system_descriptor != FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_LBA))
             {
                 if (var->is_log_enable)
                 {
@@ -340,8 +342,10 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
     uint16_t end_of_data_block = (var->_p_ram_rx[510] << 0) | (var->_p_ram_rx[511] << 8);                        
     if (end_of_data_block == SD_CARD_END_OF_DATA_BLOCK)
     {
-        if (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS)
+        if (    (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) ||
+                (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_LBA))
         {
+            var->master_boot_record.partition_entry[0]._is_fat_32_partition = true;
             var->boot_sector.jump_boot_code = (var->_p_ram_rx[0] << 0) | (var->_p_ram_rx[1] << 8) | (var->_p_ram_rx[2] << 16);
             memcpy((void *) &var->boot_sector.oem_name, &var->_p_ram_rx[3], 8);
             var->boot_sector.number_of_bytes_per_sector = (var->_p_ram_rx[11] << 0) | (var->_p_ram_rx[12] << 8);
@@ -621,8 +625,10 @@ static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE 
             var->_p_ram_tx[4] = (args >> 0) & 0xff;
             var->_p_ram_tx[5] = sd_card_crc7(&var->_p_ram_tx[0], 5);  
             
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, OFF);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, OFF);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_channel_enable(var->dma_rx_id, ON);
+            dma_channel_enable(var->dma_tx_id, ON);
             
             functionState = SM_GET_RESPONSE;
             break;
@@ -721,10 +727,12 @@ static uint8_t sd_card_read_data(sd_card_params_t *var, uint16_t length, SPI_CS_
             }
             memset((void *) var->_p_ram_tx, 0xff, length);
             var->dma_tx_params.src_size = length;
-            var->dma_rx_params.dst_size = var->dma_tx_params.src_size;                                    
+            var->dma_rx_params.dst_size = var->dma_tx_params.src_size;     
             
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, OFF);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, OFF);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_channel_enable(var->dma_rx_id, ON);
+            dma_channel_enable(var->dma_tx_id, ON);
             
             functionState++;
             break;
@@ -1185,44 +1193,43 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
         SM_GET_FILE_DATA
     } functionState = 0;
         
-    static uint32_t current_jump_index = 0;         // This variable is the current "jump index" in the FAT table.
-    static uint32_t data_address = 0;               // [ 0 .. data_address .. (length_file - 1) ]
-    static uint32_t data_length = 0;                // 1 .. length_file
-    static uint32_t current_fat_sector = 0;         // The current sector where the last cluster in localized in the FAT table
-    static uint32_t current_data_sector = 0;        // The current sector where the data is stored
-    static uint16_t index_data_in_sector = 0;       // Value between [0..511]            
+    static uint32_t __data_address = 0;               // [ 0 .. data_address .. (length_file - 1) ]
+    static uint32_t __data_length = 0;                // 1 .. length_file
+    static uint32_t __current_fat_sector = 0;         // The current sector where the last cluster in localized in the FAT table
+    static uint32_t __current_data_sector = 0;        // The current sector where the data is stored
+    static uint16_t __index_data_in_sector = 0;       // Value between [0..511]       
     
     switch (functionState)
     {
         case SM_FREE:      
             
-            data_address = var->p_file[var->current_selected_file]->_data_address;
-            data_length = var->p_file[var->current_selected_file]->_data_length;
+            __data_address = var->p_file[var->current_selected_file]->_data_address;
+            __data_length = var->p_file[var->current_selected_file]->_data_length;
             var->p_file[var->current_selected_file]->buffer.index = 0;
             
-            if (data_address < (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster))
+            if (__data_address < (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster))
             {
-                current_jump_index = 0;
+                var->p_file[var->current_selected_file]->_current_jump_index = 0;
                 var->p_file[var->current_selected_file]->current_cluster_of_the_file = var->p_file[var->current_selected_file]->first_cluster_of_the_file;
             }
             
-            if (data_address <= (var->p_file[var->current_selected_file]->file_size - 1))
+            if (__data_address <= (var->p_file[var->current_selected_file]->file_size - 1))
             {                
-                uint32_t jump_index = data_address / (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster);     // Number of "jump" (for a same file) to reach the good cluster in the FAT table (the FIRST cluster - start point in the FAT table - is always "var->p_file[var->current_selected_file]->first_cluster_of_the_file".                                
-                if (current_jump_index != jump_index)
+                uint32_t jump_index = __data_address / (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster);     // Number of "jump" (for a same file) to reach the good cluster in the FAT table (the FIRST cluster - start point in the FAT table - is always "var->p_file[var->current_selected_file]->first_cluster_of_the_file".                                
+                if (var->p_file[var->current_selected_file]->_current_jump_index != jump_index)
                 {   
                     // In which sector of the FAT table the expected cluster is localized ?
                     //      FAT16: ((uint32_t) (fat_region_start + current_cluster_value * 2 / bytes_per_sector))   // Cluster is 16-bit length
                     //      FAT32: ((uint32_t) (fat_region_start + current_cluster_value * 4 / bytes_per_sector))   // Cluster is 32-bit length
-                    current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
-                    current_jump_index = jump_index;
+                    __current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
+                    var->p_file[var->current_selected_file]->_current_jump_index = jump_index;
                     functionState = SM_READ_FAT_TABLE;
                 }
                 else
                 {                    
-                    uint8_t sector_index_in_cluster = (data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                    current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                    index_data_in_sector = data_address % var->boot_sector.number_of_bytes_per_sector;
+                    uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
+                    __current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                    __index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
                     functionState = SM_GET_FILE_DATA;
                 }
             }
@@ -1235,59 +1242,59 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
         case SM_READ_FAT_TABLE:
             
             // Read the FAT table from the last cluster value.             
-            if (!sd_card_read_single_block(var, current_fat_sector))
+            if (!sd_card_read_single_block(var, __current_fat_sector))
             {  
-                uint16_t index_fat_in_sector = ((var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) ? ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 128) * 4) : ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 256) * 2));                
-                var->p_file[var->current_selected_file]->current_cluster_of_the_file = (var->_p_ram_rx[index_fat_in_sector + 0] << 0) | (var->_p_ram_rx[index_fat_in_sector + 1] << 8) | ((var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) ? ((var->_p_ram_rx[index_fat_in_sector + 2] << 16) | (var->_p_ram_rx[index_fat_in_sector + 3] << 24)) : 0);
+                uint16_t index_fat_in_sector = ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 128) * 4) : ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 256) * 2));                
+                var->p_file[var->current_selected_file]->current_cluster_of_the_file = (var->_p_ram_rx[index_fat_in_sector + 0] << 0) | (var->_p_ram_rx[index_fat_in_sector + 1] << 8) | ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? ((var->_p_ram_rx[index_fat_in_sector + 2] << 16) | (var->_p_ram_rx[index_fat_in_sector + 3] << 24)) : 0);
                 
-                uint8_t sector_index_in_cluster = (data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                index_data_in_sector = data_address % var->boot_sector.number_of_bytes_per_sector;
+                uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
+                __current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                __index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
                 functionState = SM_GET_FILE_DATA;
             }
             break;
             
         case SM_GET_FILE_DATA:
             
-            if (!sd_card_read_single_block(var, current_data_sector))
+            if (!sd_card_read_single_block(var, __current_data_sector))
             {   
-                uint16_t max_read_byte_in_sector = var->boot_sector.number_of_bytes_per_sector - index_data_in_sector;
+                uint16_t max_read_byte_in_sector = var->boot_sector.number_of_bytes_per_sector - __index_data_in_sector;
                 
-                if (data_length >= max_read_byte_in_sector)
+                if (__data_length >= max_read_byte_in_sector)
                 {
-                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[index_data_in_sector], max_read_byte_in_sector);
-                    data_length -= max_read_byte_in_sector;
+                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[__index_data_in_sector], max_read_byte_in_sector);
+                    __data_length -= max_read_byte_in_sector;
                     
                     var->p_file[var->current_selected_file]->buffer.index += max_read_byte_in_sector;
-                    data_address += max_read_byte_in_sector;                    
+                    __data_address += max_read_byte_in_sector;                    
                 }                
                 else
                 {
-                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[index_data_in_sector], data_length);
-                    data_length = 0;
+                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[__index_data_in_sector], __data_length);
+                    __data_length = 0;
                 }
                 
-                if (!data_length)
+                if (!__data_length)
                 {
                     functionState = SM_FREE;
                 }
                 else
                 {
-                    uint32_t jump_index = data_address / (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster);     // Number of "jump" (for a same file) to reach the good cluster in the FAT table (the FIRST cluster - start point in the FAT table - is always "var->p_file[var->current_selected_file]->first_cluster_of_the_file".                                
-                    if (current_jump_index != jump_index)
+                    uint32_t jump_index = __data_address / (var->boot_sector.number_of_bytes_per_sector * var->boot_sector.number_of_sectors_per_cluster);     // Number of "jump" (for a same file) to reach the good cluster in the FAT table (the FIRST cluster - start point in the FAT table - is always "var->p_file[var->current_selected_file]->first_cluster_of_the_file".                                
+                    if (var->p_file[var->current_selected_file]->_current_jump_index != jump_index)
                     {   
                         // In which sector of the FAT table the expected cluster is localized ?
                         //      FAT16: ((uint32_t) (fat_region_start + current_cluster_value * 2 / bytes_per_sector))   // Cluster is 16-bit length
                         //      FAT32: ((uint32_t) (fat_region_start + current_cluster_value * 4 / bytes_per_sector))   // Cluster is 32-bit length
-                        current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
-                        current_jump_index = jump_index;
+                        __current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
+                        var->p_file[var->current_selected_file]->_current_jump_index = jump_index;
                         functionState = SM_READ_FAT_TABLE;
                     }
                     else
                     {                    
-                        uint8_t sector_index_in_cluster = (data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                        current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                        index_data_in_sector = data_address % var->boot_sector.number_of_bytes_per_sector;
+                        uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
+                        __current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                        __index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
                         functionState = SM_GET_FILE_DATA;
                     }
                 }
@@ -1414,7 +1421,8 @@ void sd_card_deamon(sd_card_params_t *var)
                 if (    (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_LOW) ||
                         (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_CHS_HIGH) ||
                         (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT16_LBA) ||
-                        (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS))
+                        (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_CHS) ||
+                        (var->master_boot_record.partition_entry[0].file_system_descriptor == FAT_FILE_SYSTEM_DESCRIPTOR_FAT32_LBA))
                 {
                     if (!sd_card_read_single_block(var, var->master_boot_record.partition_entry[0].first_sector_of_the_partition))
                     {
@@ -1436,8 +1444,9 @@ void sd_card_deamon(sd_card_params_t *var)
             break;
             
         case SM_SD_CARD_READ_OPERATION_PREPARATION:
-                        
-            for (i = (var->current_selected_file == 0xff) ? 0 : (var->current_selected_file + 1) ; i < var->number_of_p_file ; i++)
+            
+//            for (i = (var->current_selected_file == 0xff) ? 0 : (var->current_selected_file + 1) ; i < var->number_of_p_file ; i++)              
+            for (i = 0 ; i < var->number_of_p_file ; i++)                     
             {
                 if (var->p_file[i]->flags.is_read_block_op == FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED)
                 {
@@ -1449,9 +1458,10 @@ void sd_card_deamon(sd_card_params_t *var)
             }
             if (i >= var->number_of_p_file)
             {
-                var->current_selected_file = 0xff;
-                CLR_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
-                var->_sm.index = SM_SD_CARD_HOME;
+                var->current_selected_file = 0;
+//                var->current_selected_file = 0xff;
+//                CLR_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
+//                var->_sm.index = SM_SD_CARD_HOME;
             }
             break;
             

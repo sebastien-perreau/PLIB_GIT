@@ -410,9 +410,6 @@ SLIDER_STATUS fu_slider(slider_params_t *var)
  * Return:
  *      true: if new acquisition and new average calculated.
  *      false: if no new acquisition.
- * 
- * Example:
- *      See. _EXAMPLE_NTC()
  ******************************************************************************/
 bool fu_adc_average(average_params_t *var)
 {    
@@ -445,9 +442,6 @@ bool fu_adc_average(average_params_t *var)
  * 
  * Return:
  *      It returns the status of the NTC acquisition (See. NTC_STATUS enumeration).
- * 
- * Example:
- *      See. _EXAMPLE_NTC()
  ******************************************************************************/
 NTC_STATUS fu_adc_ntc(ntc_params_t *var)
 {
@@ -462,40 +456,6 @@ NTC_STATUS fu_adc_ntc(ntc_params_t *var)
         return NTC_WAIT;
     }
 }
-
-
-
-void fu_hysteresis(hysteresis_params_t *var)
-{
-    uint8_t i;
-    
-    // ----- TIPPING AREA -----
-    for (i = 0 ; i < var->number_of_tipping_threshold ; i++)
-    {
-        if ((*var->p_input_value >= (var->p_tipping_threshold[i])) && (*var->p_input_value <= (var->p_tipping_threshold[i+1] - var->hysteresis_gap)))
-        {
-            if (var->current_threshold != i)
-            {
-                var->is_updated = true;
-                var->current_threshold = i;                
-            }
-            return;
-        }
-    }
-    
-    if ((i == var->number_of_tipping_threshold) && (*var->p_input_value >= (var->p_tipping_threshold[i])))
-    {
-        if (var->current_threshold != i)
-        {
-            var->is_updated = true;
-            var->current_threshold = i;                
-        }
-        return;
-    }
-    
-    // ----- HYSTERESIS AREA -----
-}
-
 
 /*******************************************************************************
  * Function: 
@@ -515,9 +475,6 @@ void fu_hysteresis(hysteresis_params_t *var)
  * 
  * Return:
  *      It returns the status of the NTC acquisition (See. NTC_STATUS enumeration).
- * 
- * Example:
- *      See. _EXAMPLE_NTC()
  ******************************************************************************/
 NTC_STATUS fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature)
 {
@@ -538,6 +495,57 @@ NTC_STATUS fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t
 
 /*******************************************************************************
  * Function: 
+ *      void fu_hysteresis(hysteresis_params_t *var)
+ * 
+ * Description:
+ *      This routine is used to implement an hysteresis. It can manage as much as
+ *      threshold as the user want. 
+ * 
+ * Parameters:
+ *      *var: The pointer of hysteresis_params_t.
+ * 
+ * Return:
+ *      none
+ ******************************************************************************/
+void fu_hysteresis(hysteresis_params_t *var)
+{
+    uint8_t i;
+    
+    for (i = 0 ; i < var->number_of_tipping_threshold ; i++)
+    {
+        if ((*var->p_input_value >= (var->p_tipping_threshold[i])) && (*var->p_input_value <= (var->p_tipping_threshold[i+1] - var->hysteresis_gap)))               // TIPPING AREA
+        {
+            if (var->current_threshold != i)
+            {
+                var->is_updated = true;
+                var->current_threshold = i;                
+            }
+            return;
+        }
+        else if ((*var->p_input_value < (var->p_tipping_threshold[i + 1])) && (*var->p_input_value > (var->p_tipping_threshold[i + 1] - var->hysteresis_gap)))      // HYSTERESIS AREA
+        {
+            if ((var->current_threshold < i) || (var->current_threshold > (i + 1)))
+            {
+                var->is_updated = true;
+                var->current_threshold = i;                
+            }
+            return;
+        }
+    }
+    
+    if ((i == var->number_of_tipping_threshold) && (*var->p_input_value >= (var->p_tipping_threshold[i])))
+    {
+        if (var->current_threshold != i)
+        {
+            var->is_updated = true;
+            var->current_threshold = i;                
+        }
+        return;
+    }
+}
+
+/*******************************************************************************
+ * Function: 
  *      void fu_bus_management_task(BUS_MANAGEMENT_VAR *dp)
  * 
  * Description:
@@ -552,9 +560,6 @@ NTC_STATUS fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t
  * 
  * Return:
  *      none
- * 
- * Example:
- *      See. _EXAMPLE_EEPROM() or _EXAMPLE_MCP23S17()
  ******************************************************************************/
 void fu_bus_management_task(BUS_MANAGEMENT_VAR *var)
 {    
@@ -599,9 +604,6 @@ void fu_bus_management_task(BUS_MANAGEMENT_VAR *var)
  * 
  * Return:
  *      The CRC value.
- * 
- * Example:
- *      none
  ******************************************************************************/
 uint16_t fu_crc_16_ibm(uint8_t *buffer, uint16_t length)
 {
@@ -632,9 +634,6 @@ uint16_t fu_crc_16_ibm(uint8_t *buffer, uint16_t length)
  * 
  * Return:
  *      The integer result (0..4294967295).
- * 
- * Example:
- *      none
  ******************************************************************************/
 uint32_t fu_get_integer_value(float v)
 {
@@ -655,9 +654,6 @@ uint32_t fu_get_integer_value(float v)
  * 
  * Return:
  *      The decimal result (0..4294967295).
- * 
- * Example:
- *      none
  ******************************************************************************/
 uint32_t fu_get_decimal_value(float v, uint8_t numbers_after_coma)
 {
@@ -679,9 +675,6 @@ uint32_t fu_get_decimal_value(float v, uint8_t numbers_after_coma)
  * 
  * Return:
  *      The float result.
- * 
- * Example:
- *      none
  ******************************************************************************/
 float fu_get_float_value(uint32_t integer, uint8_t decimal)
 {
@@ -702,9 +695,6 @@ float fu_get_float_value(uint32_t integer, uint8_t decimal)
  *      none
  * 
  * Return:
- *      none
- * 
- * Example:
  *      none
  ******************************************************************************/
 void background_tasks(acquisitions_params_t *var)

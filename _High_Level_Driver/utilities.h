@@ -258,9 +258,8 @@ typedef struct
 static float _name ## _buffer_ram_allocation[20] = {0.0};                   \
 static ntc_params_t _name = NTC_INSTANCE(_adc_module, _name ## _buffer_ram_allocation, _t0, _r0, _b, _r_pull_up)
 
-
-
-
+// ------------------------------------------------
+// ***** STRUCTURE FOR THE HYSTERESIS ROUTINE *****
 typedef struct
 {
     bool                is_updated;
@@ -283,8 +282,6 @@ typedef struct
 #define HYSTERESIS_DEF(_name, _p_input_value, _hysteresis_gap, ...)                             \
 static uint8_t _name ## _ram_allocation[1 + COUNT_ARGUMENTS( __VA_ARGS__ )] = { 0, __VA_ARGS__ };      \
 static hysteresis_params_t _name = HYSTERESIS_INSTANCE(_p_input_value, _hysteresis_gap, _name ## _ram_allocation, COUNT_ARGUMENTS( __VA_ARGS__ ));
-
-void fu_hysteresis(hysteresis_params_t *var);
 
 // ---------------------------------------------------
 // ***** STRUCTURE FOR THE DEAMON PARENT ROUTINE *****
@@ -354,6 +351,7 @@ RGB_COLOR       fu_hsv_to_rgb(HSV_COLOR hsv_color);
 bool            fu_adc_average(average_params_t *var);
 NTC_STATUS      fu_adc_ntc(ntc_params_t *var);
 NTC_STATUS      fu_calc_ntc(ntc_settings_t ntc_params, uint32_t ntc_pull_up, uint16_t v_adc, uint8_t adc_resolution, float *p_temperature);
+void            fu_hysteresis(hysteresis_params_t *var);
 
 void            fu_bus_management_task(BUS_MANAGEMENT_VAR *dp);
 uint16_t        fu_crc_16_ibm(uint8_t *buffer, uint16_t length);

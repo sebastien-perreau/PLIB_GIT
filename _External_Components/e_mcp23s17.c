@@ -35,8 +35,8 @@ static uint8_t _mcp23s17_write_and_read(mcp23s17_params_t *var)
             
             ports_clr_bit(var->spi_cs);
             
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, ON);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, ON);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
             
             functionState = SM_WAIT_END_OF_DMA_TRANSMISSION;
             
@@ -50,8 +50,8 @@ static uint8_t _mcp23s17_write_and_read(mcp23s17_params_t *var)
             
             ports_clr_bit(var->spi_cs);
                         
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, ON);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, ON);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
             
             functionState = SM_WAIT_END_OF_DMA_TRANSMISSION;
             

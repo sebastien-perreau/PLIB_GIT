@@ -247,5 +247,5 @@ void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_ar
     dma_tx.cell_size = 1;
     dma_tx.pattern_data = 0x0000,
     
-    dma_set_transfer(m_dma_id, &dma_tx, true);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+    dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
 }

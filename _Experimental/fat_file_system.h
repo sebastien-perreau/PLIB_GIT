@@ -97,6 +97,8 @@ typedef struct
     uint32_t                            _data_address;
     uint16_t                            _data_length;
     
+    uint32_t                            _current_jump_index;            // This variable is the current "jump index" in the FAT table when using sd_card_read_file_data(...) routine. 
+    
     void                                *p_sd_card;
     
 } fat_file_system_entry_t;
@@ -115,6 +117,7 @@ typedef struct
     .current_cluster_of_the_file = 0,                                       \
     ._data_address = 0,                                                     \
     ._data_length = 0,                                                      \
+    ._current_jump_index = 0,                                               \
     .p_sd_card = (void*) &_p_sd_card                                        \
 }
 
@@ -242,6 +245,7 @@ typedef union
 
 typedef struct
 {
+    bool                                _is_fat_32_partition;
     uint8_t                             boot_descriptor;                    // [1 byte]     0x80: if active partition / 0x00 if inactive
     uint8_t                             start_partition_head;               // [1+2 bytes]  CHS address of first absolute sector in partition (ignore cos LBA used these days)
     fat_file_system_chs_t               start_partition_cyl_sec;            // The CHS address mode has a limit of 16.515.072 sectors, which is usually 8 Gb. To add partitions beyond this limits, 

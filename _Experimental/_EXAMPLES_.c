@@ -163,7 +163,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
                 buff_src[i] = i;
             }
             
-            dma_set_transfer(dma_id, &dma_tx, true);    // Force the transfer because no EVENT (DMA_EVT_NONE) has been set on dma_id.
+            dma_set_transfer(dma_id, &dma_tx, true, ON);    // Force the transfer because no EVENT (DMA_EVT_NONE) has been set on dma_id.
             sm_example.index = _MAIN;
             break;
             
@@ -296,8 +296,8 @@ void _EXAMPLE_DMA_UART()
                 buff_src[i] = i;
             }        
             
-            dma_set_transfer(DMA7, &dma7_rx, false);    // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
-            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_set_transfer(DMA7, &dma7_rx, false, ON);    // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
+            dma_set_transfer(DMA6, &dma6_tx, true, ON);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
             
             sm_example.index = _MAIN;
             mUpdateTick(sm_example.tick);
@@ -398,8 +398,8 @@ void _EXAMPLE_DMA_SPI()
             dma7_rx.dst_size = dma6_tx.src_size;
             
             mClrIO(__PE0);
-            dma_set_transfer(DMA7, &dma7_rx, false);    // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(DMA6, &dma6_tx, true);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_set_transfer(DMA7, &dma7_rx, false, ON);    // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_set_transfer(DMA6, &dma6_tx, true, ON);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
             
             sm_example.index = _MAIN;
             break;
@@ -583,11 +583,17 @@ void _EXAMPLE_ENCODER()
 
 void _EXAMPLE_AVERAGE_AND_NTC()
 {
+    static uint8_t val1, val2;
     NTC_DEF(ntc_1, AN1, 25, 10000, 3380, 10000);
     NTC_DEF(ntc_2, AN2, 25, 10000, 3380, 10000);
     AVERAGE_DEF(avg_1, AN3, 30, TICK_1MS);
+    HYSTERESIS_DEF(hyst1, &val1, 3, 30, 40, 60, 80);
+    HYSTERESIS_DEF(hyst2, &val2, 2, 30, 50, 70);
     static state_machine_t sm_example = {0};
     
+    static uint64_t tick = 0;
+    static bool dir = 1;
+       
     switch (sm_example.index)
     {
         case _SETUP:
@@ -625,8 +631,53 @@ void _EXAMPLE_AVERAGE_AND_NTC()
             break;
             
         case _MAIN:
+            
+            if (hyst1.is_updated)
+            {
+                hyst1.is_updated = false;
+                LOG_BLANCK("Threshold: %d %d", hyst1.current_threshold, *hyst1.p_input_value);
+            }
+
+            if (mTickCompare(tick) >= TICK_10MS)
+            {
+                mUpdateTick(tick);
+                if (dir)
+                {
+                    if (++val1 == 100)
+                    {
+                        dir = 0;
+                    }
+                }
+                else
+                {
+                    if (--val1 == 0)
+                    {
+                        dir = 1;
+                    }
+                }
+            }
+            
+            switch (hyst2.current_threshold)
+            {
+                case 0:     // [0 .. 30[
+                    break;
+                    
+                case 1:     // [30 .. 50[
+                    break;
+                    
+                case 2:     // [50 .. 70[
+                    break;
+                    
+                case 3:     // [70 .. 255]
+                    break;
+            }
+            
+            val2 = (uint8_t) (ntc_1.temperature);
+            
             fu_adc_ntc(&ntc_1);
             fu_adc_ntc(&ntc_2);
+            fu_hysteresis(&hyst1);
+            fu_hysteresis(&hyst2);
             fu_adc_average(&avg_1);
             
             if (ntc_1.temperature > 32.0)

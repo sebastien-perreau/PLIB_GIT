@@ -154,7 +154,7 @@ void ble_stack_tasks()
                 dma_tx.src_size = 3;
                 dma_tx.dst_size = 1;
                 dma_tx.cell_size = 1;
-                dma_set_transfer(m_dma_id, &dma_tx, true);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+                dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
             }   
             else
             {
@@ -164,7 +164,7 @@ void ble_stack_tasks()
                 dma_tx.src_size = 4;
                 dma_tx.dst_size = 1;
                 dma_tx.cell_size = 1;
-                dma_set_transfer(m_dma_id, &dma_tx, true);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+                dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
             }            
         }    
         memset(p_ble->__uart.buffer, 0, sizeof(p_ble->__uart.buffer));
@@ -572,7 +572,7 @@ static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
             dma_tx.src_size = buffer[2] + 5;
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+            dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
 
 			sm.index++;
 			sm.tick = mGetTick();

@@ -189,7 +189,7 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
 
 /*******************************************************************************
   Function:
-    void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer)
+    void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer, bool enable_module)
 
   Description:
     This routine is used to configure a transfer. It setup all pointers, sizes and
@@ -223,7 +223,7 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
         If we DO NOT use any events to generate a DMA transfer (RAM to RAM copy by example) then we are oblige
         to force the DMA transfer.
   *****************************************************************************/
-void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer)
+void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer, bool enable_module)
 {
     dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
     dma_channel_enable(id, OFF);
@@ -235,7 +235,10 @@ void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, 
     p_dma_channel->DCHCSIZ = channel_transfer->cell_size;
     p_dma_channel->DCHDAT = channel_transfer->pattern_data;    
     p_dma_channel->DCHINTCLR = DMA_FLAG_ALL;
-    dma_channel_enable(id, ON);
+    if (enable_module)
+    {
+        dma_channel_enable(id, ON);
+    }
     if (force_transfer)
     {
         p_dma_channel->DCHECONSET = DMA_EVT_FORCE_TRANSFER;
