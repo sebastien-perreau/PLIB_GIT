@@ -9,8 +9,8 @@
 
 #include "../PLIB.h"
 
-static UART_MODULE m_uart_id;
-static DMA_MODULE m_dma_id;
+static UART_MODULE m_uart_id = 0xff;
+static DMA_MODULE m_dma_id = 0xff;
 static dma_channel_transfer_t dma_tx = {0};
 
 void log_init(UART_MODULE id_uart, uint32_t data_rate)
@@ -113,14 +113,6 @@ static uint16_t _get_header_to_string(char *p_buffer, uint16_t index_buffer, LOG
     return index_buffer;
 }
 
-void log_wait_end_of_transmission()
-{
-    // Wait while channel is enable (Block Transfer not yet done). 
-    // When a transmission is finished (Block Transfer Done), the channel is automatically disable (not set in DMA_CONT_AUTO_ENABLE).
-    while (dma_channel_is_enable(m_dma_id));
-    dma_clear_flags(m_dma_id, DMA_FLAG_BLOCK_TRANSFER_DONE);    
-}
-
 void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_args, uint8_t nargs)
 {
     char *p_str = (char *) p_message;
@@ -129,123 +121,131 @@ void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_ar
     uint8_t index_args = 0;
     uint8_t _number_of_char_to_print = 0;
     
-    if (level != LEVEL_2)
+    if (m_uart_id != 0xff)
     {
-        index_buffer = _get_header_to_string(buffer, index_buffer, level);
-    }
-    
-    while (*p_str != '\0')
-    {
-        if (*p_str != '%')
+        // Wait while channel is enable (Block Transfer not yet done). 
+        // When a transmission is finished (Block Transfer Done), the channel is automatically disable (not set in DMA_CONT_AUTO_ENABLE).
+        while (dma_channel_is_enable(m_dma_id));
+        dma_clear_flags(m_dma_id, DMA_FLAG_BLOCK_TRANSFER_DONE);    
+
+        if (level != LEVEL_2)
         {
-            buffer[index_buffer++] = *p_str;
+            index_buffer = _get_header_to_string(buffer, index_buffer, level);
         }
-        else
+
+        while (*p_str != '\0')
         {
-            _number_of_char_to_print = 0;
-            p_str++;
-            if ((*p_str >= '0') && (*p_str <= '9'))
+            if (*p_str != '%')
             {
-                _number_of_char_to_print = (*p_str - '0');
+                buffer[index_buffer++] = *p_str;
+            }
+            else
+            {
+                _number_of_char_to_print = 0;
                 p_str++;
                 if ((*p_str >= '0') && (*p_str <= '9'))
                 {
-                    _number_of_char_to_print *= 10;
-                    _number_of_char_to_print += (*p_str - '0');
+                    _number_of_char_to_print = (*p_str - '0');
                     p_str++;
+                    if ((*p_str >= '0') && (*p_str <= '9'))
+                    {
+                        _number_of_char_to_print *= 10;
+                        _number_of_char_to_print += (*p_str - '0');
+                        p_str++;
+                    }
+                }
+
+                switch (*p_str)
+                {           
+                    case 'c':
+                        if (index_args < nargs)
+                        {
+                            buffer[index_buffer++] = p_args[index_args];
+                            index_args++;
+                        }
+                        break;
+
+                    case 's':
+                        if (index_args < nargs)
+                        {
+                            char *str = (char *) p_args[index_args];
+                            do
+                            {
+                                buffer[index_buffer++] = *str++;
+                            }
+                            while (*str != '\0');
+                            index_args++;
+                        }
+                        break;
+
+                    case 'b':
+                        if (index_args < nargs)
+                        {
+                            index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_2, _number_of_char_to_print);
+                            index_args++;
+                        }
+                        break;
+
+                    case 'o':
+                        if (index_args < nargs)
+                        {
+                            index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_8, _number_of_char_to_print);
+                            index_args++;
+                        }
+                        break;
+
+                    case 'd':
+                        if (index_args < nargs)
+                        {
+                            index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_10, _number_of_char_to_print);
+                            index_args++;
+                        }
+                        break;
+
+                    case 'x':
+                        if (index_args < nargs)
+                        {
+                            index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_16, _number_of_char_to_print);
+                            index_args++;
+                        }
+                        break;
+
+                    case 'f':
+                        if (index_args < nargs)
+                        {
+                            float *p_val = (float *) (uint32_t *) p_args[index_args];
+                            float v = *p_val;
+                            uint32_t integer = fu_get_integer_value(v);
+                            uint32_t decimal = fu_get_decimal_value(v, (_number_of_char_to_print == 0) ? 3 : _number_of_char_to_print);
+
+                            index_buffer = _transform_integer_to_string(buffer, index_buffer, integer, BASE_10, 0);
+                            buffer[index_buffer++] = ',';
+                            index_buffer = _transform_integer_to_string(buffer, index_buffer, decimal, BASE_10, (_number_of_char_to_print == 0) ? 3 : _number_of_char_to_print);
+                            index_args++;
+                        }
+                        break;
+
+                    default:
+                        if (index_args < nargs)
+                        {
+                            index_args++;
+                        }
+                        break;
                 }
             }
-            
-            switch (*p_str)
-            {           
-                case 'c':
-                    if (index_args < nargs)
-                    {
-                        buffer[index_buffer++] = p_args[index_args];
-                        index_args++;
-                    }
-                    break;
-                    
-                case 's':
-                    if (index_args < nargs)
-                    {
-                        char *str = (char *) p_args[index_args];
-                        do
-                        {
-                            buffer[index_buffer++] = *str++;
-                        }
-                        while (*str != '\0');
-                        index_args++;
-                    }
-                    break;
-                    
-                case 'b':
-                    if (index_args < nargs)
-                    {
-                        index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_2, _number_of_char_to_print);
-                        index_args++;
-                    }
-                    break;
-                    
-                case 'o':
-                    if (index_args < nargs)
-                    {
-                        index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_8, _number_of_char_to_print);
-                        index_args++;
-                    }
-                    break;
-                    
-                case 'd':
-                    if (index_args < nargs)
-                    {
-                        index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_10, _number_of_char_to_print);
-                        index_args++;
-                    }
-                    break;
-                    
-                case 'x':
-                    if (index_args < nargs)
-                    {
-                        index_buffer = _transform_integer_to_string(buffer, index_buffer, p_args[index_args], BASE_16, _number_of_char_to_print);
-                        index_args++;
-                    }
-                    break;
-                    
-                case 'f':
-                    if (index_args < nargs)
-                    {
-                        float *p_val = (float *) (uint32_t *) p_args[index_args];
-                        float v = *p_val;
-                        uint32_t integer = fu_get_integer_value(v);
-                        uint32_t decimal = fu_get_decimal_value(v, (_number_of_char_to_print == 0) ? 3 : _number_of_char_to_print);
-                        
-                        index_buffer = _transform_integer_to_string(buffer, index_buffer, integer, BASE_10, 0);
-                        buffer[index_buffer++] = ',';
-                        index_buffer = _transform_integer_to_string(buffer, index_buffer, decimal, BASE_10, (_number_of_char_to_print == 0) ? 3 : _number_of_char_to_print);
-                        index_args++;
-                    }
-                    break;
-                    
-                default:
-                    if (index_args < nargs)
-                    {
-                        index_args++;
-                    }
-                    break;
-            }
+            p_str++;
         }
-        p_str++;
+
+        buffer[index_buffer++] = '\n'; 
+        buffer[index_buffer++] = '\r';
+
+        dma_tx.src_start_addr = buffer;
+        dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+        dma_tx.src_size = index_buffer;
+        dma_tx.dst_size = 1;
+        dma_tx.cell_size = 1;
+        dma_tx.pattern_data = 0x0000,
+
+        dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
     }
-    
-    buffer[index_buffer++] = '\n'; 
-    buffer[index_buffer++] = '\r';
-    
-    dma_tx.src_start_addr = buffer;
-    dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
-    dma_tx.src_size = index_buffer;
-    dma_tx.dst_size = 1;
-    dma_tx.cell_size = 1;
-    dma_tx.pattern_data = 0x0000,
-    
-    dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
 }

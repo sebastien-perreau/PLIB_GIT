@@ -98,6 +98,9 @@ typedef struct
     uint16_t                            _data_length;
     
     uint32_t                            _current_jump_index;            // This variable is the current "jump index" in the FAT table when using sd_card_read_file_data(...) routine. 
+    uint32_t                            _current_fat_sector;            // The current sector where the last cluster in localized in the FAT table when using sd_card_read_file_data(...) routine. 
+    uint32_t                            _current_data_sector;           // The current sector where the data is stored when using sd_card_read_file_data(...) routine. 
+    uint16_t                            _index_data_in_sector;          // Value between [0..511] when using sd_card_read_file_data(...) routine. 
     
     void                                *p_sd_card;
     
@@ -118,6 +121,9 @@ typedef struct
     ._data_address = 0,                                                     \
     ._data_length = 0,                                                      \
     ._current_jump_index = 0,                                               \
+    ._current_fat_sector = 0,                                               \
+    ._current_data_sector = 0,                                              \
+    ._index_data_in_sector = 0,                                             \
     .p_sd_card = (void*) &_p_sd_card                                        \
 }
 

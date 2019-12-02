@@ -4,28 +4,36 @@
   
   * General overview: 
   * -----------------
-  * SD Card driver uses 1 SPI and 2 DMA modules and is compatible ONLY with FAT16 CHS/CHA mode and
-  * FAT32 CHS mode.
+  * SD Card driver uses 1 SPI and 2 DMA modules and is compatible ONLY with FAT16 CHS/LBA mode and
+  * FAT32 CHS/LBA mode.
   * READ requests are implemented.
   * (WRITE requests are not implemented.)
-  * A maximum of 20 files can be opened at same time. 
-  * The maximum SPI frequency is 25 MHz. 
+  * A maximum of 120 files can be opened at same time. 
+  * The maximum SPI frequency is 10 MHz (in theory 25 MHz). 
   * The card detection is implemented in the communication (no need to have a 
   * CD signal). If a card is removed then the software re-launch the initialization
   * sequence (up to SUCCESS). 
   * A flag is used (in the SD_CARD_DEF) to enable/disable the LOG (need to activate the 
   * LOG driver...).
   * File name (including path) can not exceed 255 bytes length. 
-  * The File Allocation Table of a file has a maximum of 512 clusters (one cluster address = 16 bits)
-  * One cluster = 1 / 2 / 4 / 8 / 16 / 32 / 64 / 128 sectors
+  * One cluster = 1 / 2 / 4 / 8 / 16 / 32 / 64 / 128 sectors (this size is defined in the Boot Sector of the Volume).
   * One sector = 512 / 1024 / 2048 / 4096 bytes (A lot of code are assuming 512 bytes per sectors)
-  * Maximum number of cluster in a partition with FAT16 is 65536 clusters (maximum SD Card
-  * size is 2 Go - minimum is 2 Mo)
+  * 
+  * A FAT16 partition may not have less than 4085 clusters or more than 65524 clusters (maximum SD Card
+  * size is 4 Go - minimum is 2 Mo).
+  * 
+  * A FAT32 partition uses a 32-bit number to identify each cluster, and this gives it a total of 
+  * 4.294.967.296 clusters.
+  * 
+  * The two informations below are localized in the Partition Entry:
+  * The CHS (Cylinder / Head / Sector) address mode has a limit of 1024(C) x 252(H) x 64(S) = 16.515.072 sectors 
+  * (16.515.072 x 512 bytes = 8 Go Max).
+  * The LBA address mode has a limit of 2^32 = 4.294.967.296 sectors (4.294.967.296 x 512 bytes = 2 To Max). 
   
   * Memory Description of a SD CARD formated in a FAT File System:
   * -------------------------------------------------------------
   *     FAT16               FAT32
-  *  ---------------     ---------------    --> Sector 0: Master Boot Record (sd card boot sector)
+  *  ---------------     ---------------    --> Sector 0: Master Boot Record (sd card boot sector)  !! This is sector 0 in LBA mode, and sector 0:0:1 in CHS mode. !!
   * | MASTER BOOT   |   | MASTER BOOT   |   MBR is common to FAT16 and FAT32
   * | RECORD        |   | RECORD        |
   *  ---------------     --------------- 
@@ -1194,10 +1202,7 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
     } functionState = 0;
         
     static uint32_t __data_address = 0;               // [ 0 .. data_address .. (length_file - 1) ]
-    static uint32_t __data_length = 0;                // 1 .. length_file
-    static uint32_t __current_fat_sector = 0;         // The current sector where the last cluster in localized in the FAT table
-    static uint32_t __current_data_sector = 0;        // The current sector where the data is stored
-    static uint16_t __index_data_in_sector = 0;       // Value between [0..511]       
+    static uint32_t __data_length = 0;                // 1 .. length_file        
     
     switch (functionState)
     {
@@ -1221,15 +1226,15 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
                     // In which sector of the FAT table the expected cluster is localized ?
                     //      FAT16: ((uint32_t) (fat_region_start + current_cluster_value * 2 / bytes_per_sector))   // Cluster is 16-bit length
                     //      FAT32: ((uint32_t) (fat_region_start + current_cluster_value * 4 / bytes_per_sector))   // Cluster is 32-bit length
-                    __current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
+                    var->p_file[var->current_selected_file]->_current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
                     var->p_file[var->current_selected_file]->_current_jump_index = jump_index;
                     functionState = SM_READ_FAT_TABLE;
                 }
                 else
                 {                    
                     uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                    __current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                    __index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
+                    var->p_file[var->current_selected_file]->_current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                    var->p_file[var->current_selected_file]->_index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
                     functionState = SM_GET_FILE_DATA;
                 }
             }
@@ -1242,27 +1247,27 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
         case SM_READ_FAT_TABLE:
             
             // Read the FAT table from the last cluster value.             
-            if (!sd_card_read_single_block(var, __current_fat_sector))
+            if (!sd_card_read_single_block(var, var->p_file[var->current_selected_file]->_current_fat_sector))
             {  
                 uint16_t index_fat_in_sector = ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 128) * 4) : ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 256) * 2));                
                 var->p_file[var->current_selected_file]->current_cluster_of_the_file = (var->_p_ram_rx[index_fat_in_sector + 0] << 0) | (var->_p_ram_rx[index_fat_in_sector + 1] << 8) | ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? ((var->_p_ram_rx[index_fat_in_sector + 2] << 16) | (var->_p_ram_rx[index_fat_in_sector + 3] << 24)) : 0);
                 
                 uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                __current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                __index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
+                var->p_file[var->current_selected_file]->_current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                var->p_file[var->current_selected_file]->_index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
                 functionState = SM_GET_FILE_DATA;
             }
             break;
             
         case SM_GET_FILE_DATA:
             
-            if (!sd_card_read_single_block(var, __current_data_sector))
+            if (!sd_card_read_single_block(var, var->p_file[var->current_selected_file]->_current_data_sector))
             {   
-                uint16_t max_read_byte_in_sector = var->boot_sector.number_of_bytes_per_sector - __index_data_in_sector;
+                uint16_t max_read_byte_in_sector = var->boot_sector.number_of_bytes_per_sector - var->p_file[var->current_selected_file]->_index_data_in_sector;
                 
                 if (__data_length >= max_read_byte_in_sector)
                 {
-                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[__index_data_in_sector], max_read_byte_in_sector);
+                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[var->p_file[var->current_selected_file]->_index_data_in_sector], max_read_byte_in_sector);
                     __data_length -= max_read_byte_in_sector;
                     
                     var->p_file[var->current_selected_file]->buffer.index += max_read_byte_in_sector;
@@ -1270,7 +1275,7 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
                 }                
                 else
                 {
-                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[__index_data_in_sector], __data_length);
+                    memcpy(&var->p_file[var->current_selected_file]->buffer.p[var->p_file[var->current_selected_file]->buffer.index], &var->_p_ram_rx[var->p_file[var->current_selected_file]->_index_data_in_sector], __data_length);
                     __data_length = 0;
                 }
                 
@@ -1286,15 +1291,15 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
                         // In which sector of the FAT table the expected cluster is localized ?
                         //      FAT16: ((uint32_t) (fat_region_start + current_cluster_value * 2 / bytes_per_sector))   // Cluster is 16-bit length
                         //      FAT32: ((uint32_t) (fat_region_start + current_cluster_value * 4 / bytes_per_sector))   // Cluster is 32-bit length
-                        __current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
+                        var->p_file[var->current_selected_file]->_current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + var->p_file[var->current_selected_file]->current_cluster_of_the_file * ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? 4 : 2) / var->boot_sector.number_of_bytes_per_sector));
                         var->p_file[var->current_selected_file]->_current_jump_index = jump_index;
                         functionState = SM_READ_FAT_TABLE;
                     }
                     else
                     {                    
                         uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                        __current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                        __index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
+                        var->p_file[var->current_selected_file]->_current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                        var->p_file[var->current_selected_file]->_index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
                         functionState = SM_GET_FILE_DATA;
                     }
                 }
