@@ -1439,7 +1439,7 @@ void _EXAMPLE_PINK_LADY()
     PICK_LADY_SHIFT_DEF(shift1, smartled, PL_SHIFT_FROM_TO_TO, 0, 49, 5, TICK_20MS);
     SLIDER_DEF(slider_w, 50, SLIDER_START_TO_END, SLIDER_CENTER_TO_ENDS, TICK_800MS, TICK_400MS);
     SLIDER_DEF(slider_r, 50, SLIDER_CENTER_TO_ENDS, SLIDER_START_TO_END, TICK_400MS, TICK_800MS);
-    static RGBW_COLOR pattern[] = {
+    static rgbw_color_t pattern[] = {
         {255, 0, 0, 0}, {255, 10, 0, 0}, {255, 20, 0, 0}, {255, 30, 0, 0}, {255, 40, 0, 0}, {255, 50, 0, 0}, {255, 60, 0, 0}, {255, 70, 0, 0}, {255, 80, 0, 0}, {255, 90, 0, 0}, 
         {255, 100, 0, 0}, {255, 110, 0, 0}, {255, 120, 0, 0}, {255, 130, 0, 0}, {255, 140, 0, 0}, {255, 150, 0, 0}, {255, 160, 0, 0}, {255, 170, 0, 0}, {255, 180, 0, 0}, {255, 190, 0, 0}, 
         {255, 200, 0, 0}, {255, 210, 0, 0}, {255, 220, 0, 0}, {255, 230, 0, 0}, {255, 240, 0, 0}, {255, 250, 0, 0}, {250, 255, 0, 0}, {240, 255, 0, 0}, {230, 255, 0, 0}, {220, 255, 0, 0}, 
@@ -1591,7 +1591,7 @@ void _EXAMPLE_PINK_LADY()
 
 void _EXAMPLE_TPS92662()
 {
-    TPS92662_DEF(tps_pix32_module1, UART5, __PE0, 500000, 0x00, 0x01, 0x02);
+    TPS92662_DEF(tps_pix32_module1, UART5, __PC14, 500000, 0x00, 0x01, 0x02);
     static state_machine_t sm_example = {0};
     
     switch (sm_example.index)

@@ -203,7 +203,7 @@ void fu_led(led_params_t *var)
 
 /*******************************************************************************
  * Function: 
- *      HSV_COLOR fu_rgb_to_hsv(RGB_COLOR rgb_color)
+ *      hsv_color_t fu_rgb_to_hsv(rgb_color_t rgb_color)
  * 
  * Description:
  *      This routine is used to convert a RGB model to a HSV model.
@@ -214,10 +214,10 @@ void fu_led(led_params_t *var)
  * Return:
  *      A HSV model. 
  ******************************************************************************/
-HSV_COLOR fu_rgb_to_hsv(RGB_COLOR rgb_color)
+hsv_color_t fu_rgb_to_hsv(rgb_color_t rgb_color)
 {
     float min, max, delta, x;
-    HSV_COLOR hsv_color = {0};
+    hsv_color_t hsv_color = {0};
     
     min = (rgb_color.red < rgb_color.green) ? rgb_color.red : rgb_color.green;
     min = (min < rgb_color.blue) ? min : rgb_color.blue;
@@ -250,7 +250,7 @@ HSV_COLOR fu_rgb_to_hsv(RGB_COLOR rgb_color)
 
 /*******************************************************************************
  * Function: 
- *      RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
+ *      rgb_color_t fu_hsv_to_rgb(hsv_color_t hsv_color)
  * 
  * Description:
  *      This routine is used to convert a HSV model to a RGB model.
@@ -261,10 +261,10 @@ HSV_COLOR fu_rgb_to_hsv(RGB_COLOR rgb_color)
  * Return:
  *      A RGB model. 
  ******************************************************************************/
-RGB_COLOR fu_hsv_to_rgb(HSV_COLOR hsv_color)
+rgb_color_t fu_hsv_to_rgb(hsv_color_t hsv_color)
 {
     uint8_t shade_index;
-    RGB_COLOR rgb_color = {0};
+    rgb_color_t rgb_color = {0};
     
     shade_index = (hsv_color.hue / 255);
     float f = (float) ((hsv_color.hue / 255.0) - shade_index);

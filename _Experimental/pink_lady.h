@@ -50,8 +50,8 @@ typedef struct
     uint16_t                    to;
     uint64_t                    refresh_time;
     
-    RGBW_COLOR                  * p_led;
-    RGBW_COLOR                  * p_led_copy;
+    rgbw_color_t                * p_led;
+    rgbw_color_t                * p_led_copy;
     
     bool                        reset_requested;
     uint32_t                    current_iteration;
@@ -66,8 +66,8 @@ typedef struct
     .from = _from,                                                                      \
     .to = _to,                                                                          \
     .refresh_time = _period,                                                            \
-    .p_led = (RGBW_COLOR*) _p_pink_lady_params ## _led_ram_allocation,                  \
-    .p_led_copy = (RGBW_COLOR*) _p_pink_lady_params ## _copy_led_ram_allocation,        \
+    .p_led = (rgbw_color_t*) _p_pink_lady_params ## _led_ram_allocation,                \
+    .p_led_copy = (rgbw_color_t*) _p_pink_lady_params ## _copy_led_ram_allocation,      \
     .reset_requested = true,                                                            \
     .current_iteration = 0,                                                             \
     .number_of_iterations = ((_to - _from + 1) * _number_of_cycles),                    \
@@ -112,7 +112,7 @@ typedef enum
 
 typedef struct
 {
-    RGBW_COLOR                  delta_color;
+    rgbw_color_t                delta_color;
     uint16_t                    number_of_led;
     uint8_t                     intensity;
     uint16_t                    ind_pos;
@@ -122,8 +122,8 @@ typedef struct
     PINK_LADY_MANAGER_STATUS    status;
     state_machine_t             sm;
     
-    RGBW_COLOR                  * p_led;
-    RGBW_COLOR                  * p_led_copy;
+    rgbw_color_t                * p_led;
+    rgbw_color_t                * p_led_copy;
     
     uint16_t                    * p_ind_red;
     uint16_t                    * p_ind_green;
@@ -144,8 +144,8 @@ typedef struct
     dma_channel_transfer_t      dma_params;
     PINK_LADY_MODELS            led_model;
     uint16_t                    number_of_leds;
-    RGBW_COLOR                  *p_led;
-    RGBW_COLOR                  *p_led_copy;
+    rgbw_color_t                *p_led;
+    rgbw_color_t                *p_led_copy;
     uint32_t                    *p_buffer;
     uint32_t                    *p_led_model_mapping;
     uint16_t                    ind_update_tx_buffer;
@@ -166,10 +166,10 @@ typedef struct
     .ind_update_tx_buffer = 0                                                                                                           \
 }
 
-#define PINK_LADY_DEF(_name, _spi_id, _led_model, _number_total_of_leds)                                                       \
+#define PINK_LADY_DEF(_name, _spi_id, _led_model, _number_total_of_leds)                                                                \
 static uint8_t _name ## _tx_buffer_ram_allocation[_number_total_of_leds * (_led_model & 0x1f) + ((_led_model >> 8) & 0x3f)] = {0};      \
-static RGBW_COLOR _name ## _led_ram_allocation[_number_total_of_leds] = {0};                                                            \
-static RGBW_COLOR _name ## _copy_led_ram_allocation[_number_total_of_leds] = {0};                                                       \
+static rgbw_color_t _name ## _led_ram_allocation[_number_total_of_leds] = {0};                                                          \
+static rgbw_color_t _name ## _copy_led_ram_allocation[_number_total_of_leds] = {0};                                                     \
 static pink_lady_params_t _name = PINK_LADY_INSTANCE(_spi_id, _led_model, _name ## _led_ram_allocation, _name ## _copy_led_ram_allocation, _name ## _tx_buffer_ram_allocation, _number_total_of_leds)	
 
 
@@ -177,7 +177,7 @@ static pink_lady_params_t _name = PINK_LADY_INSTANCE(_spi_id, _led_model, _name 
 
 void pink_lady_deamon(pink_lady_params_t *var);
 
-uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
+uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, rgbw_color_t color1, rgbw_color_t color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear);
 PINK_LADY_MANAGER_STATUS pink_lady_get_segment_status(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
 void pink_lady_reset_segment(pink_lady_params_t var, PINK_LADY_MANAGER_IDENTIFIERS id);
 #define pink_lady_release_segment(var, id)                      pink_lady_reset_segment(var, id)

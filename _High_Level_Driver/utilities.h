@@ -93,34 +93,34 @@ typedef struct
 #define LED_DEF(_name, _p_out, _enable, _intensity, _t_up, _t_down)     \
 static led_params_t _name = LED_INSTANCE(_p_out, _enable, _intensity, _t_up, _t_down)
 
-#define RGBW_COLOR_OFF          (RGBW_COLOR) {0, 0, 0, 0}
-#define RGBW_COLOR_WHITE        (RGBW_COLOR) {0, 0, 0, 255}
-#define RGBW_COLOR_WHITE_MIX    (RGBW_COLOR) {255, 255, 255, 0}
-#define RGBW_COLOR_WHITE_ALL    (RGBW_COLOR) {255, 255, 255, 255}
-#define RGBW_COLOR_RED          (RGBW_COLOR) {255, 0, 0, 0}
-#define RGBW_COLOR_GREEN        (RGBW_COLOR) {0, 255, 0, 0}
-#define RGBW_COLOR_BLUE         (RGBW_COLOR) {0, 0, 255, 0}
-#define RGBW_COLOR_YELLOW       (RGBW_COLOR) {255, 255, 0, 0}
-#define RGBW_COLOR_CYAN         (RGBW_COLOR) {0, 255, 255, 0}
-#define RGBW_COLOR_PURPLE       (RGBW_COLOR) {255, 0, 255, 0}
+#define RGBW_COLOR_OFF          (rgbw_color_t)  {0, 0, 0, 0}
+#define RGBW_COLOR_WHITE        (rgbw_color_t)  {0, 0, 0, 255}
+#define RGBW_COLOR_WHITE_MIX    (rgbw_color_t)  {255, 255, 255, 0}
+#define RGBW_COLOR_WHITE_ALL    (rgbw_color_t)  {255, 255, 255, 255}
+#define RGBW_COLOR_RED          (rgbw_color_t)  {255, 0, 0, 0}
+#define RGBW_COLOR_GREEN        (rgbw_color_t)  {0, 255, 0, 0}
+#define RGBW_COLOR_BLUE         (rgbw_color_t)  {0, 0, 255, 0}
+#define RGBW_COLOR_YELLOW       (rgbw_color_t)  {255, 255, 0, 0}
+#define RGBW_COLOR_CYAN         (rgbw_color_t)  {0, 255, 255, 0}
+#define RGBW_COLOR_PURPLE       (rgbw_color_t)  {255, 0, 255, 0}
 
-#define RGB_COLOR_OFF           (RGB_COLOR) {0, 0, 0}
-#define RGB_COLOR_WHITE         (RGB_COLOR) {255, 255, 255}
-#define RGB_COLOR_RED           (RGB_COLOR) {255, 0, 0}
-#define RGB_COLOR_GREEN         (RGB_COLOR) {0, 255, 0}
-#define RGB_COLOR_BLUE          (RGB_COLOR) {0, 0, 255}
-#define RGB_COLOR_YELLOW        (RGB_COLOR) {255, 255, 0}
-#define RGB_COLOR_CYAN          (RGB_COLOR) {0, 255, 255}
-#define RGB_COLOR_PURPLE        (RGB_COLOR) {255, 0, 255}
+#define RGB_COLOR_OFF           (rgb_color_t)   {0, 0, 0}
+#define RGB_COLOR_WHITE         (rgb_color_t)   {255, 255, 255}
+#define RGB_COLOR_RED           (rgb_color_t)   {255, 0, 0}
+#define RGB_COLOR_GREEN         (rgb_color_t)   {0, 255, 0}
+#define RGB_COLOR_BLUE          (rgb_color_t)   {0, 0, 255}
+#define RGB_COLOR_YELLOW        (rgb_color_t)   {255, 255, 0}
+#define RGB_COLOR_CYAN          (rgb_color_t)   {0, 255, 255}
+#define RGB_COLOR_PURPLE        (rgb_color_t)   {255, 0, 255}
 
-#define HSV_COLOR_OFF           (HSV_COLOR) {0, 0, 0}
-#define HSV_COLOR_WHITE         (HSV_COLOR) {0, 0, 255}
-#define HSV_COLOR_RED           (HSV_COLOR) {0, 255, 255}
-#define HSV_COLOR_GREEN         (HSV_COLOR) {510, 255, 255}
-#define HSV_COLOR_BLUE          (HSV_COLOR) {1020, 255, 255}
-#define HSV_COLOR_YELLOW        (HSV_COLOR) {255, 255, 255}
-#define HSV_COLOR_CYAN          (HSV_COLOR) {765, 255, 255}
-#define HSV_COLOR_PURPLE        (HSV_COLOR) {1275, 255, 255}
+#define HSV_COLOR_OFF           (hsv_color_t)   {0, 0, 0}
+#define HSV_COLOR_WHITE         (hsv_color_t)   {0, 0, 255}
+#define HSV_COLOR_RED           (hsv_color_t)   {0, 255, 255}
+#define HSV_COLOR_GREEN         (hsv_color_t)   {510, 255, 255}
+#define HSV_COLOR_BLUE          (hsv_color_t)   {1020, 255, 255}
+#define HSV_COLOR_YELLOW        (hsv_color_t)   {255, 255, 255}
+#define HSV_COLOR_CYAN          (hsv_color_t)   {765, 255, 255}
+#define HSV_COLOR_PURPLE        (hsv_color_t)   {1275, 255, 255}
 
 typedef struct
 {
@@ -128,21 +128,21 @@ typedef struct
     uint8_t                     green;
     uint8_t                     blue;
     uint8_t                     white;
-} RGBW_COLOR;
+} rgbw_color_t;
 
 typedef struct
 {
     uint8_t                     red;
     uint8_t                     green;
     uint8_t                     blue;
-} RGB_COLOR;
+} rgb_color_t;
 
 typedef struct
 {
     uint16_t                    hue;
     uint8_t                     saturation;
     uint8_t                     value;
-} HSV_COLOR;
+} hsv_color_t;
 
 // ----------------------------------------------------
 // **** MACRO AND STRUCTURE FOR THE SLIDER ROUTINE ****
@@ -345,8 +345,8 @@ void            fu_encoder(encoder_params_t *config);
 bool            fu_turn_indicator(bool enable, uint32_t time_on, uint32_t time_off);
 
 void            fu_led(led_params_t *var);
-HSV_COLOR       fu_rgb_to_hsv(RGB_COLOR rgb_color);
-RGB_COLOR       fu_hsv_to_rgb(HSV_COLOR hsv_color);
+hsv_color_t     fu_rgb_to_hsv(rgb_color_t rgb_color);
+rgb_color_t     fu_hsv_to_rgb(hsv_color_t hsv_color);
 
 bool            fu_adc_average(average_params_t *var);
 NTC_STATUS      fu_adc_ntc(ntc_params_t *var);

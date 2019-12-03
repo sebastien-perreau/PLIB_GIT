@@ -115,18 +115,18 @@ static uint16_t _get_header_to_string(char *p_buffer, uint16_t index_buffer, LOG
 
 void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_args, uint8_t nargs)
 {
-    char *p_str = (char *) p_message;
-    char buffer[16000] = {0};
-    uint16_t index_buffer = 0;
-    uint8_t index_args = 0;
-    uint8_t _number_of_char_to_print = 0;
-    
     if (m_uart_id != 0xff)
-    {
+    {        
+        static char buffer[16000] = {0};
+        char *p_str = (char *) p_message;        
+        uint16_t index_buffer = 0;
+        uint8_t index_args = 0;
+        uint8_t _number_of_char_to_print = 0;
+        
         // Wait while channel is enable (Block Transfer not yet done). 
         // When a transmission is finished (Block Transfer Done), the channel is automatically disable (not set in DMA_CONT_AUTO_ENABLE).
         while (dma_channel_is_enable(m_dma_id));
-        dma_clear_flags(m_dma_id, DMA_FLAG_BLOCK_TRANSFER_DONE);    
+        dma_clear_flags(m_dma_id, DMA_FLAG_BLOCK_TRANSFER_DONE);            
 
         if (level != LEVEL_2)
         {

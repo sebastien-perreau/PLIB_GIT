@@ -465,7 +465,7 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
     }    
 }
 
-static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
+static bool _fat16_search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
 {
     uint8_t i;
     static uint8_t last_entry_index = 0;  
@@ -489,7 +489,7 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
     {
         first_byte = var->_p_ram_rx[last_entry_index * 32];
         file_attributes = var->_p_ram_rx[last_entry_index * 32 + 0x0b];
-                
+                        
         if (first_byte != 0x00)
         {
             if ((first_byte != 0xe5) && (first_byte != 0x2e))
@@ -595,6 +595,11 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
             }
         }
     }
+}
+
+static bool _fat32_search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
+{
+    return 0;
 }
 
 static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE cde_type, uint32_t args, SD_CARD_RESPONSE_COMMAND ret, SPI_CS_CDE cs_at_begining_of_transmission, SPI_CS_CDE cs_at_end_of_transmission)
@@ -1138,7 +1143,8 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
     static enum _functionState
     {
         SM_FREE = 0,
-        SM_SEARCH_FILES,
+        SM_FAT16_SEARCH_FILES,
+        SM_FAT32_SEARCH_FILES,
         SM_END
     } functionState = 0;
     static uint32_t current_sector = 0;
@@ -1153,13 +1159,24 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
                 LOG_BLANCK("\nRoot Directories:"); 
             }
             current_sector = var->boot_sector.root_directory_region_start;
-            functionState = SM_SEARCH_FILES;   
+            functionState = var->master_boot_record.partition_entry[0]._is_fat_32_partition ? SM_FAT32_SEARCH_FILES : SM_FAT16_SEARCH_FILES;   
             
-        case SM_SEARCH_FILES:
+        case SM_FAT16_SEARCH_FILES:
             
             if (!sd_card_read_single_block(var, current_sector))
             {
-                if (!_search_and_sort_files(var, &current_sector))
+                if (!_fat16_search_and_sort_files(var, &current_sector))
+                {                                                            
+                    functionState = SM_END;
+                }
+            }
+            break;
+            
+        case SM_FAT32_SEARCH_FILES:
+            
+            if (!sd_card_read_single_block(var, current_sector))
+            {
+                if (!_fat32_search_and_sort_files(var, &current_sector))
                 {                                                            
                     functionState = SM_END;
                 }

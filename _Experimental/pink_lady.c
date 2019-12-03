@@ -182,8 +182,8 @@ void pink_lady_deamon(pink_lady_params_t *var)
  *                  PINK_LADY_MANAGER_IDENTIFIERS id,
  *                  uint16_t from, 
  *                  uint16_t to, 
- *                  RGBW_COLOR color1, 
- *                  RGBW_COLOR color2, 
+ *                  rgbw_color_t color1, 
+ *                  rgbw_color_t color2, 
  *                  PINK_LADY_RESOLUTIONS resolution, 
  *                  uint32_t deadline_to_appear)
  * 
@@ -212,7 +212,7 @@ void pink_lady_deamon(pink_lady_params_t *var)
  *      0:      Home (finish)
  *      >0:     On going
  ******************************************************************************/
-uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, RGBW_COLOR color1, RGBW_COLOR color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
+uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_IDENTIFIERS id, uint16_t from, uint16_t to, rgbw_color_t color1, rgbw_color_t color2, PINK_LADY_RESOLUTIONS resolution, uint32_t deadline_to_appear)
 {
     
     if (pink_lady_manager_tab[var->spi_id][id].status != PL_SEGMENT_FINISHED)
@@ -282,7 +282,7 @@ uint8_t pink_lady_set_segment_params(pink_lady_params_t *var, PINK_LADY_MANAGER_
                 pink_lady_manager_tab[var->spi_id][id].p_lowest_value_blue = (uint8_t *) ((color1.blue <= color2.blue) ? &color1.blue : &color2.blue);
                 pink_lady_manager_tab[var->spi_id][id].p_lowest_value_white = (uint8_t *) ((color1.white <= color2.white) ? &color1.white : &color2.white);
                 //1. Save current LEDs segment
-                memcpy(&pink_lady_manager_tab[var->spi_id][id].p_led_copy[from], &pink_lady_manager_tab[var->spi_id][id].p_led[from], pink_lady_manager_tab[var->spi_id][id].number_of_led * sizeof(RGBW_COLOR));            
+                memcpy(&pink_lady_manager_tab[var->spi_id][id].p_led_copy[from], &pink_lady_manager_tab[var->spi_id][id].p_led[from], pink_lady_manager_tab[var->spi_id][id].number_of_led * sizeof(rgbw_color_t));            
                 //2. Set time for intensity
                 pink_lady_manager_tab[var->spi_id][id].time_between_increment = (uint32_t) (deadline_to_appear / 100);            
                 //3. Reset intensity value
@@ -376,14 +376,14 @@ uint8_t pink_lady_shift_pattern(pink_lady_shift_params_t *var)
             
             if (var->direction == PL_SHIFT_FROM_TO_TO)
             {
-                RGBW_COLOR t_rgbw = var->p_led[var->to];        
+                rgbw_color_t t_rgbw = var->p_led[var->to];        
                 memcpy(&var->p_led_copy[var->from], &var->p_led[var->from], (var->to - var->from + 1)*4);
                 memcpy(&var->p_led[var->from + 1], &var->p_led_copy[var->from], (var->to - var->from)*4);
                 var->p_led[var->from] = t_rgbw;
             }
             else
             {
-                RGBW_COLOR t_rgbw = var->p_led[var->from];        
+                rgbw_color_t t_rgbw = var->p_led[var->from];        
                 memcpy(&var->p_led_copy[var->from], &var->p_led[var->from], (var->to - var->from + 1)*4);
                 memcpy(&var->p_led[var->from], &var->p_led_copy[var->from + 1], (var->to - var->from)*4);
                 var->p_led[var->to] = t_rgbw;
