@@ -280,7 +280,10 @@ typedef struct
     fat_file_system_partition_entry_t partition_entry[4];
 } fat_file_system_master_boot_record_t;
 
-#define fat_file_system_get_first_sector_of_cluster_N(cluster_index)        ((uint32_t) (var->boot_sector.data_space_region_start + (cluster_index - 2) * var->boot_sector.number_of_sectors_per_cluster))
+// The two defines below are available ONLY in the DATA SPACE region.
+#define fat_file_system_get_first_sector_of_cluster_N(cluster_index)        ((uint32_t) (var->boot_sector.data_space_region_start + ((cluster_index) - 2) * var->boot_sector.number_of_sectors_per_cluster))
+#define fat_file_system_get_cluster_of_sector_N(sector)                     ((uint32_t) (2 + ((sector) - var->boot_sector.data_space_region_start) / var->boot_sector.number_of_sectors_per_cluster))
+#define fat_file_system_test(sector)                                        ((uint32_t) (((sector) - var->boot_sector.data_space_region_start) % var->boot_sector.number_of_sectors_per_cluster))
 
 #define sd_card_read_file_pause(file)                       (file.flags.is_read_file_stopped = 1)
 #define sd_card_read_file_play(file)                        (file.flags.is_read_file_stopped = 0)

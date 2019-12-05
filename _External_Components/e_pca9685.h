@@ -162,8 +162,8 @@ uint8_t e_pca9685_deamon(PCA9685_CONFIG *var);
 #define e_pca9685_config_sub_address_2(var, val)                        (var.registers.sub_address_2 = val, SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_CONFIG_SUB_ADDRESS))
 #define e_pca9685_config_sub_address_3(var, val)                        (var.registers.sub_address_3 = val, SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_CONFIG_SUB_ADDRESS))
 
-#define e_pca9685_set_pwm(var, id, _duty_cycle)                         (var.registers.output[id].phase = 0, var.registers.output[id].duty_cycle = (_duty_cycle & 0x0fff), SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_SET_OUTPUTS))
-#define e_pca9685_set_pwm_with_phase(var, id, _phase, _duty_cycle)      (var.registers.output[id].phase = (_phase & 0x0fff), var.registers.output[id].duty_cycle = ((_phase + _duty_cycle)&0x0fff), SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_SET_OUTPUTS))
+#define e_pca9685_set_pwm(var, id, _duty_cycle)                         (var.registers.output[id].phase = 0, var.registers.output[id].duty_cycle = ((_duty_cycle) & 0x0fff), SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_SET_OUTPUTS))
+#define e_pca9685_set_pwm_with_phase(var, id, _phase, _duty_cycle)      (var.registers.output[id].phase = ((_phase) & 0x0fff), var.registers.output[id].duty_cycle = (((_phase) + (_duty_cycle))&0x0fff), SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_SET_OUTPUTS))
 
 #define e_pca9685_output_off(var, id)                                   (var.registers.output[id].phase = 0x0000, var.registers.output[id].duty_cycle = 0x1000, SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_SET_OUTPUTS))
 #define e_pca9685_output_on(var, id)                                    (var.registers.output[id].phase = 0x1000, var.registers.output[id].duty_cycle = 0x0000, SET_BIT(var.i2c_functions.flags, PCA9685_FLAG_SET_OUTPUTS))

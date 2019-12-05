@@ -451,7 +451,7 @@ static void _sort_data_array_to_boot_sector_structure(sd_card_params_t *var)
     }    
 }
 
-static bool _fat16_search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
+static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
 {
     uint8_t i;
     uint8_t first_byte = 0;
@@ -520,11 +520,11 @@ static bool _fat16_search_and_sort_files(sd_card_params_t *var, uint32_t *curren
                             
                             if (__path_length > 0)
                             {
-                                LOG_BLANCK("    \\%s%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", p_string(__path), p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
+                                LOG_BLANCK("[%6d.%3d / %1x]       \\%s%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_test(*current_sector), __index_of_entry, p_string(__path), p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
                             }
                             else
                             {
-                                LOG_BLANCK("    \\%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
+                                LOG_BLANCK("[%6d.%3d / %1x]       \\%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_test(*current_sector), __index_of_entry, p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
                             }
                         }
                     }
@@ -542,7 +542,7 @@ static bool _fat16_search_and_sort_files(sd_card_params_t *var, uint32_t *curren
 
                         if (var->is_log_enable)
                         {
-                            LOG_BLANCK("D   \\%s", p_string(__path));
+                            LOG_BLANCK("[%6d.%3d / %1x]   D   \\%s", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_test(*current_sector), __index_of_entry, p_string(__path));
                         }
                         
                         return 1;
@@ -562,8 +562,16 @@ static bool _fat16_search_and_sort_files(sd_card_params_t *var, uint32_t *curren
             if (++__index_of_entry >= 16)
             {
                 __index_of_entry = 0;
-                (*current_sector)++;
-                return 1;
+                if (!fat_file_system_test(*current_sector + 1) && var->master_boot_record.partition_entry[0]._is_fat_32_partition)
+                {
+                    // Go to FAT Table to get the next cluster
+                    return 2;
+                }
+                else
+                {
+                    (*current_sector)++;
+                    return 1;
+                }                
             }  
         }
         else
@@ -607,11 +615,6 @@ static bool _fat16_search_and_sort_files(sd_card_params_t *var, uint32_t *curren
             }
         }
     }
-}
-
-static bool _fat32_search_and_sort_files(sd_card_params_t *var, uint32_t *current_sector)
-{
-    return 0;
 }
 
 static uint8_t sd_card_send_command(sd_card_params_t *var, SD_CARD_COMMAND_TYPE cde_type, uint32_t args, SD_CARD_RESPONSE_COMMAND ret, SPI_CS_CDE cs_at_begining_of_transmission, SPI_CS_CDE cs_at_end_of_transmission)
@@ -1155,11 +1158,12 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
     static enum _functionState
     {
         SM_FREE = 0,
-        SM_FAT16_SEARCH_FILES,
-        SM_FAT32_SEARCH_FILES,
+        SM_SEARCH_FILES,
+        SM_READ_FAT_TABLE,
         SM_END
     } functionState = 0;
     static uint32_t current_sector = 0;
+    static uint32_t current_fat_sector = 0;
     uint8_t i;
     
     switch (functionState)
@@ -1171,27 +1175,47 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
                 LOG_BLANCK("\nRoot Directories:"); 
             }
             current_sector = var->boot_sector.root_directory_region_start;
-            functionState = var->master_boot_record.partition_entry[0]._is_fat_32_partition ? SM_FAT32_SEARCH_FILES : SM_FAT16_SEARCH_FILES;   
+            functionState = SM_SEARCH_FILES;
             
-        case SM_FAT16_SEARCH_FILES:
+        case SM_SEARCH_FILES:
             
             if (!sd_card_read_single_block(var, current_sector))
             {
-                if (!_fat16_search_and_sort_files(var, &current_sector))
+                uint8_t ret = _search_and_sort_files(var, &current_sector);
+                if (!ret)               // ret == 0 and ret == 1 are used for both FAT16 & FAT32
                 {                                                            
                     functionState = SM_END;
+                }
+                else if (ret == 2)      // ret == 2 is only used for FAT32
+                {   
+                    current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + (fat_file_system_get_cluster_of_sector_N(current_sector) * 4) / 128));
+                    uint16_t fat_table_cluster_index = (fat_file_system_get_cluster_of_sector_N(current_sector) * 4) % 128;
+                    
+                    if (var->is_log_enable)
+                    {
+                        LOG_BLANCK("*********** Read FAT Table: Last cluster %d (%x) / FAT Table sector where cluster is located: %d (%x) - (index: %d)", fat_file_system_get_cluster_of_sector_N(current_sector), fat_file_system_get_cluster_of_sector_N(current_sector), current_fat_sector, current_fat_sector, fat_table_cluster_index); 
+                    }
+                    
+                    functionState = SM_READ_FAT_TABLE;
                 }
             }
             break;
             
-        case SM_FAT32_SEARCH_FILES:
+        case SM_READ_FAT_TABLE:
             
-            if (!sd_card_read_single_block(var, current_sector))
-            {
-                if (!_fat32_search_and_sort_files(var, &current_sector))
-                {                                                            
-                    functionState = SM_END;
+            // Read the FAT table from the last cluster value.             
+            if (!sd_card_read_single_block(var, current_fat_sector))
+            {  
+                uint16_t fat_table_cluster_index = (fat_file_system_get_cluster_of_sector_N(current_sector) * 4) % 128;
+                uint32_t next_cluster = (var->_p_ram_rx[fat_table_cluster_index + 0] << 0) | (var->_p_ram_rx[fat_table_cluster_index + 1] << 8) | (var->_p_ram_rx[fat_table_cluster_index + 2] << 16) | (var->_p_ram_rx[fat_table_cluster_index + 3] << 24);
+                current_sector = fat_file_system_get_first_sector_of_cluster_N(next_cluster);                                
+                
+                if (var->is_log_enable)
+                {
+                    LOG_BLANCK("*********** Next cluster %d / sector: %d", next_cluster, current_sector); 
                 }
+                
+                functionState = SM_SEARCH_FILES;
             }
             break;
             
@@ -1479,8 +1503,7 @@ void sd_card_deamon(sd_card_params_t *var)
             
         case SM_SD_CARD_READ_OPERATION_PREPARATION:
             
-//            for (i = (var->current_selected_file == 0xff) ? 0 : (var->current_selected_file + 1) ; i < var->number_of_p_file ; i++)              
-            for (i = 0 ; i < var->number_of_p_file ; i++)                     
+            for (i = (var->current_selected_file == 0xff) ? 0 : (var->current_selected_file + 1) ; i < var->number_of_p_file ; i++)                               
             {
                 if (var->p_file[i]->flags.is_read_block_op == FAT_FILE_SYSTEM_FLAG_READ_BLOCK_OP_READ_REQUESTED)
                 {
@@ -1492,8 +1515,7 @@ void sd_card_deamon(sd_card_params_t *var)
             }
             if (i >= var->number_of_p_file)
             {
-                var->current_selected_file = 0;
-//                var->current_selected_file = 0xff;
+                var->current_selected_file = 0xff;
 //                CLR_BIT(var->_flags, SM_SD_CARD_READ_OPERATION_PREPARATION);
 //                var->_sm.index = SM_SD_CARD_HOME;
             }
