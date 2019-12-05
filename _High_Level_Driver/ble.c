@@ -8,8 +8,8 @@
 #include "../PLIB.h"
 
 static ble_params_t * p_ble;
-static UART_MODULE m_uart_id;
-static DMA_MODULE m_dma_id;
+static UART_MODULE m_uart_id = 0xff;
+static DMA_MODULE m_dma_id = 0xff;
 static dma_channel_transfer_t dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
 
 static const char _ack[] = "ACK";
@@ -87,266 +87,267 @@ void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_para
 
 void ble_stack_tasks()
 {         
-    
-    if (p_ble->__uart.index != p_ble->__uart.old_index)
-    {                
-        mUpdateTick(p_ble->__uart.tick);                        
-        p_ble->__uart.old_index = p_ble->__uart.index;
-    }
-    else if (p_ble->__uart.index > 0)
+    if (m_uart_id != 0xff)
     {
-        if (mTickCompare(p_ble->__uart.tick) >= TICK_300US)
-        {
-            if (	(p_ble->__uart.index == 3) && \
-                    (p_ble->__uart.buffer[0] == 'A') && \
-                    (p_ble->__uart.buffer[1] == 'C') && \
-                    (p_ble->__uart.buffer[2] == 'K'))
-            {
-                p_ble->__uart.message_type = UART_ACK_MESSAGE;
-            }
-            else if (	(p_ble->__uart.index == 4) && \
-                        (p_ble->__uart.buffer[0] == 'N') && \
-                        (p_ble->__uart.buffer[1] == 'A') && \
-                        (p_ble->__uart.buffer[2] == 'C') && \
-                        (p_ble->__uart.buffer[3] == 'K'))
-            {
-                p_ble->__uart.message_type = UART_NACK_MESSAGE;
-            }
-            else if (	(p_ble->__uart.index > 5) && (p_ble->__uart.buffer[1] == 'N'))
-            {
-                p_ble->__uart.message_type = UART_NEW_MESSAGE;
-            }
-            else
-            {
-                p_ble->__uart.message_type = UART_OTHER_MESSAGE;
-            }
-
-            p_ble->__uart.index = 0;
-            p_ble->__uart.receive_in_progress = false;
+        if (p_ble->__uart.index != p_ble->__uart.old_index)
+        {                
+            mUpdateTick(p_ble->__uart.tick);                        
             p_ble->__uart.old_index = p_ble->__uart.index;
         }
-    }
-    
-    if (p_ble->__uart.message_type == UART_NEW_MESSAGE)
-    {
-        uint16_t i;
-        uint16_t crc_calc, crc_uart;
-    
-        p_ble->__uart.message_type = UART_NO_MESSAGE;
-        
-        if (p_ble->__uart.buffer[0] == ID_CHAR_EXTENDED_BUFFER_NO_CRC)
-        {            
-            p_ble->__incoming_message_uart.id = ID_NONE;
-            p_ble->service.extended_buffer.in_length = (p_ble->__uart.buffer[2] << 0) | (p_ble->__uart.buffer[3] << 8);
-            memcpy(p_ble->service.extended_buffer.in_data, &p_ble->__uart.buffer[4], p_ble->service.extended_buffer.in_length);
-            p_ble->service.extended_buffer.in_is_updated = true;
-        }
-        else
+        else if (p_ble->__uart.index > 0)
         {
-            crc_calc = fu_crc_16_ibm(p_ble->__uart.buffer, p_ble->__uart.buffer[2] + 3);
-            crc_uart = (p_ble->__uart.buffer[p_ble->__uart.buffer[2] + 3] << 8) + (p_ble->__uart.buffer[p_ble->__uart.buffer[2] + 4] << 0);
-
-            if (crc_calc == crc_uart)
+            if (mTickCompare(p_ble->__uart.tick) >= TICK_300US)
             {
-                memcpy(&p_ble->__incoming_message_uart, p_ble->__uart.buffer, p_ble->__uart.buffer[2] + 3);
-                dma_tx.src_start_addr = (void *)_ack;
-                dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
-                dma_tx.src_size = 3;
-                dma_tx.dst_size = 1;
-                dma_tx.cell_size = 1;
-                dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
-            }   
+                if (	(p_ble->__uart.index == 3) && \
+                        (p_ble->__uart.buffer[0] == 'A') && \
+                        (p_ble->__uart.buffer[1] == 'C') && \
+                        (p_ble->__uart.buffer[2] == 'K'))
+                {
+                    p_ble->__uart.message_type = UART_ACK_MESSAGE;
+                }
+                else if (	(p_ble->__uart.index == 4) && \
+                            (p_ble->__uart.buffer[0] == 'N') && \
+                            (p_ble->__uart.buffer[1] == 'A') && \
+                            (p_ble->__uart.buffer[2] == 'C') && \
+                            (p_ble->__uart.buffer[3] == 'K'))
+                {
+                    p_ble->__uart.message_type = UART_NACK_MESSAGE;
+                }
+                else if (	(p_ble->__uart.index > 5) && (p_ble->__uart.buffer[1] == 'N'))
+                {
+                    p_ble->__uart.message_type = UART_NEW_MESSAGE;
+                }
+                else
+                {
+                    p_ble->__uart.message_type = UART_OTHER_MESSAGE;
+                }
+
+                p_ble->__uart.index = 0;
+                p_ble->__uart.receive_in_progress = false;
+                p_ble->__uart.old_index = p_ble->__uart.index;
+            }
+        }
+
+        if (p_ble->__uart.message_type == UART_NEW_MESSAGE)
+        {
+            uint16_t i;
+            uint16_t crc_calc, crc_uart;
+
+            p_ble->__uart.message_type = UART_NO_MESSAGE;
+
+            if (p_ble->__uart.buffer[0] == ID_CHAR_EXTENDED_BUFFER_NO_CRC)
+            {            
+                p_ble->__incoming_message_uart.id = ID_NONE;
+                p_ble->service.extended_buffer.in_length = (p_ble->__uart.buffer[2] << 0) | (p_ble->__uart.buffer[3] << 8);
+                memcpy(p_ble->service.extended_buffer.in_data, &p_ble->__uart.buffer[4], p_ble->service.extended_buffer.in_length);
+                p_ble->service.extended_buffer.in_is_updated = true;
+            }
             else
             {
-                p_ble->__incoming_message_uart.id = ID_NONE;
-                dma_tx.src_start_addr = (void *)_nack;
-                dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
-                dma_tx.src_size = 4;
-                dma_tx.dst_size = 1;
-                dma_tx.cell_size = 1;
-                dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
-            }            
-        }    
-        memset(p_ble->__uart.buffer, 0, sizeof(p_ble->__uart.buffer));
-       
-        switch (p_ble->__incoming_message_uart.id)
-        {
-            case ID_BOOT_MODE:
-                if ((p_ble->__incoming_message_uart.type == 'N') && (p_ble->__incoming_message_uart.length == 1) && (p_ble->__incoming_message_uart.data[0] == 0x23))
-				{
-                    if (!p_ble->status.flags.send_reset_ble_pickit)
+                crc_calc = fu_crc_16_ibm(p_ble->__uart.buffer, p_ble->__uart.buffer[2] + 3);
+                crc_uart = (p_ble->__uart.buffer[p_ble->__uart.buffer[2] + 3] << 8) + (p_ble->__uart.buffer[p_ble->__uart.buffer[2] + 4] << 0);
+
+                if (crc_calc == crc_uart)
+                {
+                    memcpy(&p_ble->__incoming_message_uart, p_ble->__uart.buffer, p_ble->__uart.buffer[2] + 3);
+                    dma_tx.src_start_addr = (void *)_ack;
+                    dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+                    dma_tx.src_size = 3;
+                    dma_tx.dst_size = 1;
+                    dma_tx.cell_size = 1;
+                    dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+                }   
+                else
+                {
+                    p_ble->__incoming_message_uart.id = ID_NONE;
+                    dma_tx.src_start_addr = (void *)_nack;
+                    dma_tx.dst_start_addr = (void *)uart_get_tx_reg(m_uart_id);
+                    dma_tx.src_size = 4;
+                    dma_tx.dst_size = 1;
+                    dma_tx.cell_size = 1;
+                    dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+                }            
+            }    
+            memset(p_ble->__uart.buffer, 0, sizeof(p_ble->__uart.buffer));
+
+            switch (p_ble->__incoming_message_uart.id)
+            {
+                case ID_BOOT_MODE:
+                    if ((p_ble->__incoming_message_uart.type == 'N') && (p_ble->__incoming_message_uart.length == 1) && (p_ble->__incoming_message_uart.data[0] == 0x23))
                     {
-                        __boot_sequence();
+                        if (!p_ble->status.flags.send_reset_ble_pickit)
+                        {
+                            __boot_sequence();
+                        }
+                    }                
+                    break;
+
+                case ID_PA_LNA:
+                    if ((p_ble->__incoming_message_uart.data[0] & 1) != p_ble->params.pa_lna_enable)
+                    {
+                        p_ble->params.pa_lna_enable = p_ble->__incoming_message_uart.data[0];
+                        p_ble->status.flags.send_reset_ble_pickit = 1;
                     }
-                }                
-                break;
-                
-            case ID_PA_LNA:
-                if ((p_ble->__incoming_message_uart.data[0] & 1) != p_ble->params.pa_lna_enable)
+                    break;
+
+                case ID_GET_VERSION:
+                    memcpy(p_ble->status.infos.vsd_version, p_ble->__incoming_message_uart.data, p_ble->__incoming_message_uart.length);
+                    p_ble->status.infos.vsd_version[i] = '\0';
+                    break;
+
+                case ID_GET_HARDWARE_STATUS:
+                    p_ble->status.hardware.is_hardware_status_updated = true;
+                    p_ble->status.hardware.is_pa_lna_enabled = GET_BIT(p_ble->__incoming_message_uart.data[0], 0);
+                    p_ble->status.hardware.is_led_status_enabled = GET_BIT(p_ble->__incoming_message_uart.data[0], 1);
+                    break;
+
+                case ID_GET_BLE_CONNECTION_STATUS:                
+                    p_ble->status.connection.is_connection_status_updated = true;
+                    p_ble->status.connection.is_connected_to_a_central = GET_BIT(p_ble->__incoming_message_uart.data[0], 1);
+                    p_ble->status.connection.is_in_advertising_mode = GET_BIT(p_ble->__incoming_message_uart.data[0], 0);
+                    break;
+
+                case ID_GET_BLE_GAP_STATUS:     
+                    p_ble->status.gap.is_gap_status_updated = true;
+
+                    p_ble->status.gap.current_gap_params.conn_params.min_conn_interval = (p_ble->__incoming_message_uart.data[0] << 8) | (p_ble->__incoming_message_uart.data[1] << 0);
+                    p_ble->status.gap.current_gap_params.conn_params.max_conn_interval = (p_ble->__incoming_message_uart.data[2] << 8) | (p_ble->__incoming_message_uart.data[3] << 0);
+                    p_ble->status.gap.current_gap_params.conn_params.slave_latency = (p_ble->__incoming_message_uart.data[4] << 8) | (p_ble->__incoming_message_uart.data[5] << 0);
+                    p_ble->status.gap.current_gap_params.conn_params.conn_sup_timeout = (p_ble->__incoming_message_uart.data[6] << 8) | (p_ble->__incoming_message_uart.data[7] << 0);
+
+                    p_ble->status.gap.current_gap_params.phys_params = p_ble->__incoming_message_uart.data[8];
+
+                    p_ble->status.gap.current_gap_params.mtu_size_params.max_tx_octets = p_ble->__incoming_message_uart.data[9];
+                    p_ble->status.gap.current_gap_params.mtu_size_params.max_rx_octets = p_ble->__incoming_message_uart.data[10];
+
+                    p_ble->status.gap.current_gap_params.adv_timeout = p_ble->params.preferred_gap_params.adv_timeout;
+                    p_ble->status.gap.current_gap_params.adv_interval = p_ble->params.preferred_gap_params.adv_interval;
+                    break;
+
+                case ID_GET_CHARACTERISTICS_PROPERTIES:
+                    p_ble->status.characteristics.is_characteristics_properties_updated = true;
+                    p_ble->status.characteristics._0x1501.value = (p_ble->__incoming_message_uart.data[0] << 0) | (p_ble->__incoming_message_uart.data[1] << 8);
+                    p_ble->status.characteristics._0x1502.value = (p_ble->__incoming_message_uart.data[2] << 0) | (p_ble->__incoming_message_uart.data[3] << 8);
+                    p_ble->status.characteristics._0x1503.value = (p_ble->__incoming_message_uart.data[4] << 0) | (p_ble->__incoming_message_uart.data[5] << 8);
+                    break;
+
+                case ID_CHAR_BUFFER:
+                    memcpy(p_ble->service.buffer.in_data, p_ble->__incoming_message_uart.data, p_ble->__incoming_message_uart.length);
+                    p_ble->service.buffer.in_length = p_ble->__incoming_message_uart.length;
+                    p_ble->service.buffer.in_is_updated = true;
+                    break;
+
+                case ID_SOFTWARE_RESET:
+                    if ((p_ble->__incoming_message_uart.length == 1) && (p_ble->__incoming_message_uart.data[0] == RESET_ALL))
+                    {
+                        p_ble->status.flags.exec_reset = true;
+                    }
+                    break;
+
+                default:
+                    break;
+
+            }
+        }
+
+        if (p_ble->status.flags.w > 0)
+        {
+            if (p_ble->status.flags.exec_reset)
+            {
+                if (uart_transmission_has_completed(m_uart_id))
                 {
-                    p_ble->params.pa_lna_enable = p_ble->__incoming_message_uart.data[0];
-                    p_ble->status.flags.send_reset_ble_pickit = 1;
+                    SoftReset();
                 }
-                break;
-                
-            case ID_GET_VERSION:
-                memcpy(p_ble->status.infos.vsd_version, p_ble->__incoming_message_uart.data, p_ble->__incoming_message_uart.length);
-                p_ble->status.infos.vsd_version[i] = '\0';
-                break;
-                
-            case ID_GET_HARDWARE_STATUS:
-                p_ble->status.hardware.is_hardware_status_updated = true;
-                p_ble->status.hardware.is_pa_lna_enabled = GET_BIT(p_ble->__incoming_message_uart.data[0], 0);
-                p_ble->status.hardware.is_led_status_enabled = GET_BIT(p_ble->__incoming_message_uart.data[0], 1);
-                break;
-                
-            case ID_GET_BLE_CONNECTION_STATUS:                
-                p_ble->status.connection.is_connection_status_updated = true;
-                p_ble->status.connection.is_connected_to_a_central = GET_BIT(p_ble->__incoming_message_uart.data[0], 1);
-                p_ble->status.connection.is_in_advertising_mode = GET_BIT(p_ble->__incoming_message_uart.data[0], 0);
-                break;
-                
-            case ID_GET_BLE_GAP_STATUS:     
-                p_ble->status.gap.is_gap_status_updated = true;
-                
-                p_ble->status.gap.current_gap_params.conn_params.min_conn_interval = (p_ble->__incoming_message_uart.data[0] << 8) | (p_ble->__incoming_message_uart.data[1] << 0);
-                p_ble->status.gap.current_gap_params.conn_params.max_conn_interval = (p_ble->__incoming_message_uart.data[2] << 8) | (p_ble->__incoming_message_uart.data[3] << 0);
-                p_ble->status.gap.current_gap_params.conn_params.slave_latency = (p_ble->__incoming_message_uart.data[4] << 8) | (p_ble->__incoming_message_uart.data[5] << 0);
-                p_ble->status.gap.current_gap_params.conn_params.conn_sup_timeout = (p_ble->__incoming_message_uart.data[6] << 8) | (p_ble->__incoming_message_uart.data[7] << 0);
-                
-                p_ble->status.gap.current_gap_params.phys_params = p_ble->__incoming_message_uart.data[8];
-                
-                p_ble->status.gap.current_gap_params.mtu_size_params.max_tx_octets = p_ble->__incoming_message_uart.data[9];
-                p_ble->status.gap.current_gap_params.mtu_size_params.max_rx_octets = p_ble->__incoming_message_uart.data[10];
-                
-                p_ble->status.gap.current_gap_params.adv_timeout = p_ble->params.preferred_gap_params.adv_timeout;
-                p_ble->status.gap.current_gap_params.adv_interval = p_ble->params.preferred_gap_params.adv_interval;
-                break;
-                
-            case ID_GET_CHARACTERISTICS_PROPERTIES:
-                p_ble->status.characteristics.is_characteristics_properties_updated = true;
-                p_ble->status.characteristics._0x1501.value = (p_ble->__incoming_message_uart.data[0] << 0) | (p_ble->__incoming_message_uart.data[1] << 8);
-                p_ble->status.characteristics._0x1502.value = (p_ble->__incoming_message_uart.data[2] << 0) | (p_ble->__incoming_message_uart.data[3] << 8);
-                p_ble->status.characteristics._0x1503.value = (p_ble->__incoming_message_uart.data[4] << 0) | (p_ble->__incoming_message_uart.data[5] << 8);
-                break;
-                
-            case ID_CHAR_BUFFER:
-                memcpy(p_ble->service.buffer.in_data, p_ble->__incoming_message_uart.data, p_ble->__incoming_message_uart.length);
-                p_ble->service.buffer.in_length = p_ble->__incoming_message_uart.length;
-                p_ble->service.buffer.in_is_updated = true;
-                break;
-                
-            case ID_SOFTWARE_RESET:
-                if ((p_ble->__incoming_message_uart.length == 1) && (p_ble->__incoming_message_uart.data[0] == RESET_ALL))
-				{
-					p_ble->status.flags.exec_reset = true;
-				}
-                break;
-
-            default:
-                break;
-
-        }
-    }
-    
-    if (p_ble->status.flags.w > 0)
-    {
-        if (p_ble->status.flags.exec_reset)
-        {
-            if (uart_transmission_has_completed(m_uart_id))
-            {
-                SoftReset();
             }
-        }
-        else if (p_ble->status.flags.send_reset_ble_pickit)
-        {
-            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
+            else if (p_ble->status.flags.send_reset_ble_pickit)
             {
-                p_ble->status.flags.send_reset_ble_pickit = 0;
-            }
-        }
-        else if (p_ble->status.flags.send_reset_all)
-        {
-            if (!vsd_outgoing_message_uart(_reset_ble_pickit))
-            {
-                SoftReset();
-            }
-        } 
-        else if (p_ble->status.flags.pa_lna)
-        {
-            if (!vsd_outgoing_message_uart(_pa_lna))
-            {
-                p_ble->status.flags.pa_lna = 0;
-            }
-        }
-        else if (p_ble->status.flags.led_status)
-        {
-            if (!vsd_outgoing_message_uart(_led_status))
-            {
-                p_ble->status.flags.led_status = 0;
-            }
-        }
-        else if (p_ble->status.flags.set_name)
-        {
-            if (!vsd_outgoing_message_uart(_name))
-            {
-                p_ble->status.flags.set_name = 0;
-            }
-        }
-        else if (p_ble->status.flags.get_version)
-        {
-            if (!vsd_outgoing_message_uart(_version))
-            {
-                p_ble->status.flags.get_version = 0;
-            }
-        }
-        else if (p_ble->status.flags.adv_interval)
-        {
-            if (!vsd_outgoing_message_uart(_adv_interval))
-            {
-                p_ble->status.flags.adv_interval = 0;
-            }
-        }
-        else if (p_ble->status.flags.adv_timeout)
-        {
-            if (!vsd_outgoing_message_uart(_adv_timeout))
-            {
-                p_ble->status.flags.adv_timeout = 0;
-            }
-        }               
-        else if (p_ble->status.flags.set_conn_params)
-        {
-            if (!vsd_outgoing_message_uart(_conn_params))
-            {
-                p_ble->status.flags.set_conn_params = 0;
-            }
-        }
-        else if (p_ble->status.flags.set_phy_params)
-        {
-            if (!vsd_outgoing_message_uart(_phy_params))
-            {
-                p_ble->status.flags.set_phy_params = 0;
-            }
-        }
-        else if (p_ble->status.flags.set_att_size_params)
-        {
-            if (!vsd_outgoing_message_uart(_att_size_params))
-            {
-                p_ble->status.flags.set_att_size_params = 0;
-            }
-        }
-        else if (p_ble->status.flags.send_buffer)
-        {
-            if (p_ble->status.characteristics._0x1501.is_notify_enabled)
-            {                
-                if (!vsd_outgoing_message_uart(_buffer))
+                if (!vsd_outgoing_message_uart(_reset_ble_pickit))
                 {
-                    p_ble->status.flags.send_buffer = 0;
+                    p_ble->status.flags.send_reset_ble_pickit = 0;
+                }
+            }
+            else if (p_ble->status.flags.send_reset_all)
+            {
+                if (!vsd_outgoing_message_uart(_reset_ble_pickit))
+                {
+                    SoftReset();
+                }
+            } 
+            else if (p_ble->status.flags.pa_lna)
+            {
+                if (!vsd_outgoing_message_uart(_pa_lna))
+                {
+                    p_ble->status.flags.pa_lna = 0;
+                }
+            }
+            else if (p_ble->status.flags.led_status)
+            {
+                if (!vsd_outgoing_message_uart(_led_status))
+                {
+                    p_ble->status.flags.led_status = 0;
+                }
+            }
+            else if (p_ble->status.flags.set_name)
+            {
+                if (!vsd_outgoing_message_uart(_name))
+                {
+                    p_ble->status.flags.set_name = 0;
+                }
+            }
+            else if (p_ble->status.flags.get_version)
+            {
+                if (!vsd_outgoing_message_uart(_version))
+                {
+                    p_ble->status.flags.get_version = 0;
+                }
+            }
+            else if (p_ble->status.flags.adv_interval)
+            {
+                if (!vsd_outgoing_message_uart(_adv_interval))
+                {
+                    p_ble->status.flags.adv_interval = 0;
+                }
+            }
+            else if (p_ble->status.flags.adv_timeout)
+            {
+                if (!vsd_outgoing_message_uart(_adv_timeout))
+                {
+                    p_ble->status.flags.adv_timeout = 0;
+                }
+            }               
+            else if (p_ble->status.flags.set_conn_params)
+            {
+                if (!vsd_outgoing_message_uart(_conn_params))
+                {
+                    p_ble->status.flags.set_conn_params = 0;
+                }
+            }
+            else if (p_ble->status.flags.set_phy_params)
+            {
+                if (!vsd_outgoing_message_uart(_phy_params))
+                {
+                    p_ble->status.flags.set_phy_params = 0;
+                }
+            }
+            else if (p_ble->status.flags.set_att_size_params)
+            {
+                if (!vsd_outgoing_message_uart(_att_size_params))
+                {
+                    p_ble->status.flags.set_att_size_params = 0;
+                }
+            }
+            else if (p_ble->status.flags.send_buffer)
+            {
+                if (p_ble->status.characteristics._0x1501.is_notify_enabled)
+                {                
+                    if (!vsd_outgoing_message_uart(_buffer))
+                    {
+                        p_ble->status.flags.send_buffer = 0;
+                    }
                 }
             }
         }
     }
-    
 }
 
 static void _pa_lna(uint8_t *buffer)
