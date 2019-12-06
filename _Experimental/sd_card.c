@@ -520,11 +520,11 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
                             
                             if (__path_length > 0)
                             {
-                                LOG_BLANCK("[%6d.%3d / %1x]       \\%s%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_test(*current_sector), __index_of_entry, p_string(__path), p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
+                                LOG_BLANCK("[%6d.%3d / %1x]       \\%s%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_get_sector_index_in_cluster(*current_sector), __index_of_entry, p_string(__path), p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
                             }
                             else
                             {
-                                LOG_BLANCK("[%6d.%3d / %1x]       \\%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_test(*current_sector), __index_of_entry, p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
+                                LOG_BLANCK("[%6d.%3d / %1x]       \\%s (first cluster: %d / first sector: %d / size: %d bytes / attributes: %2x)", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_get_sector_index_in_cluster(*current_sector), __index_of_entry, p_string(__entry_name), first_cluster, first_sector, size, file_attributes);
                             }
                         }
                     }
@@ -542,7 +542,7 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
 
                         if (var->is_log_enable)
                         {
-                            LOG_BLANCK("[%6d.%3d / %1x]   D   \\%s", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_test(*current_sector), __index_of_entry, p_string(__path));
+                            LOG_BLANCK("[%6d.%3d / %1x]   D   \\%s", fat_file_system_get_cluster_of_sector_N(*current_sector), fat_file_system_get_sector_index_in_cluster(*current_sector), __index_of_entry, p_string(__path));
                         }
                         
                         return 1;
@@ -562,7 +562,7 @@ static bool _search_and_sort_files(sd_card_params_t *var, uint32_t *current_sect
             if (++__index_of_entry >= 16)
             {
                 __index_of_entry = 0;
-                if (!fat_file_system_test(*current_sector + 1) && var->master_boot_record.partition_entry[0]._is_fat_32_partition)
+                if (!fat_file_system_get_sector_index_in_cluster(*current_sector + 1) && var->master_boot_record.partition_entry[0]._is_fat_32_partition)
                 {
                     // Go to FAT Table to get the next cluster
                     return 2;
@@ -1173,6 +1173,7 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
             if (var->is_log_enable)
             {
                 LOG_BLANCK("\nRoot Directories:"); 
+                LOG_BLANCK("Cluster . Index Sector in Cluster (max = Number of sector per cluster) / Index of Entry (Max 16 Entries per sector)"); 
             }
             current_sector = var->boot_sector.root_directory_region_start;
             functionState = SM_SEARCH_FILES;
@@ -1188,12 +1189,12 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
                 }
                 else if (ret == 2)      // ret == 2 is only used for FAT32
                 {   
-                    current_fat_sector = ((uint32_t) (var->boot_sector.fat_region_start + (fat_file_system_get_cluster_of_sector_N(current_sector) * 4) / 128));
-                    uint16_t fat_table_cluster_index = (fat_file_system_get_cluster_of_sector_N(current_sector) * 4) % 128;
+                    current_fat_sector = var->boot_sector.fat_region_start + (fat_file_system_get_cluster_of_sector_N(current_sector) / 128);
+                    uint16_t fat_table_cluster_index = (uint16_t) ((fat_file_system_get_cluster_of_sector_N(current_sector) % 128) * 4);
                     
                     if (var->is_log_enable)
                     {
-                        LOG_BLANCK("*********** Read FAT Table: Last cluster %d (%x) / FAT Table sector where cluster is located: %d (%x) - (index: %d)", fat_file_system_get_cluster_of_sector_N(current_sector), fat_file_system_get_cluster_of_sector_N(current_sector), current_fat_sector, current_fat_sector, fat_table_cluster_index); 
+                        LOG_BLANCK("        Read FAT Table: Last cluster %d / FAT Table sector where cluster is located: %d - index: %d (%x)", fat_file_system_get_cluster_of_sector_N(current_sector), current_fat_sector, fat_table_cluster_index, fat_table_cluster_index); 
                     }
                     
                     functionState = SM_READ_FAT_TABLE;
@@ -1206,16 +1207,28 @@ static uint8_t sd_card_search_files(sd_card_params_t *var)
             // Read the FAT table from the last cluster value.             
             if (!sd_card_read_single_block(var, current_fat_sector))
             {  
-                uint16_t fat_table_cluster_index = (fat_file_system_get_cluster_of_sector_N(current_sector) * 4) % 128;
+                uint16_t fat_table_cluster_index = (uint16_t) ((fat_file_system_get_cluster_of_sector_N(current_sector) % 128) * 4);
                 uint32_t next_cluster = (var->_p_ram_rx[fat_table_cluster_index + 0] << 0) | (var->_p_ram_rx[fat_table_cluster_index + 1] << 8) | (var->_p_ram_rx[fat_table_cluster_index + 2] << 16) | (var->_p_ram_rx[fat_table_cluster_index + 3] << 24);
-                current_sector = fat_file_system_get_first_sector_of_cluster_N(next_cluster);                                
-                
-                if (var->is_log_enable)
+                if (next_cluster >= FAT32_FILE_SYSTEM_FAT_TABLE_END_OF_CHAIN)
                 {
-                    LOG_BLANCK("*********** Next cluster %d / sector: %d", next_cluster, current_sector); 
+                    if (var->is_log_enable)
+                    {
+                        LOG_BLANCK("        No next cluster (value FAT Table >= 0x0FFFFFF8)"); 
+                    }
+                    
+                    functionState = SM_END;
                 }
-                
-                functionState = SM_SEARCH_FILES;
+                else
+                {
+                    current_sector = fat_file_system_get_first_sector_of_cluster_N(next_cluster);                                
+
+                    if (var->is_log_enable)
+                    {
+                        LOG_BLANCK("        Next cluster %d / Start sector: %d", next_cluster, current_sector); 
+                    }
+
+                    functionState = SM_SEARCH_FILES;
+                }
             }
             break;
             
@@ -1305,10 +1318,28 @@ static uint8_t sd_card_read_file_data(sd_card_params_t *var)
                 uint16_t index_fat_in_sector = ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 128) * 4) : ((var->p_file[var->current_selected_file]->current_cluster_of_the_file % 256) * 2));                
                 var->p_file[var->current_selected_file]->current_cluster_of_the_file = (var->_p_ram_rx[index_fat_in_sector + 0] << 0) | (var->_p_ram_rx[index_fat_in_sector + 1] << 8) | ((var->master_boot_record.partition_entry[0]._is_fat_32_partition) ? ((var->_p_ram_rx[index_fat_in_sector + 2] << 16) | (var->_p_ram_rx[index_fat_in_sector + 3] << 24)) : 0);
                 
-                uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
-                var->p_file[var->current_selected_file]->_current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
-                var->p_file[var->current_selected_file]->_index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
-                functionState = SM_GET_FILE_DATA;
+                if (var->master_boot_record.partition_entry[0]._is_fat_32_partition)
+                {
+                    if (var->p_file[var->current_selected_file]->current_cluster_of_the_file >= FAT32_FILE_SYSTEM_FAT_TABLE_END_OF_CHAIN)
+                    {
+                        functionState = SM_FREE;
+                    }
+                }
+                else
+                {
+                    if (var->p_file[var->current_selected_file]->current_cluster_of_the_file >= FAT16_FILE_SYSTEM_FAT_TABLE_END_OF_CHAIN)
+                    {
+                        functionState = SM_FREE;
+                    }
+                }
+                
+                if (functionState != SM_FREE)
+                {
+                    uint8_t sector_index_in_cluster = (__data_address / var->boot_sector.number_of_bytes_per_sector) % var->boot_sector.number_of_sectors_per_cluster;     // Value between [0..Sectors Per Cluster]
+                    var->p_file[var->current_selected_file]->_current_data_sector = sector_index_in_cluster + fat_file_system_get_first_sector_of_cluster_N(var->p_file[var->current_selected_file]->current_cluster_of_the_file);
+                    var->p_file[var->current_selected_file]->_index_data_in_sector = __data_address % var->boot_sector.number_of_bytes_per_sector;
+                    functionState = SM_GET_FILE_DATA;
+                }
             }
             break;
             

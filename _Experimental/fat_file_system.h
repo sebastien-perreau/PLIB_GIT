@@ -1,6 +1,9 @@
 #ifndef __DEF_FAT_FILE_SYSTEM
 #define __DEF_FAT_FILE_SYSTEM
 
+#define FAT32_FILE_SYSTEM_FAT_TABLE_END_OF_CHAIN            0x0ffffff8
+#define FAT16_FILE_SYSTEM_FAT_TABLE_END_OF_CHAIN            0xfff8
+
 typedef enum
 {
     FAT_FILE_SYSTEME_FA_LFN           = 0x0f,                           // Long File Name attribute (always equal to 0x0f if the 32 bytes entry is a part of a Long File Name)
@@ -283,7 +286,7 @@ typedef struct
 // The two defines below are available ONLY in the DATA SPACE region.
 #define fat_file_system_get_first_sector_of_cluster_N(cluster_index)        ((uint32_t) (var->boot_sector.data_space_region_start + ((cluster_index) - 2) * var->boot_sector.number_of_sectors_per_cluster))
 #define fat_file_system_get_cluster_of_sector_N(sector)                     ((uint32_t) (2 + ((sector) - var->boot_sector.data_space_region_start) / var->boot_sector.number_of_sectors_per_cluster))
-#define fat_file_system_test(sector)                                        ((uint32_t) (((sector) - var->boot_sector.data_space_region_start) % var->boot_sector.number_of_sectors_per_cluster))
+#define fat_file_system_get_sector_index_in_cluster(sector)                 ((uint32_t) (((sector) - var->boot_sector.data_space_region_start) % var->boot_sector.number_of_sectors_per_cluster))
 
 #define sd_card_read_file_pause(file)                       (file.flags.is_read_file_stopped = 1)
 #define sd_card_read_file_play(file)                        (file.flags.is_read_file_stopped = 0)
