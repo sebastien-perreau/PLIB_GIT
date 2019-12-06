@@ -123,7 +123,7 @@ DMA_MODULE dma_get_free_channel()
     }
     if (i == DMA_NUMBER_OF_MODULES)
     {
-        do {} while(1);
+        __program_errors(__PE_DMA_NO_MORE_FREE_CHANNEL);
     }
     return i;
 }

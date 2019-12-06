@@ -11,7 +11,7 @@
     #define SWITCH2                     __PD7
     #define SWITCH3                     __PD13
 	
-    #define LED1                        __0     // LED1 is used for SDO1
+    #define LED1                        __PD0   // LED1 is used for SDO1
     #define LED2                        __PD1
     #define LED3                        __PD2
 

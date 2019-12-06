@@ -362,4 +362,12 @@ float           fu_get_float_value(uint32_t integer, uint8_t decimal);
 
 void            background_tasks(acquisitions_params_t *var);
 
+typedef enum
+{
+    __PE_DMA_NO_MORE_FREE_CHANNEL   = 1,
+            
+    __PE_MAX_FLAGS                  = 255
+} __PROGRAM_ERRORS;
+void            __program_errors(__PROGRAM_ERRORS code_error);
+
 #endif

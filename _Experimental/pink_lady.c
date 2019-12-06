@@ -129,7 +129,7 @@ void pink_lady_deamon(pink_lady_params_t *var)
         var->p_led_model_mapping = (uint32_t *)sk6812rgbw_ws2812b_mapping;
         var->dma_params.dst_start_addr = (void *) spi_get_tx_reg(var->spi_id);       
         dma_set_transfer(var->dma_id, &var->dma_params, true, ON);      // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
-                                                                    // Because the DMA channel is configured in "AUTO_ENABLE" then there is no need to call "dma_force_transfer()" or "dma_set_transfer" to re-execute a DMA transfer (the channel is automatically put "ENABLE" at the end of a transmission)
+                                                                        // Because the DMA channel is configured in "AUTO_ENABLE" then there is no need to call "dma_force_transfer()" or "dma_set_transfer" to re-execute a DMA transfer (the channel is automatically put "ENABLE" at the end of a transmission)
         var->is_init_done = true;
     }
     else
