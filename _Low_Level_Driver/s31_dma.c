@@ -57,7 +57,7 @@ const uint8_t dma_irq[] =
      
     Configure the DMA channel in AUTO_ENABLE mode allow the channel to be always ENABLE even 
     after a BLOCK_TRANSFER_DONE. Thus it is not necessary to re-configure the channel
-    with the dma_set_transfer routine. 
+    with the dma_set_transfer_params routine. 
 
   Parameters:
     id                      - The DMA module you want to use.
@@ -130,39 +130,6 @@ DMA_MODULE dma_get_free_channel()
 
 /*******************************************************************************
   Function:
-    void dma_channel_enable(DMA_MODULE id, bool enable)
-
-  Description:
-    This routine is used to enable or disable a DMA channel.
-
-  Parameters:
-    id          - The DMA module you want to use.
-    enable      - A boolean value (1: enable, 0: disable).
-  *****************************************************************************/
-void dma_channel_enable(DMA_MODULE id, bool enable)
-{
-    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
-    (enable) ? (p_dma_channel->DCHCONSET = DMA_CONT_CHANNEL_ENABLE) : (p_dma_channel->DCHCONCLR = DMA_CONT_CHANNEL_ENABLE);
-}
-
-/*******************************************************************************
-  Function:
-    bool dma_channel_is_enable(DMA_MODULE id)
-
-  Description:
-    This routine is used to know if the DMA channel is enabled.
-
-  Parameters:
-    id          - The DMA module you want to use.
-  *****************************************************************************/
-bool dma_channel_is_enable(DMA_MODULE id)
-{
-    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
-    return ((p_dma_channel->DCHCON & DMA_CONT_CHANNEL_ENABLE) > 0) ? 1 : 0;    
-}
-
-/*******************************************************************************
-  Function:
     void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_event)
 
   Description:
@@ -189,7 +156,7 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
 
 /*******************************************************************************
   Function:
-    void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer, bool enable_module)
+    void dma_set_transfer_params(DMA_MODULE id, dma_channel_transfer_t * channel_transfer)
 
   Description:
     This routine is used to configure a transfer. It setup all pointers, sizes and
@@ -206,10 +173,6 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
     id                  - The DMA module you want to use.
     channel_transfer*   - The pointer of dma_channel_transfer_t containing all data 
                         require by the DMA channel to initialize a transfer. 
-    force_transfer      - This flag is used to force a DMA transmission (for example if the DMA module is configure 
-                        in "DMA_EVT_NONE" to trigger the transfer or simply if the user want to have a transfer without
-                        to wait any event(s). This flag is ignored if the DMA module is configured with at least one of the
-                        three events type (START / ABORD / ABORD ON PATTERN) AND the IRQ source is a PERIPHERAL with TX (see note below)
     
   IMPORTANT:
         If START_TRANSFER_ON_IRQ and/or ABORD_TRANSFER_ON_IRQ and/or DMA_EVT_ABORD_TRANSFER_ON_PATTERN_MATCH are used by 
@@ -223,10 +186,10 @@ void dma_set_channel_event_control(DMA_MODULE id, DMA_CHANNEL_EVENT dma_channel_
         If we DO NOT use any events to generate a DMA transfer (RAM to RAM copy by example) then we are oblige
         to force the DMA transfer.
   *****************************************************************************/
-void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, bool force_transfer, bool enable_module)
+void dma_set_transfer_params(DMA_MODULE id, dma_channel_transfer_t * channel_transfer)
 {
     dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
-    dma_channel_enable(id, OFF);
+    dma_channel_enable(id, OFF, false);
     while (dma_channel_is_enable(id));
     p_dma_channel->DCHSSA = _VirtToPhys2(channel_transfer->src_start_addr);
     p_dma_channel->DCHDSA = _VirtToPhys2(channel_transfer->dst_start_addr);
@@ -235,14 +198,66 @@ void dma_set_transfer(DMA_MODULE id, dma_channel_transfer_t * channel_transfer, 
     p_dma_channel->DCHCSIZ = channel_transfer->cell_size;
     p_dma_channel->DCHDAT = channel_transfer->pattern_data;    
     p_dma_channel->DCHINTCLR = DMA_FLAG_ALL;
-    if (enable_module)
-    {
-        dma_channel_enable(id, ON);
-    }
-    if (force_transfer)
-    {
-        p_dma_channel->DCHECONSET = DMA_EVT_FORCE_TRANSFER;
-    }
+}
+
+/*******************************************************************************
+  Function:
+    void dma_channel_enable(DMA_MODULE id, bool enable, bool force_transfer)
+
+  Description:
+    This routine is used to enable or disable a DMA channel.
+
+  Parameters:
+    id                  - The DMA module you want to use.
+    enable              - A boolean value (1: enable, 0: disable).
+    force_transfer      - This flag is used to force a DMA transmission (for example if the DMA module is configure 
+                        in "DMA_EVT_NONE" to trigger the transfer or simply if the user want to have a transfer without
+                        to wait any event(s). This flag is ignored if the DMA module is configured with at least one of the
+                        three events type (START / ABORD / ABORD ON PATTERN) AND the IRQ source is a PERIPHERAL with TX 
+                        (see note in dma_set_transfer_params)
+  *****************************************************************************/
+void dma_channel_enable(DMA_MODULE id, bool enable, bool force_transfer)
+{
+    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
+    (enable) ? (p_dma_channel->DCHCONSET = DMA_CONT_CHANNEL_ENABLE) : (p_dma_channel->DCHCONCLR = DMA_CONT_CHANNEL_ENABLE);
+    (force_transfer) ? (p_dma_channel->DCHECONSET = DMA_EVT_FORCE_TRANSFER) : (p_dma_channel->DCHECONCLR = DMA_EVT_FORCE_TRANSFER);
+}
+
+/*******************************************************************************
+  Function:
+    void dma_abord_transfer(DMA_MODULE id)
+
+  Description:
+    This routine is used to abord the transfer on a DMA channel. It turns off
+    the channel, clear the source and destination pointers, and reset the event
+    detector. When an abord transfer is requested, the current transaction in
+    progress (if any) will complete before the channel is reset. 
+    The channel registers can be modify only while the channel is disabled.
+
+  Parameters:
+    id          - The DMA module you want to use.
+  *****************************************************************************/
+void dma_abord_transfer(DMA_MODULE id)
+{
+    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
+    p_dma_channel->DCHECONSET = DMA_EVT_ABORD_TRANSFER;
+    while ((p_dma_channel->DCHECON & DMA_EVT_ABORD_TRANSFER) > 0);
+}
+
+/*******************************************************************************
+  Function:
+    bool dma_channel_is_enable(DMA_MODULE id)
+
+  Description:
+    This routine is used to know if the DMA channel is enabled.
+
+  Parameters:
+    id          - The DMA module you want to use.
+  *****************************************************************************/
+bool dma_channel_is_enable(DMA_MODULE id)
+{
+    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
+    return ((p_dma_channel->DCHCON & DMA_CONT_CHANNEL_ENABLE) > 0) ? 1 : 0;    
 }
 
 /*******************************************************************************
@@ -268,47 +283,6 @@ uint16_t dma_get_index_cell_pointer(DMA_MODULE id)
 {
     dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
     return (uint16_t) p_dma_channel->DCHCPTR;
-}
-
-/*******************************************************************************
-  Function:
-    void dma_force_transfer(DMA_MODULE id)
-
-  Description:
-    This routine is used to force the transfer on a DMA channel. The transfer is
-    from source to destination and is cell block length. 
-    It realizes 2 actions: enabling the DMA module (mandatory to use the DMA channel) 
-    AND force the transfer to start.
-
-  Parameters:
-    id          - The DMA module you want to use.
-  *****************************************************************************/
-void dma_force_transfer(DMA_MODULE id)
-{
-    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
-    dma_channel_enable(id, ON);
-    p_dma_channel->DCHECONSET = DMA_EVT_FORCE_TRANSFER;
-}
-
-/*******************************************************************************
-  Function:
-    void dma_abord_transfer(DMA_MODULE id)
-
-  Description:
-    This routine is used to abord the transfer on a DMA channel. It turns off
-    the channel, clear the source and destination pointers, and reset the event
-    detector. When an abord transfer is requested, the current transaction in
-    progress (if any) will complete before the channel is reset. 
-    The channel registers can be modify only while the channel is disabled.
-
-  Parameters:
-    id          - The DMA module you want to use.
-  *****************************************************************************/
-void dma_abord_transfer(DMA_MODULE id)
-{
-    dma_channel_registers_t * p_dma_channel = (dma_channel_registers_t *) DmaChannels[id];
-    p_dma_channel->DCHECONSET = DMA_EVT_ABORD_TRANSFER;
-    while ((p_dma_channel->DCHECON & DMA_EVT_ABORD_TRANSFER) > 0);
 }
 
 /*******************************************************************************

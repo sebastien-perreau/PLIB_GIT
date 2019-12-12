@@ -8,8 +8,8 @@
 #include "../PLIB.h"
 
 static ble_params_t * p_ble;
-static UART_MODULE m_uart_id = 0xff;
-static DMA_MODULE m_dma_id = 0xff;
+static UART_MODULE m_uart_id = UART_NUMBER_OF_MODULES;
+static DMA_MODULE m_dma_id = DMA_NUMBER_OF_MODULES;
 static dma_channel_transfer_t dma_tx = {NULL, NULL, 0, 0, 0, 0x0000};
 
 static const char _ack[] = "ACK";
@@ -87,7 +87,7 @@ void ble_init(UART_MODULE uart_id, uint32_t data_rate, ble_params_t * p_ble_para
 
 void ble_stack_tasks()
 {         
-    if (m_uart_id != 0xff)
+    if (m_uart_id != UART_NUMBER_OF_MODULES)
     {
         if (p_ble->__uart.index != p_ble->__uart.old_index)
         {                
@@ -155,7 +155,9 @@ void ble_stack_tasks()
                     dma_tx.src_size = 3;
                     dma_tx.dst_size = 1;
                     dma_tx.cell_size = 1;
-                    dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+                    
+                    dma_set_transfer_params(m_dma_id, &dma_tx);  
+                    dma_channel_enable(m_dma_id, ON, false);     // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).
                 }   
                 else
                 {
@@ -165,8 +167,10 @@ void ble_stack_tasks()
                     dma_tx.src_size = 4;
                     dma_tx.dst_size = 1;
                     dma_tx.cell_size = 1;
-                    dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
-                }            
+                    
+                    dma_set_transfer_params(m_dma_id, &dma_tx);  
+                    dma_channel_enable(m_dma_id, ON, false);     // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).}            
+                }
             }    
             memset(p_ble->__uart.buffer, 0, sizeof(p_ble->__uart.buffer));
 
@@ -573,9 +577,11 @@ static uint8_t vsd_outgoing_message_uart(p_ble_function ptr)
             dma_tx.src_size = buffer[2] + 5;
             dma_tx.dst_size = 1;
             dma_tx.cell_size = 1;
-            dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
-
-			sm.index++;
+            
+            dma_set_transfer_params(m_dma_id, &dma_tx);  
+            dma_channel_enable(m_dma_id, ON, false);     // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).
+			
+            sm.index++;
 			sm.tick = mGetTick();
 			break;
 

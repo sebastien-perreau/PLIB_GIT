@@ -163,7 +163,9 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
                 buff_src[i] = i;
             }
             
-            dma_set_transfer(dma_id, &dma_tx, true, ON);    // Force the transfer because no EVENT (DMA_EVT_NONE) has been set on dma_id.
+            dma_set_transfer_params(dma_id, &dma_tx);  
+            dma_channel_enable(dma_id, ON, true);     // Force the transfer because no EVENT (DMA_EVT_NONE) has been set on dma_id.
+            
             sm_example.index = _MAIN;
             break;
             
@@ -172,7 +174,7 @@ void _EXAMPLE_DMA_RAM_TO_RAM()
             if ((dma_get_flags(dma_id) & DMA_FLAG_CELL_TRANSFER_DONE) > 0)
             {
                 loop_counter++;
-                dma_force_transfer(dma_id);
+                dma_channel_enable(dma_id, ON, true);
                 dma_clear_flags(dma_id, DMA_FLAG_CELL_TRANSFER_DONE);
             }
 
@@ -296,8 +298,10 @@ void _EXAMPLE_DMA_UART()
                 buff_src[i] = i;
             }        
             
-            dma_set_transfer(DMA7, &dma7_rx, false, ON);    // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
-            dma_set_transfer(DMA6, &dma6_tx, true, ON);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            dma_set_transfer_params(DMA7, &dma7_rx);   
+            dma_set_transfer_params(DMA6, &dma6_tx);    
+            dma_channel_enable(DMA7, ON, false);  // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
+            dma_channel_enable(DMA6, ON, false);  // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).            
             
             sm_example.index = _MAIN;
             mUpdateTick(sm_example.tick);
@@ -311,8 +315,8 @@ void _EXAMPLE_DMA_UART()
                 if (mTickCompare(sm_example.tick) >= TICK_1S)
                 {
                     mUpdateTick(sm_example.tick);
-                    // Re-execute the DMA transfer RAM -> UART TX
-                    dma_force_transfer(DMA6);
+                    // Re-execute the DMA transfer RAM -> UART TX                    
+                    dma_channel_enable(DMA6, ON, true);
                 }
             }            
             break;
@@ -398,8 +402,11 @@ void _EXAMPLE_DMA_SPI()
             dma7_rx.dst_size = dma6_tx.src_size;
             
             mClrIO(__PE0);
-            dma_set_transfer(DMA7, &dma7_rx, false, ON);    // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(DMA6, &dma6_tx, true, ON);     // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
+            
+            dma_set_transfer_params(DMA7, &dma7_rx);   
+            dma_set_transfer_params(DMA6, &dma6_tx);    
+            dma_channel_enable(DMA7, ON, false);  // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_channel_enable(DMA6, ON, false);  // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).            
             
             sm_example.index = _MAIN;
             break;
@@ -1644,9 +1651,9 @@ void _EXAMPLE_TPS92662()
             
             if (!e_tps92662_deamon(&tps_pix32_module1))
             {
-                e_tps92662_send_widths(tps_pix32_module1, 0);
-                e_tps92662_send_widths(tps_pix32_module1, 1);
-                e_tps92662_send_widths(tps_pix32_module1, 2);            
+                e_tps92662_send_phases_and_widths(tps_pix32_module1, 0);
+                e_tps92662_send_phases_and_widths(tps_pix32_module1, 1);
+                e_tps92662_send_phases_and_widths(tps_pix32_module1, 2);            
             }
             
             if (mTickCompare(sm_example.tick) >= TICK_20MS)

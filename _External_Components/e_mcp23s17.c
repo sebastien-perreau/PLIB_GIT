@@ -35,10 +35,10 @@ static uint8_t _mcp23s17_write_and_read(mcp23s17_params_t *var)
             
             ports_clr_bit(var->spi_cs);
             
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, OFF);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, OFF);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
-            dma_channel_enable(var->dma_rx_id, ON);
-            dma_channel_enable(var->dma_tx_id, ON);
+            dma_set_transfer_params(var->dma_rx_id, &var->dma_rx_params);   
+            dma_set_transfer_params(var->dma_tx_id, &var->dma_tx_params);    
+            dma_channel_enable(var->dma_rx_id, ON, false);  // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_channel_enable(var->dma_tx_id, ON, false);  // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).            
             
             functionState = SM_WAIT_END_OF_DMA_TRANSMISSION;
             
@@ -51,11 +51,11 @@ static uint8_t _mcp23s17_write_and_read(mcp23s17_params_t *var)
             var->dma_rx_params.dst_start_addr = (void *) &var->read[var->__current_selected_device];
             
             ports_clr_bit(var->spi_cs);
-                        
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, OFF);   // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, OFF);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
-            dma_channel_enable(var->dma_rx_id, ON);
-            dma_channel_enable(var->dma_tx_id, ON);
+            
+            dma_set_transfer_params(var->dma_rx_id, &var->dma_rx_params);   
+            dma_set_transfer_params(var->dma_tx_id, &var->dma_tx_params);    
+            dma_channel_enable(var->dma_rx_id, ON, false);  // Do not force the transfer (it occurs automatically when data is received - SPI Rx generates the transfer)
+            dma_channel_enable(var->dma_tx_id, ON, false);  // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).            
             
             functionState = SM_WAIT_END_OF_DMA_TRANSMISSION;
             

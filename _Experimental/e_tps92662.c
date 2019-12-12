@@ -542,10 +542,10 @@ static uint8_t e_tps92662_request(TPS92662_PARAMS *var, TPS92662_INIT_PARAM cde_
             }
             
             dma_abord_transfer(var->dma_rx_id);       
-            dma_set_transfer(var->dma_rx_id, &var->dma_rx_params, false, OFF);   // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
-            dma_set_transfer(var->dma_tx_id, &var->dma_tx_params, true, OFF);    // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).            
-            dma_channel_enable(var->dma_rx_id, ON);
-            dma_channel_enable(var->dma_tx_id, ON);
+            dma_set_transfer_params(var->dma_rx_id, &var->dma_rx_params);       
+            dma_set_transfer_params(var->dma_tx_id, &var->dma_tx_params);       
+            dma_channel_enable(var->dma_rx_id, ON, false);  // Do not force the transfer (it occurs automatically when data is received - UART Rx generates the transfer)
+            dma_channel_enable(var->dma_tx_id, ON, false);  // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).            
             
             var->state_machine_for_read_write_request.tick = mGetTick();
             var->state_machine_for_read_write_request.index++;

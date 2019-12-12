@@ -9,8 +9,8 @@
 
 #include "../PLIB.h"
 
-static UART_MODULE m_uart_id = 0xff;
-static DMA_MODULE m_dma_id = 0xff;
+static UART_MODULE m_uart_id = UART_NUMBER_OF_MODULES;
+static DMA_MODULE m_dma_id = DMA_NUMBER_OF_MODULES;
 static dma_channel_transfer_t dma_tx = {0};
 
 void log_init(UART_MODULE id_uart, uint32_t data_rate)
@@ -115,7 +115,7 @@ static uint16_t _get_header_to_string(char *p_buffer, uint16_t index_buffer, LOG
 
 void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_args, uint8_t nargs)
 {
-    if (m_uart_id != 0xff)
+    if (m_uart_id != UART_NUMBER_OF_MODULES)
     {        
         static char buffer[16000] = {0};
         char *p_str = (char *) p_message;        
@@ -246,6 +246,7 @@ void log_frontend(const char *p_message, LOG_LEVEL_t level, const uint32_t *p_ar
         dma_tx.cell_size = 1;
         dma_tx.pattern_data = 0x0000,
 
-        dma_set_transfer(m_dma_id, &dma_tx, true, ON);  // Do not take care of the boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer()).
+        dma_set_transfer_params(m_dma_id, &dma_tx);  
+        dma_channel_enable(m_dma_id, ON, true);     // Do not take care of the 'force_transfer' boolean value because the DMA channel is configure to execute a transfer on event when Tx is ready (IRQ source is Tx of a peripheral - see notes of dma_set_transfer_params()).
     }
 }
